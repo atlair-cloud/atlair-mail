@@ -10,12 +10,13 @@
   "scripts": {
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "test": "node --test tests/*.test.ts",
+    "test": "node --test --test-concurrency=1 tests/*.test.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.0",
-    "postgres": "^3.4.0"
+    "postgres": "^3.4.0",
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

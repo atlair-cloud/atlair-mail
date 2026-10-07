@@ -10,12 +10,16 @@ Run from the repo root (pnpm workspaces + Turborepo). Scripts live in each `pack
 
 ```bash
 pnpm install
+docker compose up -d --wait          # Postgres on :5432 (see apps/api/.env.example)
+export DATABASE_URL=postgres://atlair:atlair@localhost:5432/atlair_mail
+pnpm --filter @atlair-mail/db migrate
 pnpm --filter @atlair-mail/api dev   # node --watch, http://localhost:8080/health
 pnpm test                            # node --test, uses app.inject()
 pnpm typecheck                       # tsc, no emit
 ```
 
-A change is done when `pnpm typecheck` and `pnpm test` both pass.
+A change is done when `pnpm typecheck` and `pnpm test` both pass. DB tests skip without
+`DATABASE_URL`, so run them with Postgres up.
 
 ## TypeScript runs natively
 
