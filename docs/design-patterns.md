@@ -7,6 +7,9 @@ land with the feature that needs them, and none exist yet beyond the API skeleto
 A pattern earns its place by isolating something that varies: the provider, the delivery pipeline,
 the email lifecycle. When a plain function does the job, write a plain function.
 
+For the system shape (runtime, tenancy, data model, the send pipeline, and the Postgres-queue
+decision), see [architecture.md](architecture.md).
+
 ## How a send flows
 
 ```
@@ -40,7 +43,7 @@ dependency injection, so tests can swap any layer.
 | --- | --- | --- |
 | [Adapter](https://refactoring.guru/design-patterns/adapter) | `packages/providers/src/ses.ts`, `smtp.ts` | Wraps the AWS SDK (or nodemailer) behind our own `EmailProvider` interface: `send(message) → { providerMessageId }`. SES types never leak past this file. |
 | [Strategy](https://refactoring.guru/design-patterns/strategy) | `EmailProvider` consumers (worker) | The worker depends on the interface. Self-hosters switch between SES, SMTP, and Postmark with config, not code. |
-| [Factory Method](https://refactoring.guru/design-patterns/factory-method) | `createProvider(config)` in `packages/providers` | The one place that reads `MAIL_PROVIDER` and builds the matching adapter. |
+| [Factory Method](https://refactoring.guru/design-patterns/factory-method) | `createProvider(sesConnection)` in `packages/providers` | The one place that builds the matching adapter from an organization's `ses_connections` row. It runs **per organization**: with BYO-SES each organization has its own credentials, region, and configuration set — not once per process. |
 | [Decorator](https://refactoring.guru/design-patterns/decorator) | `withRetry(provider)`, `withLogging(provider)` | Adds retries and backoff, logging, and metrics around any provider without touching the adapters. Each wrapper also implements `EmailProvider`. |
 | [Chain of Responsibility](https://refactoring.guru/design-patterns/chain-of-responsibility) | Worker pre-send checks | Ordered checks (suppression list, verified domain, per-key rate limit). Each check either passes or stops the send with a reason, and adding a check doesn't touch the others. On the API side, Fastify hooks (`onRequest`/`preHandler`) already give us this chain for auth. |
 | [State](https://refactoring.guru/design-patterns/state) | `email-status.ts` (domain module) | Lifecycle `queued → sending → sent → delivered \| bounced \| complained \| failed`. Implemented as a transition table plus one `transition(from, event)` function rather than a class per state: SES events arrive out of order and duplicated, and the table rejects illegal moves such as `delivered → sending`. |
