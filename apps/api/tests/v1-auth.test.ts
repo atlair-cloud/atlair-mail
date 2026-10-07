@@ -1,11 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildTestApp, TEST_KEY } from "./helpers.ts";
+import { buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
 const url = "/v1/api-keys/current";
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 
-describe("/v1 auth", () => {
+describe("/v1 auth", { skip: !hasDatabase }, () => {
   it("rejects a missing key", async () => {
     const app = await buildTestApp();
 
@@ -22,20 +22,33 @@ describe("/v1 auth", () => {
     assert.equal(res.statusCode, 401);
   });
 
-  it("accepts a valid key and exposes its id", async () => {
+  it("rejects a revoked key", async () => {
     const app = await buildTestApp();
+    const { token } = await createTestKey(app, { revoked: true });
 
-    const res = await app.inject({ method: "GET", url, headers: auth(TEST_KEY) });
+    const res = await app.inject({ method: "GET", url, headers: auth(token) });
+
+    assert.equal(res.statusCode, 401);
+  });
+
+  it("accepts a key from Postgres and returns only the listed fields", async () => {
+    const app = await buildTestApp();
+    const { token, keyId, organizationId } = await createTestKey(app, {
+      permission: "sending_access",
+    });
+
+    const res = await app.inject({ method: "GET", url, headers: auth(token) });
 
     assert.equal(res.statusCode, 200);
-    assert.match(res.json().id, /^key_[0-9a-f]{12}$/);
+    assert.deepEqual(res.json(), { id: keyId, organizationId, permission: "sending_access" });
   });
 });
 
-describe("/v1 rate limit", () => {
+describe("/v1 rate limit", { skip: !hasDatabase }, () => {
   it("returns 429 once a key exceeds RATE_LIMIT_MAX", async () => {
     const app = await buildTestApp({ RATE_LIMIT_MAX: 2 });
-    const send = () => app.inject({ method: "GET", url, headers: auth(TEST_KEY) });
+    const { token } = await createTestKey(app);
+    const send = () => app.inject({ method: "GET", url, headers: auth(token) });
 
     assert.equal((await send()).statusCode, 200);
     assert.equal((await send()).statusCode, 200);
@@ -46,10 +59,12 @@ describe("/v1 rate limit", () => {
   });
 
   it("counts each key separately", async () => {
-    const app = await buildTestApp({ RATE_LIMIT_MAX: 1, API_KEYS: `${TEST_KEY},am_other` });
+    const app = await buildTestApp({ RATE_LIMIT_MAX: 1 });
+    const first = await createTestKey(app);
+    const second = await createTestKey(app);
 
-    await app.inject({ method: "GET", url, headers: auth(TEST_KEY) });
-    const other = await app.inject({ method: "GET", url, headers: auth("am_other") });
+    await app.inject({ method: "GET", url, headers: auth(first.token) });
+    const other = await app.inject({ method: "GET", url, headers: auth(second.token) });
 
     assert.equal(other.statusCode, 200);
   });

@@ -1,5 +1,6 @@
 import fp from "fastify-plugin";
 import underPressure from "@fastify/under-pressure";
+import { ping } from "@atlair-mail/db";
 
 export default fp(
   async function underPressurePlugin(fastify) {
@@ -15,9 +16,14 @@ export default fp(
         routeSchemaOpts: { security: [] },
         routeResponseSchemaOpts: { uptime: { type: "number" } },
       },
-      // Whatever this returns is merged into the /health body. Add a Postgres ping here.
-      healthCheck: async () => ({ uptime: process.uptime() }),
+      // A failed check marks the process unhealthy, which turns every route into a 503.
+      // Re-running it on an interval lets the app recover once Postgres is back.
+      healthCheck: async () => {
+        await ping(fastify.db);
+        return { uptime: process.uptime() };
+      },
+      healthCheckInterval: 5000,
     });
   },
-  { name: "under-pressure" },
+  { name: "under-pressure", dependencies: ["db"] },
 );

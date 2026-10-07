@@ -115,7 +115,7 @@ async (request) => {
 };
 ```
 
-**How keys are checked:** `autohooks.ts` passes an `auth(token, request)` callback that calls `fastify.apiKeys.verify(token)` (`src/plugins/api-keys.ts`) and stores the result on `request.apiKey`. For now the keys come from the `API_KEYS` environment variable, compared as SHA-256 hashes. When `packages/db` exists, replace the store with a Postgres-backed `ApiKeyStore`. Routes and hooks only use `verify()`, so nothing else changes.
+**How keys are checked:** `autohooks.ts` passes an `auth(token, request)` callback that calls `fastify.apiKeys.verify(token)` (`src/plugins/api-keys.ts`) and stores the result on `request.apiKey`. The store hashes the token with SHA-256 and looks it up in Postgres with `findActiveApiKeyByTokenHash` (`packages/db`), which ignores revoked keys. `request.apiKey` is `{ id, organizationId, permission }`; organization-scoped routes read `request.apiKey.organizationId`. Routes and hooks only use `verify()`, so the store can be swapped without touching them.
 
 **Errors:** the 401 body is `{ "error": "<reason>" }`. That's bearer-auth's own shape, not Fastify's `{ statusCode, error, message }`.
 
@@ -159,16 +159,11 @@ All of these produce Fastify's standard error body: `{ "statusCode": 404, "error
 It does two jobs:
 
 1. **Load shedding.** When the event loop is overloaded (delay above 1s, or utilization above 98%), every route returns `503` with `Retry-After: 10` instead of queueing more work. The thresholds are in `src/plugins/under-pressure.ts`.
-2. **`GET /health`.** Under-pressure serves this route itself. It returns `{ "status": "ok", "uptime": ... }`, and returns `503` while the process is under pressure or when `healthCheck` fails. It needs no API key, and it logs only at warn level so load balancer probes don't flood the logs.
+2. **`GET /health`.** Under-pressure serves this route itself. It returns `{ "status": "ok", "uptime": ... }`, and returns `503` while the process is under pressure or when `healthCheck` fails. `healthCheck` pings Postgres (`select 1`). It needs no API key, and it logs only at warn level so load balancer probes don't flood the logs.
 
-**Add a dependency check** (when Postgres lands): edit `healthCheck` in the same file. If it throws or returns `false`, the response is `503`. If it returns an object, that object is merged into the `200` body, and each new field must be added to `routeResponseSchemaOpts` or it gets removed from the response.
+**A failed check sheds every route, not just `/health`.** Under-pressure runs `healthCheck` at startup and then every `healthCheckInterval` (5s). While it fails, the process counts as unhealthy and *every* request gets `503`. The interval is what lets the app recover once Postgres is back; without it, a database that was down at boot would leave the app returning `503` forever.
 
-```ts
-healthCheck: async (fastify) => {
-  await fastify.db.execute(sql`select 1`);
-  return { uptime: process.uptime() };
-},
-```
+**Add a dependency check:** extend `healthCheck` in the same file. If it throws or returns `false`, the response is `503`. If it returns an object, that object is merged into the `200` body, and each new field must be added to `routeResponseSchemaOpts` or it gets removed from the response.
 
 ## `@fastify/swagger` + `@scalar/fastify-api-reference`
 
@@ -200,13 +195,14 @@ Sets standard security headers (`X-Content-Type-Options`, `Strict-Transport-Secu
 
 ## Testing
 
-`tests/helpers.ts` exports `buildTestApp(env)`. It builds the real app with silent logs and one valid key (`TEST_KEY`), and closes the app after the suite. Send requests with `app.inject()`; no port is opened.
+`tests/helpers.ts` exports `buildTestApp(env)`, which builds the real app with silent logs and closes it after the test, and `createTestKey(app)`, which migrates the database, seeds an organization with one key, returns its token, and deletes both afterwards. Send requests with `app.inject()`; no port is opened. Tests that need Postgres skip unless `DATABASE_URL` is set (`docker compose up -d`).
 
 ```ts
 const app = await buildTestApp({ RATE_LIMIT_MAX: 2 });
+const { token } = await createTestKey(app);
 const res = await app.inject({
   method: "GET",
   url: "/v1/api-keys/current",
-  headers: { authorization: `Bearer ${TEST_KEY}` },
+  headers: { authorization: `Bearer ${token}` },
 });
 ```

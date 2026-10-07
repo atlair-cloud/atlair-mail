@@ -2,6 +2,7 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
+import { findActiveApiKeyByTokenHash } from "../src/repositories/api-keys.ts";
 import { apiKeys, organizations, type NewApiKey } from "../src/schema/index.ts";
 import {
   CHECK_VIOLATION,
@@ -98,5 +99,26 @@ describe("organizations and api_keys", { skip: !databaseUrl }, () => {
     const { lastUsedAt: _l, updatedAt: _u, ...original } = before;
     assert.deepEqual(unchanged, original);
     assert.equal(lastUsedAt?.getTime(), usedAt.getTime());
+  });
+
+  test("findActiveApiKeyByTokenHash returns the key's organization and permission", async () => {
+    const organization = await t.newOrganization();
+    const key = newKey(organization.id, { permission: "sending_access" });
+    const [inserted] = await t.db.insert(apiKeys).values(key).returning();
+
+    assert.deepEqual(await findActiveApiKeyByTokenHash(t.db, key.tokenHash), {
+      id: inserted?.id,
+      organizationId: organization.id,
+      permission: "sending_access",
+    });
+  });
+
+  test("findActiveApiKeyByTokenHash ignores revoked and unknown keys", async () => {
+    const organization = await t.newOrganization();
+    const revoked = newKey(organization.id, { revokedAt: new Date() });
+    await t.db.insert(apiKeys).values(revoked);
+
+    assert.equal(await findActiveApiKeyByTokenHash(t.db, revoked.tokenHash), null);
+    assert.equal(await findActiveApiKeyByTokenHash(t.db, "0".repeat(64)), null);
   });
 });

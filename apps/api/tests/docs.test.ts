@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildTestApp } from "./helpers.ts";
+import { buildTestApp, hasDatabase } from "./helpers.ts";
 
-describe("API docs", () => {
+describe("API docs", { skip: !hasDatabase }, () => {
   it("serves the generated OpenAPI spec", async () => {
     const app = await buildTestApp();
 
