@@ -1,5 +1,5 @@
 import fp from "fastify-plugin";
-import { loadEnv, type Env } from "../env.ts";
+import { loadEnv, type Env } from "./env.ts";
 
 declare module "fastify" {
   interface FastifyInstance {

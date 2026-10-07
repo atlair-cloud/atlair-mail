@@ -2,7 +2,7 @@
 
 An open-source, self-hostable email sending service (a Resend/Plunk-style API on top of Amazon SES).
 
-> Early scaffold: right now only the API with a `/health` endpoint exists.
+> Early scaffold: the API has health, API-key auth, rate limiting, and docs, but no email sending yet.
 
 ## Quick start
 
@@ -10,9 +10,18 @@ Requires Node 24+ and pnpm.
 
 ```bash
 pnpm install
-pnpm --filter @atlair-mail/api dev     # http://localhost:8080/health
+cp apps/api/.env.example apps/api/.env
+pnpm --filter @atlair-mail/api dev
 pnpm test
 pnpm typecheck
+```
+
+Then try:
+
+```bash
+curl localhost:8080/health
+curl -H "Authorization: Bearer am_test_change_me" localhost:8080/v1/api-keys/current
+open http://localhost:8080/docs/        # API reference
 ```
 
 ## Repository structure
@@ -34,14 +43,17 @@ Inside `apps/api/src`:
 
 ```
 server.ts      starts the HTTP server
-app.ts         buildApp(): registers plugins and routes (tests use this too)
+app.ts         buildApp(): registers config, then autoloads plugins/ and routes/ (tests use this too)
 env.ts         environment variables, validated at startup
-plugins/       shared app-wide plugins (config, later db, auth)
-routes/        HTTP routes, one file per resource
+config.ts      exposes env as fastify.config
+plugins/       app-wide plugins, loaded automatically (api keys, docs, health, errors)
+routes/        HTTP routes, loaded automatically; folders become URL prefixes
+  v1/          authenticated API; autohooks.ts adds API-key auth and rate limiting
 ```
 
 ## Docs
 
+- [docs/fastify-plugins.md](docs/fastify-plugins.md): each Fastify plugin we use and how to use it.
 - [docs/design-patterns.md](docs/design-patterns.md): the design patterns this codebase uses and where.
 - [AGENTS.md](AGENTS.md): conventions for AI coding agents.
 
