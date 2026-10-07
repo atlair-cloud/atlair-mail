@@ -5,7 +5,6 @@ import { findActiveApiKeyByTokenHash, type ActiveApiKey, type Database } from "@
 export type ApiKey = ActiveApiKey;
 
 export interface ApiKeyStore {
-  /** Resolves the key a request presented, or null if it is unknown or revoked. */
   verify(token: string): Promise<ApiKey | null>;
 }
 
@@ -14,7 +13,6 @@ declare module "fastify" {
     apiKeys: ApiKeyStore;
   }
   interface FastifyRequest {
-    /** Set by bearer-auth on /v1 routes; null on public routes. */
     apiKey: ApiKey | null;
   }
 }

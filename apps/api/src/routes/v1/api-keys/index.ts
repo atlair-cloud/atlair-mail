@@ -19,7 +19,6 @@ const apiKeyRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       },
     },
     async (request) => {
-      // bearer-auth already rejected requests without a valid key.
       return request.apiKey!;
     },
   );

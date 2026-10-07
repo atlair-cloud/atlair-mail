@@ -5,7 +5,6 @@ import { migrate, schema, type ApiKeyPermission } from "@atlair-mail/db";
 import { buildApp } from "../src/app.ts";
 import type { Env } from "../src/env.ts";
 
-/** Tests that touch Postgres skip unless DATABASE_URL is set (see compose.yaml). */
 export const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 export const UNREACHABLE_DATABASE_URL = "postgres://atlair:atlair@127.0.0.1:1/atlair_mail";
@@ -14,7 +13,6 @@ type TestApp = Awaited<ReturnType<typeof buildApp>>;
 
 const cleanups = new WeakMap<TestApp, (() => Promise<unknown>)[]>();
 
-/** Builds a ready app with quiet logs; seeded rows are removed and the app closed after the test. */
 export async function buildTestApp(env: Partial<Env> = {}) {
   const app = await buildApp({ env: { LOG_LEVEL: "silent", ...env } });
   await app.ready();
@@ -26,7 +24,6 @@ export async function buildTestApp(env: Partial<Env> = {}) {
   return app;
 }
 
-/** Seeds an organization with one API key and returns the bearer token. */
 export async function createTestKey(
   app: TestApp,
   opts: { permission?: ApiKeyPermission; revoked?: boolean } = {},

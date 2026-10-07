@@ -4,7 +4,6 @@ import apiReference from "@scalar/fastify-api-reference";
 
 export default fp(
   async function swaggerPlugin(fastify) {
-    // Must be registered before routes: it collects every route's schema via onRoute.
     await fastify.register(swagger, {
       openapi: {
         info: {
@@ -20,7 +19,6 @@ export default fp(
       },
     });
 
-    // UI at /docs, raw spec at /docs/openapi.json and /docs/openapi.yaml.
     await fastify.register(apiReference, { routePrefix: "/docs" });
   },
   { name: "swagger" },
