@@ -16,6 +16,7 @@ const schema = Type.Object({
     ],
     { default: "info" },
   ),
+  DATABASE_URL: Type.String({ default: "postgres://atlair:atlair@localhost:5432/atlair_mail" }),
   /** Comma-separated API keys accepted on /v1. Temporary until keys live in Postgres. */
   API_KEYS: Type.String({ default: "" }),
   /** Requests allowed per API key per RATE_LIMIT_WINDOW. */
