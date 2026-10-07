@@ -1,9 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
+import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
 const url = "/v1/api-keys/current";
-const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 
 describe("/v1 auth", { skip: !hasDatabase }, () => {
   it("rejects a missing key", async () => {

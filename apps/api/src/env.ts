@@ -17,6 +17,7 @@ const schema = Type.Object({
     { default: "info" },
   ),
   DATABASE_URL: Type.String({ default: "postgres://atlair:atlair@localhost:5432/atlair_mail" }),
+  ROOT_API_KEY: Type.String({ default: "" }),
   RATE_LIMIT_MAX: Type.Number({ default: 100 }),
   RATE_LIMIT_WINDOW: Type.String({ default: "1 minute" }),
 });
