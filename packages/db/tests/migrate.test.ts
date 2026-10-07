@@ -9,13 +9,13 @@ const url = process.env.DATABASE_URL;
 test("migrate applies cleanly and re-runs as a no-op", { skip: !url }, async () => {
   const { db, close } = createDb(url as string);
   try {
-    await migrate(db);
+    await migrate(url as string);
     const countApplied = async () => {
       const rows = await db.execute(sql`select count(*)::int as n from drizzle.__drizzle_migrations`);
       return Number(rows[0]?.n);
     };
     const first = await countApplied();
-    await migrate(db);
+    await migrate(url as string);
     assert.equal(await countApplied(), first);
   } finally {
     await close();

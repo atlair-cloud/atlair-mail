@@ -1,12 +1,10 @@
 import fp from "fastify-plugin";
 import { createHash } from "node:crypto";
+import { findActiveApiKeyByTokenHash, type ActiveApiKey, type Database } from "@atlair-mail/db";
 
-export interface ApiKey {
-  id: string;
-}
+export type ApiKey = ActiveApiKey;
 
 export interface ApiKeyStore {
-  /** Resolves the key a request presented, or null if it isn't valid. */
   verify(token: string): Promise<ApiKey | null>;
 }
 
@@ -15,33 +13,22 @@ declare module "fastify" {
     apiKeys: ApiKeyStore;
   }
   interface FastifyRequest {
-    /** Set by bearer-auth on /v1 routes; null on public routes. */
     apiKey: ApiKey | null;
   }
 }
 
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 
-// Temporary: keys come from the API_KEYS env var. Swap for a Postgres-backed store
-// once packages/db exists; callers only depend on ApiKeyStore.
-function envApiKeyStore(rawKeys: string): ApiKeyStore {
-  const byHash = new Map<string, ApiKey>();
-  for (const token of rawKeys.split(",").map((k) => k.trim()).filter(Boolean)) {
-    const digest = hash(token);
-    byHash.set(digest, { id: `key_${digest.slice(0, 12)}` });
-  }
-
+function postgresApiKeyStore(db: Database): ApiKeyStore {
   return {
-    async verify(token) {
-      return byHash.get(hash(token)) ?? null;
-    },
+    verify: (token) => findActiveApiKeyByTokenHash(db, hash(token)),
   };
 }
 
 export default fp(
   async function apiKeysPlugin(fastify) {
-    fastify.decorate("apiKeys", envApiKeyStore(fastify.config.API_KEYS));
+    fastify.decorate("apiKeys", postgresApiKeyStore(fastify.db));
     fastify.decorateRequest("apiKey", null);
   },
-  { name: "api-keys", dependencies: ["config"] },
+  { name: "api-keys", dependencies: ["db"] },
 );

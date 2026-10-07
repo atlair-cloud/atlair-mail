@@ -63,6 +63,9 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.1
+      drizzle-orm:
+        specifier: ^0.44.7
+        version: 0.44.7(postgres@3.4.9)
       typescript:
         specifier: ^7.0.2
         version: 7.0.2

@@ -47,7 +47,7 @@ export function useTestDb() {
 
   before(async () => {
     conn = createDb(databaseUrl as string);
-    await migrate(conn.db);
+    await migrate(databaseUrl as string);
   });
 
   after(async () => {

@@ -29,6 +29,8 @@ Node 24 strips types at runtime: there is no build step, no tsx, and no `build/`
 - Only erasable syntax (`erasableSyntaxOnly`). Write union types and `as const` objects in place of
   `enum`, `namespace`, and constructor parameter properties.
 - Type-only imports use `import type` (`verbatimModuleSyntax`).
+- **No comments in code**, including JSDoc. Names carry the meaning; the reason behind a
+  non-obvious choice goes in `docs/` or the PR description.
 
 ## Fastify conventions
 
