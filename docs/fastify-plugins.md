@@ -117,6 +117,24 @@ async (request) => {
 
 **How keys are checked:** `autohooks.ts` passes an `auth(token, request)` callback that calls `fastify.apiKeys.verify(token)` (`src/plugins/api-keys.ts`) and stores the result on `request.apiKey`. The store hashes the token with SHA-256 and looks it up in Postgres with `findActiveApiKeyByTokenHash` (`packages/db`), which ignores revoked keys. `request.apiKey` is `{ id, organizationId, permission }`; organization-scoped routes read `request.apiKey.organizationId`. Routes and hooks only use `verify()`, so the store can be swapped without touching them.
 
+**Two kinds of key.** An *organization key* (stored hashed in `api_keys`) sets `request.apiKey`. The *root key* (`ROOT_API_KEY`, compared in constant time) sets `request.isRootKey` and belongs only to the operator. If `ROOT_API_KEY` is empty, no token matches it.
+
+**Route access is organization-only by default.** A `preHandler` in `routes/v1/autohooks.ts` reads `config.access` and returns `403` when the wrong kind of key calls the route:
+
+```ts
+fastify.post("/", { config: { access: "root" }, schema: { ... } }, handler);
+```
+
+Omit `access` (or use `"organization"`) and the route requires an organization key, so the root key can never reach organization-scoped data by accident.
+
+**Bootstrap locally:** set `ROOT_API_KEY` in `.env`, start the API, and create an organization. The response carries its first key's token, shown only once:
+
+```bash
+curl -X POST localhost:8080/v1/organizations \
+  -H "Authorization: Bearer $ROOT_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"name":"Local"}'
+```
+
 **Errors:** the 401 body is `{ "error": "<reason>" }`. That's bearer-auth's own shape, not Fastify's `{ statusCode, error, message }`.
 
 ## `@fastify/rate-limit`

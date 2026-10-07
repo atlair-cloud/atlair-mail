@@ -1,20 +1,24 @@
 import { after } from "node:test";
-import { createHash, randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { migrate, schema, type ApiKeyPermission } from "@atlair-mail/db";
 import { buildApp } from "../src/app.ts";
 import type { Env } from "../src/env.ts";
+import { generateApiKeyToken } from "../src/lib/api-key-tokens.ts";
 
 export const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 export const UNREACHABLE_DATABASE_URL = "postgres://atlair:atlair@127.0.0.1:1/atlair_mail";
+
+export const TEST_ROOT_KEY = "am_root_test_key";
+
+export const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 
 type TestApp = Awaited<ReturnType<typeof buildApp>>;
 
 const cleanups = new WeakMap<TestApp, (() => Promise<unknown>)[]>();
 
 export async function buildTestApp(env: Partial<Env> = {}) {
-  const app = await buildApp({ env: { LOG_LEVEL: "silent", ...env } });
+  const app = await buildApp({ env: { LOG_LEVEL: "silent", ROOT_API_KEY: TEST_ROOT_KEY, ...env } });
   await app.ready();
   cleanups.set(app, []);
   after(async () => {
@@ -22,6 +26,19 @@ export async function buildTestApp(env: Partial<Env> = {}) {
     await app.close();
   });
   return app;
+}
+
+export async function buildMigratedTestApp(env: Partial<Env> = {}) {
+  const app = await buildTestApp(env);
+  await migrate(app.config.DATABASE_URL);
+  return app;
+}
+
+export function deleteOrganizationAfterTest(app: TestApp, organizationId: string) {
+  cleanups.get(app)!.push(async () => {
+    await app.db.delete(schema.apiKeys).where(eq(schema.apiKeys.organizationId, organizationId));
+    await app.db.delete(schema.organizations).where(eq(schema.organizations.id, organizationId));
+  });
 }
 
 export async function createTestKey(
@@ -33,23 +50,20 @@ export async function createTestKey(
     .insert(schema.organizations)
     .values({ name: "Test" })
     .returning();
-  const token = `am_${randomBytes(32).toString("base64url")}`;
+  deleteOrganizationAfterTest(app, organization!.id);
+
+  const { token, tokenHash, tokenPrefix } = generateApiKeyToken();
   const [key] = await app.db
     .insert(schema.apiKeys)
     .values({
       organizationId: organization!.id,
       name: "Test",
       permission: opts.permission,
-      tokenHash: createHash("sha256").update(token).digest("hex"),
-      tokenPrefix: token.slice(0, 7),
+      tokenHash,
+      tokenPrefix,
       revokedAt: opts.revoked ? new Date() : null,
     })
     .returning();
-
-  cleanups.get(app)!.push(async () => {
-    await app.db.delete(schema.apiKeys).where(eq(schema.apiKeys.id, key!.id));
-    await app.db.delete(schema.organizations).where(eq(schema.organizations.id, organization!.id));
-  });
 
   return { token, keyId: key!.id, organizationId: organization!.id };
 }

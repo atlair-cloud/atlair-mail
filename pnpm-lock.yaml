@@ -69,6 +69,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      uuid:
+        specifier: ^14.0.2
+        version: 14.0.2
 
   packages/db:
     dependencies:

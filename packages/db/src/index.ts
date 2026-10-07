@@ -4,3 +4,4 @@ export { migrate } from "./migrate.ts";
 export * as schema from "./schema/index.ts";
 export * from "./types.ts";
 export * from "./repositories/api-keys.ts";
+export * from "./repositories/organizations.ts";

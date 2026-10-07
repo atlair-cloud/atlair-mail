@@ -1,10 +1,11 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { apiKeyPermissions } from "@atlair-mail/db";
+import { Uuid } from "../../../lib/schemas.ts";
 
 const ApiKeySchema = Type.Object({
-  id: Type.String({ format: "uuid" }),
-  organizationId: Type.String({ format: "uuid" }),
+  id: Uuid(),
+  organizationId: Uuid(),
   permission: Type.Enum(apiKeyPermissions),
 });
 
