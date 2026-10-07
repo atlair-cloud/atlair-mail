@@ -28,15 +28,21 @@ Node 24 strips types at runtime: there is no build step, no tsx, and no `build/`
 
 ## Fastify conventions
 
-- `app.ts` exports `buildApp(opts)`; `server.ts` only listens. Tests call `buildApp()` and use
-  `app.inject()`, never a real port.
-- Every route declares a TypeBox schema (`typebox` package, `FastifyPluginAsyncTypebox`) for
-  params, body, and **response**. The response schema drives fast serialization and keeps fields from leaking.
-- Config comes only from `fastify.config` (validated by `env-schema` in `src/env.ts`). Add new env
-  vars there and to `.env.example`.
-- Shared app-wide state goes in `src/plugins/` wrapped with `fastify-plugin`; route files stay encapsulated.
-- Prefer official `@fastify/*` plugins (https://fastify.dev/ecosystem/) over hand-rolled
-  equivalents: `@fastify/rate-limit`, `@fastify/under-pressure`, `@fastify/swagger`.
+Before adding a route, plugin, env var, or health check, read
+[docs/fastify-plugins.md](docs/fastify-plugins.md): it covers each plugin's setup and usage.
+
+- `@fastify/autoload` owns registration. Add a route by adding a file under `src/routes/` (folders are
+  URL prefixes) and an app-wide plugin by adding an `fp`-wrapped file under `src/plugins/`. `app.ts`
+  stays unchanged.
+- Folder-wide hooks go in that folder's `autohooks.ts`. `routes/v1/autohooks.ts` applies API-key
+  auth then per-key rate limiting to all of `/v1`; public routes (webhooks) live outside `v1/`.
+- Every route declares a TypeBox schema (`typebox` v1, `FastifyPluginAsyncTypebox`) for params,
+  body, and **response**, plus `summary`/`tags`; the response schema strips unlisted fields and
+  feeds the `/docs` OpenAPI spec.
+- Config comes only from `fastify.config` (`src/env.ts`); add new vars there and to `.env.example`.
+- HTTP errors come from `@fastify/sensible` (`fastify.httpErrors.notFound(...)`).
+- Tests use `buildTestApp()` from `tests/helpers.ts` and `app.inject()`; a real port is never opened.
+- Reach for an official `@fastify/*` plugin (https://fastify.dev/ecosystem/) before writing your own.
 
 ## Architecture
 
@@ -46,3 +52,14 @@ interface. Before adding a domain module, provider, worker step, or status trans
 
 Placeholder directories (`apps/worker`, `packages/*`, `infra/terraform`) hold a `.gitkeep` until
 their first real file lands; delete the `.gitkeep` then.
+
+<!-- BEGIN:turborepo-agent-rules -->
+
+# This is NOT the Turborepo you know
+
+Turborepo configuration, task behavior, and CLI commands can vary between installed versions and may differ from your training data. Resolve the `turbo` package from this file's directory or relevant workspace; in monorepos, it may not be visible from the repository root. For example, run `node -p "require.resolve('turbo/package.json')"` from a workspace that depends on `turbo`.
+
+Read `docs/README.md` inside that installed package first, then read the relevant pages from its `docs/` directory before changing Turborepo configuration or commands. Heed deprecation notices. These bundled docs match the installed package version and are available without network access.
+
+This block is written and re-added by `turbo` before repository-scoped commands when an AI agent is detected. In the Turborepo source repository, its template is defined in `crates/turborepo-cli/src/cli/agent_guidance.rs`. Removing the managed block while updates are enabled means a later qualifying invocation will add it again. Set `"agentGuidance": false` in the root `turbo.json` or `turbo.jsonc` to opt out; this does not remove an existing block. Keep the block committed with your work to avoid an uncommitted change on the next agent invocation.
+<!-- END:turborepo-agent-rules -->

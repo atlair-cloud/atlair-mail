@@ -16,6 +16,12 @@ const schema = Type.Object({
     ],
     { default: "info" },
   ),
+  /** Comma-separated API keys accepted on /v1. Temporary until keys live in Postgres. */
+  API_KEYS: Type.String({ default: "" }),
+  /** Requests allowed per API key per RATE_LIMIT_WINDOW. */
+  RATE_LIMIT_MAX: Type.Number({ default: 100 }),
+  /** Any duration @fastify/rate-limit accepts, e.g. "1 minute" or 60000. */
+  RATE_LIMIT_WINDOW: Type.String({ default: "1 minute" }),
 });
 
 export type Env = Static<typeof schema>;
