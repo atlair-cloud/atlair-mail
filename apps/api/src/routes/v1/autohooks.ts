@@ -24,6 +24,10 @@ const v1Hooks: FastifyPluginAsync = async (fastify) => {
     if (access === "organization" && request.apiKey === null) {
       throw fastify.httpErrors.forbidden("This route requires an organization API key");
     }
+    const permission = request.routeOptions.config.permission ?? "full_access";
+    if (request.apiKey && permission === "full_access" && request.apiKey.permission !== "full_access") {
+      throw fastify.httpErrors.forbidden("This route requires a full_access API key");
+    }
   });
 
   await fastify.register(rateLimit, {

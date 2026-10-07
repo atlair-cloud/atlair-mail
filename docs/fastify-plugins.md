@@ -127,6 +127,10 @@ fastify.post("/", { config: { access: "root" }, schema: { ... } }, handler);
 
 Omit `access` (or use `"organization"`) and the route requires an organization key, so the root key can never reach organization-scoped data by accident.
 
+**Organization routes also require `full_access` by default.** A `sending_access` key gets `403` unless the route opts in with `config: { permission: "sending_access" }`, so a leaked send-only key can't mint itself a full-access one. `GET /v1/api-keys/current` opts in; sending email will too.
+
+**`last_used_at`** is written by `verify()` at most once a minute per key (`touchApiKeyLastUsed`), so busy keys don't rewrite their row on every request.
+
 **Bootstrap locally:** set `ROOT_API_KEY` in `.env`, start the API, and create an organization. The response carries its first key's token, shown only once:
 
 ```bash

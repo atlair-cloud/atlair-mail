@@ -1,5 +1,11 @@
 import fp from "fastify-plugin";
-import { findActiveApiKeyByTokenHash, type ActiveApiKey, type Database } from "@atlair-mail/db";
+import {
+  findActiveApiKeyByTokenHash,
+  touchApiKeyLastUsed,
+  type ActiveApiKey,
+  type ApiKeyPermission,
+  type Database,
+} from "@atlair-mail/db";
 import { hashApiKeyToken, tokensMatch } from "../lib/api-key-tokens.ts";
 
 export type ApiKey = ActiveApiKey;
@@ -21,12 +27,17 @@ declare module "fastify" {
   }
   interface FastifyContextConfig {
     access?: RouteAccess;
+    permission?: ApiKeyPermission;
   }
 }
 
 function postgresApiKeyStore(db: Database, rootApiKey: string): ApiKeyStore {
   return {
-    verify: (token) => findActiveApiKeyByTokenHash(db, hashApiKeyToken(token)),
+    async verify(token) {
+      const key = await findActiveApiKeyByTokenHash(db, hashApiKeyToken(token));
+      if (key) await touchApiKeyLastUsed(db, key.id);
+      return key;
+    },
     isRootKey: (token) => rootApiKey !== "" && tokensMatch(token, rootApiKey),
   };
 }

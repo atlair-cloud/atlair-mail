@@ -1,26 +1,14 @@
-import {
-  findOrganizationById,
-  insertApiKey,
-  insertOrganization,
-  type Database,
-} from "@atlair-mail/db";
-import { generateApiKeyToken } from "../lib/api-key-tokens.ts";
+import { findOrganizationById, insertOrganization, type Database } from "@atlair-mail/db";
+import { createApiKey } from "./api-keys.ts";
 
 export function createOrganizationService(db: Database) {
   return {
-    async create(input: { name: string }) {
-      const { token, tokenHash, tokenPrefix } = generateApiKeyToken();
-      return db.transaction(async (tx) => {
+    create: (input: { name: string }) =>
+      db.transaction(async (tx) => {
         const organization = await insertOrganization(tx, { name: input.name });
-        const apiKey = await insertApiKey(tx, {
-          organizationId: organization.id,
-          name: "Default",
-          tokenHash,
-          tokenPrefix,
-        });
-        return { ...organization, apiKey: { ...apiKey, token } };
-      });
-    },
+        const apiKey = await createApiKey(tx, organization.id, { name: "Default" });
+        return { ...organization, apiKey };
+      }),
 
     get: (id: string) => findOrganizationById(db, id),
   };

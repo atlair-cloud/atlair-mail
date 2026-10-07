@@ -1,20 +1,11 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
-import { apiKeyPermissions } from "@atlair-mail/db";
 import { DateTime, Uuid } from "../../../lib/schemas.ts";
+import { CreatedApiKeySchema } from "../../../schemas/api-keys.ts";
 
 const OrganizationSchema = Type.Object({
   id: Uuid(),
   name: Type.String(),
-  createdAt: DateTime(),
-});
-
-const CreatedApiKeySchema = Type.Object({
-  id: Uuid(),
-  name: Type.String(),
-  permission: Type.Enum(apiKeyPermissions),
-  token: Type.String({ description: "Shown only once. Store it now; it cannot be retrieved later." }),
-  tokenPrefix: Type.String(),
   createdAt: DateTime(),
 });
 
