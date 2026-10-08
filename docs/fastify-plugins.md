@@ -99,7 +99,7 @@ fastify.post(
 
 `src/env.ts` defines and validates every environment variable when the app starts. If one is missing or invalid, the process exits immediately instead of failing on the first request.
 
-**Add a variable:** add it to the schema in `src/env.ts`, give it a `/** comment */`, and add it to `apps/api/.env.example`. Read it anywhere as `fastify.config.MY_VAR`, fully typed. Never read `process.env` directly.
+**Add a variable:** add it to the schema in `src/env.ts` with a self-explanatory name, and add it to `apps/api/.env.example`. Read it anywhere as `fastify.config.MY_VAR`, fully typed. Never read `process.env` directly.
 
 Tests override values without touching `process.env`: `buildApp({ env: { RATE_LIMIT_MAX: 2 } })`.
 
@@ -140,6 +140,51 @@ curl -X POST localhost:8080/v1/organizations \
 ```
 
 **Errors:** the 401 body is `{ "error": "<reason>" }`. That's bearer-auth's own shape, not Fastify's `{ statusCode, error, message }`.
+
+## SES connection and credential encryption
+
+Each organization connects its own Amazon SES account with `PUT /v1/ses-connection` (`full_access` only). The secret access key is encrypted before it reaches Postgres and is never returned or logged.
+
+**Saving checks the credentials first.** `src/lib/ses-account.ts` calls SES `GetAccount` with `@aws-sdk/client-sesv2`. Credentials SES refuses return `422` and nothing is stored; an unreachable SES returns `502`. The response includes `account.productionAccessEnabled`, which is `false` while the AWS account is in the SES sandbox.
+
+**Encryption** lives in `packages/core` (`createCredentialsCipher`) on the AWS Encryption SDK (`@aws-crypto/client-node`):
+
+- Envelope encryption: every secret gets its own data key, wrapped by a raw AES-256 key from `CREDENTIALS_ENCRYPTION_KEYS`.
+- The organization id is the encryption context, so a ciphertext copied into another organization's row does not decrypt.
+- The algorithm suite is key-committing and unsigned (`ALG_AES256_GCM_IV12_TAG16_HKDF_SHA512_COMMIT_KEY`).
+- `fastify.credentialsCipher` is the app's instance; `fastify.services.sesConnections.loadCredentials(organizationId)` is the only place that decrypts.
+
+**Generate a key** (the app refuses to start without a valid one):
+
+```bash
+echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
+```
+
+**Rotate:** prepend a new, higher-numbered key and keep the old one: `CREDENTIALS_ENCRYPTION_KEYS=2:<new>,1:<old>`. New writes use the highest version; existing rows still decrypt with theirs. `ses_connections.encryption_key_version` shows which rows still use an old key; once none do, the old key can be removed. Losing every key means organizations must reconnect SES.
+
+**Logs:** pino `redact` removes `req.headers.authorization` and any `secretAccessKey` up to two levels deep.
+
+**Least-privilege IAM policy** for the access key an organization connects:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ses:GetAccount",
+        "ses:SendEmail",
+        "ses:SendRawEmail",
+        "ses:CreateEmailIdentity",
+        "ses:GetEmailIdentity",
+        "ses:DeleteEmailIdentity"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ## `@fastify/rate-limit`
 
