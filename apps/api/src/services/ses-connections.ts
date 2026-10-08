@@ -5,7 +5,8 @@ import {
   type Database,
 } from "@atlair-mail/db";
 import type { CredentialsCipher } from "@atlair-mail/core";
-import { fetchSesAccount, type SesCredentials } from "../lib/ses-account.ts";
+import { fetchSesAccount } from "../lib/ses-account.ts";
+import type { SesCredentials } from "../lib/ses-client.ts";
 
 export function createSesConnectionService(db: Database, cipher: CredentialsCipher) {
   return {

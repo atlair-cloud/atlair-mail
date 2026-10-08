@@ -6,3 +6,5 @@ export * from "./types.ts";
 export * from "./repositories/api-keys.ts";
 export * from "./repositories/organizations.ts";
 export * from "./repositories/ses-connections.ts";
+export * from "./errors.ts";
+export * from "./repositories/domains.ts";

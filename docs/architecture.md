@@ -72,7 +72,7 @@ erDiagram
 | `organizations` | Ownership and isolation root. | ATL-80 |
 | `api_keys` | A named key per caller: `permission` (`full_access` \| `sending_access`), `token_hash` (SHA-256; the token is shown once), `token_prefix`, `last_used_at`, `revoked_at`. | ATL-80 |
 | `ses_connections` | One per organization: region, access key id, encrypted secret, configuration set. | ATL-75 |
-| `domains` | Sending domains: DKIM tokens and verification `status`. Unique per organization. | ATL-77 |
+| `domains` | Sending domains: DKIM tokens, SES signing zone, verification `status`. Unique per organization. | ATL-77, ATL-81 |
 | `emails` | The queued **command** row and its lifecycle `status`; also the queue. | ATL-77 |
 | `email_events` | Append-only, idempotent log of provider events (`unique(provider_event_id)`). | ATL-77 |
 | `suppressed_addresses` | Lowercased addresses that hard-bounced, complained, or were added manually. | ATL-89 |

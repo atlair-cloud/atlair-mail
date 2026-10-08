@@ -2,10 +2,9 @@ import { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { inArray } from "drizzle-orm";
-import { DrizzleQueryError } from "drizzle-orm/errors";
-import postgres from "postgres";
 import { v7 as uuidv7 } from "uuid";
 import { createDb, type Database, type Db } from "../src/client.ts";
+import { hasPgErrorCode, pgErrorCodes } from "../src/errors.ts";
 import { migrate } from "../src/migrate.ts";
 import {
   apiKeys,
@@ -21,14 +20,11 @@ import {
 
 export const databaseUrl = process.env.DATABASE_URL;
 
-export const UNIQUE_VIOLATION = "23505";
-export const FOREIGN_KEY_VIOLATION = "23503";
-export const CHECK_VIOLATION = "23514";
+export const UNIQUE_VIOLATION = pgErrorCodes.uniqueViolation;
+export const FOREIGN_KEY_VIOLATION = pgErrorCodes.foreignKeyViolation;
+export const CHECK_VIOLATION = pgErrorCodes.checkViolation;
 
-export const pgError = (code: string) => (error: unknown) =>
-  error instanceof DrizzleQueryError &&
-  error.cause instanceof postgres.PostgresError &&
-  error.cause.code === code;
+export const pgError = (code: string) => (error: unknown) => hasPgErrorCode(error, code);
 
 async function deleteOrganizations(db: Database, ids: string[]) {
   if (ids.length === 0) return;

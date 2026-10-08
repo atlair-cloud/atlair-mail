@@ -186,6 +186,35 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 }
 ```
 
+## Domains
+
+A sending domain is added with `POST /v1/domains` (`full_access`, SES connection required). The service lives in `src/services/domains.ts`; SES calls are in `src/lib/ses-identities.ts`, which keeps SES types out of the rest of the app.
+
+**Names** are normalized by `src/lib/domain-names.ts`: trimmed, lowercased, trailing dot removed, unicode converted to punycode. `tldts` rejects IPs, `localhost`, unknown suffixes, and bare public suffixes such as `co.uk`. Subdomains such as `mail.example.com` are allowed.
+
+**DNS records** come back in `records[]`:
+
+| Record | Type | Name | Required |
+| --- | --- | --- | --- |
+| DKIM ×3 | CNAME | `<token>._domainkey.<domain>` → `<token>.<SES signing zone>` | Yes |
+| DMARC | TXT | `_dmarc.<registrable domain>` = `v=DMARC1; p=none;` | Recommended (Gmail/Yahoo bulk-sender rules) |
+
+The signing zone comes from SES (`dkim_signing_hosted_zone`), not a hard-coded host.
+
+**Status:** `GET` returns what is stored and never calls AWS. `POST /v1/domains/:id/verify` asks SES and updates it:
+
+| SES | `status` |
+| --- | --- |
+| `SUCCESS` and verified for sending | `verified` |
+| `FAILED`, or the identity is not in the connection's region | `failed` |
+| `PENDING`, `TEMPORARY_FAILURE`, `NOT_STARTED` | `pending` |
+
+SES checks DNS for 72 hours, then marks the domain failed. Fix the DNS records, remove the domain, and add it again. Only `verified` domains can send.
+
+**Existing identities are adopted.** If the domain is already in the SES account, `POST` reads it instead of failing. `DELETE` removes the domain from atlair-mail only, so identities the customer uses elsewhere are never deleted; it returns `409` while emails reference the domain.
+
+**SES errors:** `422` when SES rejects the request, `429` when it throttles, `502` when it cannot be reached. Only the AWS error name is exposed.
+
 ## `@fastify/rate-limit`
 
 Limits each API key to `RATE_LIMIT_MAX` requests per `RATE_LIMIT_WINDOW` on `/v1`. Over the limit returns `429` with `Retry-After`. Every response carries `x-ratelimit-limit`, `x-ratelimit-remaining` and `x-ratelimit-reset`.
