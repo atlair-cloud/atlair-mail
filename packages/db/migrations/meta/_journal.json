@@ -29,6 +29,20 @@
       "when": 1791474803493,
       "tag": "0003_domain_dkim_signing_hosted_zone",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791475850220,
+      "tag": "0004_drop_ses_connections_and_dkim_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791475874004,
+      "tag": "0005_provider_connections_and_domain_dns_records",
+      "breakpoints": true
     }
   ]
 }

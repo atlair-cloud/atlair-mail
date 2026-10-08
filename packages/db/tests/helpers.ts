@@ -11,7 +11,7 @@ import {
   domains,
   emails,
   organizations,
-  sesConnections,
+  providerConnections,
   suppressedAddresses,
   webhookEndpoints,
   type NewApiKey,
@@ -32,7 +32,7 @@ async function deleteOrganizations(db: Database, ids: string[]) {
   await db.delete(suppressedAddresses).where(inArray(suppressedAddresses.organizationId, ids));
   await db.delete(emails).where(inArray(emails.organizationId, ids));
   await db.delete(domains).where(inArray(domains.organizationId, ids));
-  await db.delete(sesConnections).where(inArray(sesConnections.organizationId, ids));
+  await db.delete(providerConnections).where(inArray(providerConnections.organizationId, ids));
   await db.delete(apiKeys).where(inArray(apiKeys.organizationId, ids));
   await db.delete(organizations).where(inArray(organizations.id, ids));
 }

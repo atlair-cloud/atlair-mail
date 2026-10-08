@@ -12,7 +12,7 @@ const domainRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     {
       schema: {
         summary: "Add a sending domain",
-        description: "Creates the domain identity in your SES account and returns the DNS records to publish.",
+        description: "Registers the domain with your email provider and returns the DNS records to publish.",
         tags,
         body: CreateDomainSchema,
         response: { 201: DomainSchema },
@@ -43,7 +43,7 @@ const domainRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     {
       schema: {
         summary: "Get a domain",
-        description: "Returns the stored status. Use POST /v1/domains/:id/verify to check SES again.",
+        description: "Returns the stored status. Use POST /v1/domains/:id/verify to check with the provider again.",
         tags,
         params,
         response: { 200: DomainSchema },
@@ -60,7 +60,7 @@ const domainRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     "/:id/verify",
     {
       schema: {
-        summary: "Check the domain's verification with SES",
+        summary: "Check the domain's verification with the provider",
         tags,
         params,
         response: { 200: DomainSchema },
@@ -78,7 +78,7 @@ const domainRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     {
       schema: {
         summary: "Remove a domain",
-        description: "Removes the domain from atlair-mail. The identity stays in your SES account.",
+        description: "Removes the domain from atlair-mail. It stays registered in your provider account.",
         tags,
         params,
         response: { 204: Type.Null() },

@@ -1,6 +1,6 @@
 export * from "./organizations.ts";
 export * from "./api-keys.ts";
-export * from "./ses-connections.ts";
+export * from "./provider-connections.ts";
 export * from "./domains.ts";
 export * from "./emails.ts";
 export * from "./email-events.ts";
