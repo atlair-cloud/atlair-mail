@@ -7,7 +7,12 @@ import {
 } from "@atlair-mail/db";
 import type { ProviderConnection } from "@atlair-mail/db/schema";
 import type { CredentialsCipher } from "@atlair-mail/core";
-import { createProvider, type ProviderConfig, type ProviderSecrets } from "@atlair-mail/providers";
+import {
+  createProvider,
+  type ProviderConfig,
+  type ProviderLogger,
+  type ProviderSecrets,
+} from "@atlair-mail/providers";
 
 export const ProviderNotConnectedError = createError(
   "ATL_PROVIDER_NOT_CONNECTED",
@@ -43,20 +48,22 @@ const toPublicConnection = (connection: ProviderConnection) => ({
   updatedAt: connection.updatedAt,
 });
 
-export function createProviderConnectionService(db: Database, cipher: CredentialsCipher) {
+export function createProviderConnectionService(db: Database, cipher: CredentialsCipher, logger: ProviderLogger) {
   async function loadProvider(organizationId: string) {
     const connection = await findProviderConnectionByOrganization(db, organizationId);
     if (!connection) return null;
     const secrets = JSON.parse(
       await cipher.decrypt(connection.credentialsEncrypted, organizationId),
     ) as ProviderSecrets;
-    return createProvider({ type: connection.provider, settings: connection.settings, secrets } as ProviderConfig);
+    return createProvider({ type: connection.provider, settings: connection.settings, secrets } as ProviderConfig, {
+      logger,
+    });
   }
 
   return {
     async save(organizationId: string, input: ProviderInput) {
       const config = toProviderConfig(input);
-      const account = await createProvider(config).verifyAccount();
+      const account = await createProvider(config, { logger }).verifyAccount();
       const { ciphertext, keyVersion } = await cipher.encrypt(JSON.stringify(config.secrets), organizationId);
       const connection = await upsertProviderConnection(db, {
         organizationId,

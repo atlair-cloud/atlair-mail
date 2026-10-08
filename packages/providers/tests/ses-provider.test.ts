@@ -19,7 +19,7 @@ const provider = createProvider({
   type: "ses",
   settings: { region: "eu-west-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE" },
   secrets: { secretAccessKey },
-});
+}, { retry: false });
 const dkim = { Tokens: ["t1", "t2", "t3"], SigningHostedZone: "dkim.example-zone.com", Status: "PENDING" as const };
 const ses = mockClient(SESv2Client);
 
@@ -107,7 +107,15 @@ describe("SES provider", () => {
       return expectProviderError("ATL_PROVIDER_REJECTED", 422)(error) && /UnrecognizedClientException/.test(error.message);
     });
 
-    ses.on(GetAccountCommand).rejects(new Error("getaddrinfo ENOTFOUND"));
-    await assert.rejects(provider.verifyAccount(), expectProviderError("ATL_PROVIDER_UNREACHABLE", 502));
+    ses.on(GetAccountCommand).rejects(Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" }));
+    await assert.rejects(provider.verifyAccount(), expectProviderError("ATL_PROVIDER_UNAVAILABLE", 502));
+
+    ses.on(GetAccountCommand).rejects(
+      new SESv2ServiceException({ name: "InternalFailure", $fault: "server", $metadata: {}, message: "x" }),
+    );
+    await assert.rejects(provider.verifyAccount(), expectProviderError("ATL_PROVIDER_UNAVAILABLE", 502));
+
+    ses.on(GetAccountCommand).rejects(Object.assign(new Error("socket hang up"), { name: "TimeoutError" }));
+    await assert.rejects(provider.verifyAccount(), expectProviderError("ATL_PROVIDER_TIMEOUT", 504));
   });
 });

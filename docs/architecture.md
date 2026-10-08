@@ -34,9 +34,10 @@ whole premise (AGPL-3.0, independent of `atlair-platform`).
 self-hoster, so nothing may depend on it. Where it fits later: the public `POST /webhooks/ses`
 receiver, and an opt-in managed deployment for Atlair's own instance.
 
-To keep that option open, the SES adapter signs requests with **SigV4 over `fetch`** (aws4fetch-style)
-rather than binding to `@aws-sdk/client-sesv2`, so the provider code runs unchanged on Node, Workers,
-Deno, or Bun. See `docs/design-patterns.md` for the provider patterns.
+The SES adapter uses the official `@aws-sdk/client-sesv2` (prefer maintained libraries). All SDK use
+stays inside `packages/providers/src/ses/`, so if a Workers deployment ever needs it, only that adapter
+is swapped (for example to SigV4 over `fetch` with `aws4fetch`); nothing else changes. See
+`docs/design-patterns.md` for the provider patterns.
 
 ## Organizations and access
 

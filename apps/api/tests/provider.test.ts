@@ -148,7 +148,7 @@ describe("/v1/provider failures and isolation", { skip: !hasDatabase }, () => {
     const unreachable = await app.inject({ method: "PUT", url, headers: auth(token), payload: input });
 
     assert.equal(unreachable.statusCode, 502);
-    assert.equal(unreachable.json().code, "ATL_PROVIDER_UNREACHABLE");
+    assert.equal(unreachable.json().code, "ATL_PROVIDER_UNAVAILABLE");
     assert.ok(!unreachable.body.includes(secretAccessKey));
   });
 
