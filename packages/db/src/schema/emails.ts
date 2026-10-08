@@ -35,6 +35,7 @@ export const emails = pgTable(
     lastError: text("last_error"),
     providerMessageId: text("provider_message_id"),
     idempotencyKey: text("idempotency_key"),
+    requestFingerprint: text("request_fingerprint"),
     sentAt: timestamptz("sent_at"),
     ...timestamps,
   },
@@ -55,6 +56,10 @@ export const emails = pgTable(
     ),
     check("emails_status_check", isOneOf(t.status, emailStatuses)),
     check("emails_to_addresses_check", sql`cardinality(${t.toAddresses}) > 0`),
+    check(
+      "emails_idempotency_check",
+      sql`(${t.idempotencyKey} is null) = (${t.requestFingerprint} is null)`,
+    ),
     check("emails_body_check", sql`${t.htmlBody} is not null or ${t.textBody} is not null`),
   ],
 );

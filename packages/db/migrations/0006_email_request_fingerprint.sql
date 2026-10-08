@@ -1,0 +1,2 @@
+ALTER TABLE "emails" ADD COLUMN "request_fingerprint" text;--> statement-breakpoint
+ALTER TABLE "emails" ADD CONSTRAINT "emails_idempotency_check" CHECK (("emails"."idempotency_key" is null) = ("emails"."request_fingerprint" is null));

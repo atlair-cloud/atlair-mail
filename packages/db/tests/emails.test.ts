@@ -68,12 +68,12 @@ describe("domains, emails, and email_events", { skip: !databaseUrl }, () => {
     const secondDomain = await t.newDomain(second.id);
     const idempotencyKey = uuidv7();
 
-    await t.db.insert(emails).values(newEmail(first.id, firstDomain.id, { idempotencyKey }));
+    await t.db.insert(emails).values(newEmail(first.id, firstDomain.id, { idempotencyKey, requestFingerprint: "f" }));
     await assert.rejects(
-      t.db.insert(emails).values(newEmail(first.id, firstDomain.id, { idempotencyKey })),
+      t.db.insert(emails).values(newEmail(first.id, firstDomain.id, { idempotencyKey, requestFingerprint: "f" })),
       pgError(UNIQUE_VIOLATION),
     );
-    await t.db.insert(emails).values(newEmail(second.id, secondDomain.id, { idempotencyKey }));
+    await t.db.insert(emails).values(newEmail(second.id, secondDomain.id, { idempotencyKey, requestFingerprint: "f" }));
     await t.db
       .insert(emails)
       .values([newEmail(first.id, firstDomain.id), newEmail(first.id, firstDomain.id)]);

@@ -8,3 +8,5 @@ export * from "./repositories/organizations.ts";
 export * from "./repositories/provider-connections.ts";
 export * from "./errors.ts";
 export * from "./repositories/domains.ts";
+export * from "./repositories/emails.ts";
+export * from "./repositories/suppressed-addresses.ts";
