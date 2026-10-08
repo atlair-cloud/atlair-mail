@@ -8,6 +8,7 @@ import type { Env } from "./env.ts";
 
 export interface BuildAppOptions {
   env?: Partial<Env>;
+  logStream?: { write(line: string): void };
 }
 
 export async function buildApp(opts: BuildAppOptions = {}) {
@@ -19,6 +20,7 @@ export async function buildApp(opts: BuildAppOptions = {}) {
         "*.secretAccessKey",
         "*.*.secretAccessKey",
       ],
+      stream: opts.logStream,
     },
   }).withTypeProvider<TypeBoxTypeProvider>();
 
