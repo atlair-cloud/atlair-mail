@@ -11,6 +11,8 @@ export const UNREACHABLE_DATABASE_URL = "postgres://atlair:atlair@127.0.0.1:1/at
 
 export const TEST_ROOT_KEY = "am_root_test_key";
 
+export const TEST_CREDENTIALS_ENCRYPTION_KEYS = `1:${Buffer.alloc(32, 7).toString("base64")}`;
+
 export const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 
 type TestApp = Awaited<ReturnType<typeof buildApp>>;
@@ -18,7 +20,14 @@ type TestApp = Awaited<ReturnType<typeof buildApp>>;
 const cleanups = new WeakMap<TestApp, (() => Promise<unknown>)[]>();
 
 export async function buildTestApp(env: Partial<Env> = {}) {
-  const app = await buildApp({ env: { LOG_LEVEL: "silent", ROOT_API_KEY: TEST_ROOT_KEY, ...env } });
+  const app = await buildApp({
+    env: {
+      LOG_LEVEL: "silent",
+      ROOT_API_KEY: TEST_ROOT_KEY,
+      CREDENTIALS_ENCRYPTION_KEYS: TEST_CREDENTIALS_ENCRYPTION_KEYS,
+      ...env,
+    },
+  });
   await app.ready();
   cleanups.set(app, []);
   after(async () => {

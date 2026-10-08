@@ -17,6 +17,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@atlair-mail/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@atlair-mail/db':
         specifier: workspace:*
         version: link:../../packages/db

@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@atlair-mail/core": "workspace:*",
     "@atlair-mail/db": "workspace:*",
     "@fastify/autoload": "^6.5.0",
     "@fastify/bearer-auth": "^10.1.3",

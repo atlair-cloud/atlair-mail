@@ -13,7 +13,12 @@ export interface BuildAppOptions {
 export async function buildApp(opts: BuildAppOptions = {}) {
   const app = Fastify({
     logger: {
-      redact: ["req.headers.authorization"],
+      redact: [
+        "req.headers.authorization",
+        "secretAccessKey",
+        "*.secretAccessKey",
+        "*.*.secretAccessKey",
+      ],
     },
   }).withTypeProvider<TypeBoxTypeProvider>();
 
