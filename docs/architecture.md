@@ -119,6 +119,7 @@ SES events arrive duplicated and out of order, so a transition table rejects ill
 | `apps/api` | HTTP routes, plugins, services, repositories. |
 | `apps/worker` | Queue drain + outbox delivery. |
 | `packages/db` | Drizzle schema, client factory, migrations (Factory Method + Repository). |
+| `packages/core` | Framework-agnostic domain code shared by `apps/api` and `apps/worker`; today the credentials cipher. |
 | `packages/providers` | `EmailProvider` interface, factory, decorators — **framework-agnostic**. |
 | `packages/sdk` | Typed client generated from the OpenAPI spec (Facade). |
 
@@ -138,13 +139,15 @@ it keeps self-hosting to `docker compose up`.
 ## Configuration and self-hosting
 
 - Single Postgres; all configuration through `fastify.config` (`apps/api/src/env.ts`).
-- `DATABASE_URL`, `ROOT_API_KEY`, `CREDENTIALS_ENCRYPTION_KEY` (AES-256-GCM for SES secrets),
+- `DATABASE_URL`, `ROOT_API_KEY`, `CREDENTIALS_ENCRYPTION_KEYS` (versioned AES-256 keys for the AWS
+  Encryption SDK that encrypts SES secrets),
   `RATE_LIMIT_*`, and provider/SNS settings (topic ARN allowlist).
 - Secrets are never returned in responses or written to logs (pino `redact`).
 
 ## Open decisions
 
-1. **Credential model** — encrypted static access keys first; STS/AssumeRole later for managed deployments.
-2. **Shared domain code** — services/state machine shared between `apps/api` and `apps/worker` (a
-   `packages/core` if `packages/db` proves too narrow).
+1. **Credential model** — encrypted static access keys first; STS/AssumeRole with a per-organization
+   external ID later for managed deployments. The KMS keyring can replace the raw AES keyring then.
+2. **Shared domain code** — `packages/core` now exists (credentials cipher); the status state machine
+   moves there when the worker lands.
 3. **Workers target** — revisit only when Atlair's managed deployment needs it.

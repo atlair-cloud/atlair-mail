@@ -1,0 +1,1 @@
+ALTER TABLE "ses_connections" ALTER COLUMN "configuration_set" DROP NOT NULL;

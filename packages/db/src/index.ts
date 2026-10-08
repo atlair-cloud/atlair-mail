@@ -5,3 +5,4 @@ export * as schema from "./schema/index.ts";
 export * from "./types.ts";
 export * from "./repositories/api-keys.ts";
 export * from "./repositories/organizations.ts";
+export * from "./repositories/ses-connections.ts";

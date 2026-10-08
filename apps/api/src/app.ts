@@ -8,12 +8,19 @@ import type { Env } from "./env.ts";
 
 export interface BuildAppOptions {
   env?: Partial<Env>;
+  logStream?: { write(line: string): void };
 }
 
 export async function buildApp(opts: BuildAppOptions = {}) {
   const app = Fastify({
     logger: {
-      redact: ["req.headers.authorization"],
+      redact: [
+        "req.headers.authorization",
+        "secretAccessKey",
+        "*.secretAccessKey",
+        "*.*.secretAccessKey",
+      ],
+      stream: opts.logStream,
     },
   }).withTypeProvider<TypeBoxTypeProvider>();
 
