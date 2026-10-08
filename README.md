@@ -30,7 +30,7 @@ open http://localhost:8080/docs/        # API reference
 atlair-mail/
 ├── apps/
 │   ├── api/              Fastify HTTP API (organizations, API keys, provider, domains)
-│   └── worker/           (planned) sends queued emails through a provider
+│   └── worker/           sends queued emails through each organization's provider
 ├── packages/
 │   ├── core/             credentials cipher (AWS Encryption SDK)
 │   ├── db/               Drizzle schema, migrations, repositories

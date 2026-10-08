@@ -120,7 +120,7 @@ SES events arrive duplicated and out of order, so a transition table rejects ill
 | `apps/api` | HTTP routes, plugins, services, repositories. |
 | `apps/worker` | Queue drain + outbox delivery. |
 | `packages/db` | Drizzle schema, client factory, migrations (Factory Method + Repository). |
-| `packages/core` | Framework-agnostic domain code shared by `apps/api` and `apps/worker`; today the credentials cipher. |
+| `packages/core` | Framework-agnostic domain code shared by `apps/api` and `apps/worker`: credentials cipher, address and domain parsing, `loadProvider`, email status transitions. |
 | `packages/providers` | `EmailProvider` interface, `createProvider`, adapters (SES today), `ProviderError` — **framework-agnostic**. |
 | `packages/sdk` | Typed client generated from the OpenAPI spec (Facade). |
 
@@ -128,8 +128,10 @@ SES events arrive duplicated and out of order, so a transition table rejects ill
 
 - **The queue is Postgres.** Claim with `SELECT … WHERE status='queued' AND send_at<=now()
   ORDER BY send_at FOR UPDATE SKIP LOCKED LIMIT n`, so concurrent workers never take the same row.
-- **At-least-once + idempotency.** A crashed worker's rows are reclaimed via a lease, and duplicate
-  provider events are absorbed by `email_events.provider_event_id`, so a replay is not a second send.
+- **At most once when the outcome is unknown.** A provider timeout or a crashed worker's expired lease
+  fails the email instead of resending it; every send is tagged with `atlair_email_id` so provider
+  events can correct it later. Duplicate provider events are absorbed by
+  `email_events.provider_event_id`. See `docs/worker.md`.
 - **Bounded retries.** Transient failures back off and retry; exhaustion lands in a terminal `failed`.
 - **Transactional outbox** for customer webhooks: the delivery row is written in the same transaction
   as the status change, so a restart cannot lose a notification.

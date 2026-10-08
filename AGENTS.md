@@ -14,7 +14,8 @@ docker compose up -d --wait          # Postgres on :5432 (see apps/api/.env.exam
 export DATABASE_URL=postgres://atlair:atlair@localhost:5432/atlair_mail
 pnpm --filter @atlair-mail/db migrate
 pnpm --filter @atlair-mail/api dev   # node --watch, http://localhost:8080/health
-pnpm test                            # node --test, uses app.inject()
+pnpm --filter @atlair-mail/worker dev  # sends queued emails, see docs/worker.md
+pnpm test                            # node --test, one package at a time
 pnpm typecheck                       # tsc, no emit
 ```
 
