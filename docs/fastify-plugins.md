@@ -94,6 +94,7 @@ fastify.post(
 - **Type route plugins as `FastifyPluginAsyncTypebox`.** With a plain `FastifyPluginAsync`, `request.body` is `unknown`.
 - **Always declare a `response` schema.** Anything not in it is removed from the response, so database columns can't leak out by accident.
 - **Import from `typebox`** (v1), not `@sinclair/typebox` (v0.34, which the platform repo uses). The type provider expects v1.
+- **`Type.Record` does not validate keys.** It emits `patternProperties`, so non-matching keys pass as extra properties (and Fastify's `removeAdditional` would silently drop them). Add `propertyNames: { pattern }` when keys matter, as `/v1/emails` does for header names.
 
 ## `env-schema`
 
@@ -228,6 +229,23 @@ A sending domain is added with `POST /v1/domains` (`full_access`, a connected pr
 - Easy DKIM with 2048-bit keys: three CNAMEs, `<token>._domainkey.<domain>` → `<token>.<SigningHostedZone>`, with the zone taken from SES rather than hard-coded.
 - `SUCCESS` and verified-for-sending → `verified`; `FAILED` or not found in the connection's region → `failed`; `PENDING`, `TEMPORARY_FAILURE`, `NOT_STARTED` → `pending`.
 - SES checks DNS for 72 hours, then marks the domain failed. Fix the records, remove the domain, and add it again.
+
+## Emails
+
+`POST /v1/emails` queues an email and returns **202** `{ id, status: "queued", scheduledAt, createdAt }`; the worker sends it. `GET /v1/emails/:id` returns it with its status. Both accept `sending_access` keys and are scoped to the caller's organization.
+
+**Order of checks** (`src/services/emails.ts`):
+
+1. Schema: shapes, lengths, no control characters anywhere, header names via `propertyNames`, a 5MB route `bodyLimit`.
+2. Addresses: `parseMailbox` (`email-addresses`, RFC 5322) accepts exactly one dot-atom mailbox per entry and re-serializes it; groups, lists, quoted local parts, IP literals and non-public domains are rejected. At most 50 recipients across to, cc and bcc.
+3. Headers: routing, identity and MIME headers (`From`, `To`, `Cc`, `Bcc`, `Reply-To`, `Sender`, `Return-Path`, `Message-ID`, `Date`, `MIME-Version`, `Content-*`, `DKIM-Signature`, `Received`) cannot be set.
+4. `Idempotency-Key`: a repeat with the same normalized request returns the original email with `Idempotent-Replayed: true`; a different request gets `422 ATL_IDEMPOTENCY_KEY_REUSED` (IETF draft semantics). The fingerprint is SHA-256 over the request serialized with `safe-stable-stringify`. Keys are scoped to the organization and kept for the life of the email.
+5. The From domain must be `verified` in the caller's organization (`422 ATL_DOMAIN_NOT_VERIFIED`).
+6. No recipient may be in the organization's suppression list (`422 ATL_RECIPIENT_SUPPRESSED`).
+
+`scheduledAt` may be up to 30 days ahead; a past time means now. Request bodies are never logged.
+
+**Status** follows the transition table in `packages/core/src/email-status.ts`: `queued → sending → sent → delivered | bounced | complained | failed`, plus `sending → queued` for retries and `queued → canceled`. Final states never change.
 
 ## `@fastify/rate-limit`
 

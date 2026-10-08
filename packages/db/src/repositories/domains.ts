@@ -27,6 +27,15 @@ export async function findDomainInOrganization(db: Executor, key: DomainKey) {
   return domain ?? null;
 }
 
+export async function findDomainByName(db: Executor, organizationId: string, name: string) {
+  const [domain] = await db
+    .select()
+    .from(domains)
+    .where(and(eq(domains.organizationId, organizationId), eq(domains.name, name)))
+    .limit(1);
+  return domain ?? null;
+}
+
 export async function updateDomainVerification(
   db: Executor,
   key: DomainKey,

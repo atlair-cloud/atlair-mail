@@ -23,9 +23,11 @@
     "@fastify/type-provider-typebox": "^6.1.0",
     "@fastify/under-pressure": "^9.2.0",
     "@scalar/fastify-api-reference": "^1.73.0",
+    "email-addresses": "^5.0.0",
     "env-schema": "^8.0.0",
     "fastify": "^5.12.5",
     "fastify-plugin": "^6.0.0",
+    "safe-stable-stringify": "^2.5.0",
     "tldts": "^7.4.18",
     "typebox": "^1.0.13"
   },
