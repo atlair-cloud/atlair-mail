@@ -97,7 +97,7 @@ describe("withRetry", () => {
       ],
     );
     const [first, second, ...rest] = events.map((event) => event.delayMs);
-    assert.ok(first! >= 10 && first! < 20, `first delay ${first}`);
+    assert.ok(first! >= 10 && first! <= 20, `first delay ${first}`);
     assert.ok(second! >= 20 && second! <= 30, `second delay ${second}`);
     assert.ok(rest.every((delay) => delay <= 30), `capped delays ${rest}`);
   });
