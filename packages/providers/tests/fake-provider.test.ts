@@ -11,8 +11,8 @@ describe("fake provider", () => {
       },
     });
 
-    const first = await fake.send({ from: "a@example.com", to: ["b@example.org"], subject: "s", text: "t" });
-    const second = await fake.send({ from: "a@example.com", to: ["b@example.org"], subject: "s", text: "t" });
+    const first = await fake.send({ from: { address: "a@example.com" }, to: [{ address: "b@example.org" }], subject: "s", text: "t" });
+    const second = await fake.send({ from: { address: "a@example.com" }, to: [{ address: "b@example.org" }], subject: "s", text: "t" });
     await assert.rejects(fake.getDomain("example.com"), ProviderRejectedError);
 
     assert.notEqual(first.providerMessageId, second.providerMessageId);

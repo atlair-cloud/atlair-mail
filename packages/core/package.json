@@ -16,6 +16,9 @@
   },
   "dependencies": {
     "@atlair-mail/db": "workspace:*",
-    "@aws-crypto/client-node": "^5.0.2"
+    "@atlair-mail/providers": "workspace:*",
+    "@aws-crypto/client-node": "^5.0.2",
+    "email-addresses": "^5.0.0",
+    "tldts": "^7.4.18"
   }
 }

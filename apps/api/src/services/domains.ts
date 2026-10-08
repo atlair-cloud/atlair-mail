@@ -11,7 +11,7 @@ import {
   type Database,
 } from "@atlair-mail/db";
 import type { Domain } from "@atlair-mail/db/schema";
-import { normalizeDomainName } from "../lib/domain-names.ts";
+import { normalizeDomainName } from "@atlair-mail/core";
 import type { ProviderConnectionService } from "./provider-connections.ts";
 
 export const InvalidDomainNameError = createError(

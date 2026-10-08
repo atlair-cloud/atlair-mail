@@ -50,7 +50,7 @@ describe("createProvider", () => {
     ses.on(SendEmailCommand).rejects(serverError());
 
     await assert.rejects(
-      createProvider(config, { retry: false }).send({ from: "a@example.com", to: ["b@example.org"], subject: "s", text: "t" }),
+      createProvider(config, { retry: false }).send({ from: { address: "a@example.com" }, to: [{ address: "b@example.org" }], subject: "s", text: "t" }),
     );
     assert.equal(ses.commandCalls(SendEmailCommand).length, 1);
   });

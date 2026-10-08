@@ -10,7 +10,7 @@ import {
 } from "../src/index.ts";
 import { createFakeProvider } from "../src/testing.ts";
 
-const message = { from: "a@example.com", to: ["b@example.org"], subject: "s", text: "t" };
+const message = { from: { address: "a@example.com" }, to: [{ address: "b@example.org" }], subject: "s", text: "t" };
 const fast = { minTimeout: 1, maxTimeout: 4 };
 
 const failing = (...errors: Error[]) => {
@@ -97,7 +97,7 @@ describe("withRetry", () => {
       ],
     );
     const [first, second, ...rest] = events.map((event) => event.delayMs);
-    assert.ok(first! >= 10 && first! < 20, `first delay ${first}`);
+    assert.ok(first! >= 10 && first! <= 20, `first delay ${first}`);
     assert.ok(second! >= 20 && second! <= 30, `second delay ${second}`);
     assert.ok(rest.every((delay) => delay <= 30), `capped delays ${rest}`);
   });

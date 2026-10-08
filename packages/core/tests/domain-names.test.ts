@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeDomainName } from "../src/lib/domain-names.ts";
+import { normalizeDomainName } from "../src/index.ts";
 
 describe("normalizeDomainName", () => {
   it("normalizes case, whitespace, a trailing dot and unicode", () => {

@@ -1,0 +1,27 @@
+{
+  "name": "@atlair-mail/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env src/main.ts",
+    "start": "node src/main.ts",
+    "test": "node --test --test-concurrency=1 tests/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^7.0.2",
+    "uuid": "^14.0.2"
+  },
+  "dependencies": {
+    "@atlair-mail/core": "workspace:*",
+    "@atlair-mail/db": "workspace:*",
+    "@atlair-mail/providers": "workspace:*",
+    "close-with-grace": "^2.5.0",
+    "drizzle-orm": "^0.44.7",
+    "env-schema": "^8.0.0",
+    "pino": "^10.4.0",
+    "typebox": "^1.3.36"
+  }
+}

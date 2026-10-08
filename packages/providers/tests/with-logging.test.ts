@@ -4,11 +4,11 @@ import { ProviderRejectedError, withLogging, type ProviderLogger } from "../src/
 import { createFakeProvider } from "../src/testing.ts";
 
 const message = {
-  from: "Ada <ada@example.com>",
-  to: ["grace@example.org"],
-  cc: ["linus@example.org"],
-  bcc: ["audit@example.com"],
-  replyTo: ["support@example.com"],
+  from: { name: "Ada", address: "ada@example.com" },
+  to: [{ address: "grace@example.org" }],
+  cc: [{ address: "linus@example.org" }],
+  bcc: [{ address: "audit@example.com" }],
+  replyTo: [{ address: "support@example.com" }],
   subject: "Quarterly salary review",
   html: "<p>Confidential body</p>",
   text: "Confidential body",

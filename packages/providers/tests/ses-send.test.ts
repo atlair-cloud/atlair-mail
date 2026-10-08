@@ -11,6 +11,7 @@ import {
   SESv2Client,
 } from "@aws-sdk/client-sesv2";
 import { createProvider, ProviderError } from "../src/index.ts";
+import { formatAddress } from "../src/ses/ses-provider.ts";
 
 const provider = createProvider({
   type: "ses",
@@ -20,11 +21,11 @@ const provider = createProvider({
 const ses = mockClient(SESv2Client);
 
 const message = {
-  from: "Acme <hello@example.com>",
-  to: ["ada@example.org"],
-  cc: ["grace@example.org"],
-  bcc: ["audit@example.com"],
-  replyTo: ["support@example.com"],
+  from: { name: "Acme", address: "hello@example.com" },
+  to: [{ address: "ada@example.org" }],
+  cc: [{ name: "Grace Hopper", address: "grace@example.org" }],
+  bcc: [{ address: "audit@example.com" }],
+  replyTo: [{ address: "support@example.com" }],
   subject: "Welcome",
   html: "<p>Hi</p>",
   text: "Hi",
@@ -45,10 +46,10 @@ describe("SES send", () => {
 
     assert.deepEqual(result, { providerMessageId: "0100018f-abc" });
     assert.deepEqual(ses.commandCalls(SendEmailCommand)[0]!.args[0].input, {
-      FromEmailAddress: "Acme <hello@example.com>",
+      FromEmailAddress: '"Acme" <hello@example.com>',
       Destination: {
         ToAddresses: ["ada@example.org"],
-        CcAddresses: ["grace@example.org"],
+        CcAddresses: ['"Grace Hopper" <grace@example.org>'],
         BccAddresses: ["audit@example.com"],
       },
       ReplyToAddresses: ["support@example.com"],
@@ -66,7 +67,7 @@ describe("SES send", () => {
   it("omits the parts a message does not have", async () => {
     ses.on(SendEmailCommand).resolves({ MessageId: "id" });
 
-    await provider.send({ from: "hello@example.com", to: ["ada@example.org"], subject: "Hi", text: "Hi" });
+    await provider.send({ from: { address: "hello@example.com" }, to: [{ address: "ada@example.org" }], subject: "Hi", text: "Hi" });
     const input = ses.commandCalls(SendEmailCommand)[0]!.args[0].input;
 
     assert.equal(input.Content?.Simple?.Body?.Html, undefined);
@@ -113,5 +114,21 @@ describe("SES send", () => {
     await assert.rejects(provider.send(message), (error: unknown) => {
       return error instanceof ProviderError && error.code === "ATL_PROVIDER_TIMEOUT" && error.cause === undefined;
     });
+  });
+});
+
+describe("formatAddress", () => {
+  it("quotes ASCII names, encodes non-ASCII names, and leaves bare addresses alone", () => {
+    assert.equal(formatAddress({ address: "a@example.com" }), "a@example.com");
+    assert.equal(formatAddress({ name: 'Acme "Best", Inc', address: "a@example.com" }), '"Acme \\"Best\\", Inc" <a@example.com>');
+    assert.equal(formatAddress({ name: "Müller GmbH", address: "info@example.de" }), "=?UTF-8?Q?M=C3=BCller_GmbH?= <info@example.de>");
+    assert.ok(/^[\x20-\x7e]*$/.test(formatAddress({ name: "名前 テスト", address: "a@example.jp" })));
+    assert.ok(!formatAddress({ name: "x\r\nBcc: v@example.org ü", address: "a@example.com" }).includes("\n"));
+  });
+
+  it("refuses addresses that could break the header", () => {
+    for (const address of ["a@example.com\r\nBcc: v@example.org", "a b@example.com", "a@example.com>", '"a"@example.com']) {
+      assert.throws(() => formatAddress({ address }), ProviderError, JSON.stringify(address));
+    }
   });
 });

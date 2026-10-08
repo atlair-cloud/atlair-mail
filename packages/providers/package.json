@@ -13,12 +13,14 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
+    "@types/libmime": "^5.3.0",
     "@types/node": "^24.0.0",
     "aws-sdk-client-mock": "^4.1.0",
     "typescript": "^7.0.2"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1147.0",
+    "libmime": "^5.4.7",
     "p-retry": "^8.0.1"
   }
 }
