@@ -41,7 +41,7 @@ Deno, or Bun. See `docs/design-patterns.md` for the provider patterns.
 ## Organizations and access
 
 Everything hangs off an **organization**: the ownership and isolation boundary. It has no members;
-it only owns keys, domains, emails, and an SES connection.
+it only owns keys, domains, emails, and a provider connection.
 
 - **No end-user login.** atlair-mail is API-only; an API key is the only identity. Users, sessions,
   and roles belong to whatever sits on top (Atlair Cloud's dashboard). A dashboard, if one is ever
@@ -58,7 +58,7 @@ it only owns keys, domains, emails, and an SES connection.
 ```mermaid
 erDiagram
     ORGANIZATION ||--o{ API_KEY : has
-    ORGANIZATION ||--o| SES_CONNECTION : owns
+    ORGANIZATION ||--o| PROVIDER_CONNECTION : owns
     ORGANIZATION ||--o{ DOMAIN : verifies
     ORGANIZATION ||--o{ EMAIL : sends
     ORGANIZATION ||--o{ WEBHOOK_ENDPOINT : registers
@@ -71,8 +71,8 @@ erDiagram
 | --- | --- | --- |
 | `organizations` | Ownership and isolation root. | ATL-80 |
 | `api_keys` | A named key per caller: `permission` (`full_access` \| `sending_access`), `token_hash` (SHA-256; the token is shown once), `token_prefix`, `last_used_at`, `revoked_at`. | ATL-80 |
-| `ses_connections` | One per organization: region, access key id, encrypted secret, configuration set. | ATL-75 |
-| `domains` | Sending domains: DKIM tokens, SES signing zone, verification `status`. Unique per organization. | ATL-77, ATL-81 |
+| `provider_connections` | One per organization: `provider` type, non-secret `settings` (jsonb), encrypted `credentials`. | ATL-75, ATL-93 |
+| `domains` | Sending domains: provider-issued `dns_records` (jsonb) and verification `status`. Unique per organization. | ATL-77, ATL-81, ATL-93 |
 | `emails` | The queued **command** row and its lifecycle `status`; also the queue. | ATL-77 |
 | `email_events` | Append-only, idempotent log of provider events (`unique(provider_event_id)`). | ATL-77 |
 | `suppressed_addresses` | Lowercased addresses that hard-bounced, complained, or were added manually. | ATL-89 |
@@ -120,7 +120,7 @@ SES events arrive duplicated and out of order, so a transition table rejects ill
 | `apps/worker` | Queue drain + outbox delivery. |
 | `packages/db` | Drizzle schema, client factory, migrations (Factory Method + Repository). |
 | `packages/core` | Framework-agnostic domain code shared by `apps/api` and `apps/worker`; today the credentials cipher. |
-| `packages/providers` | `EmailProvider` interface, factory, decorators — **framework-agnostic**. |
+| `packages/providers` | `EmailProvider` interface, `createProvider`, adapters (SES today), `ProviderError` — **framework-agnostic**. |
 | `packages/sdk` | Typed client generated from the OpenAPI spec (Facade). |
 
 ## Concurrency and delivery guarantees

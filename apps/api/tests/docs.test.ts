@@ -14,6 +14,19 @@ describe("API docs", { skip: !hasDatabase }, () => {
     assert.ok(spec.paths["/v1/api-keys/current"]);
   });
 
+  it("keeps paths, tags and descriptions provider-neutral", async () => {
+    const app = await buildTestApp();
+
+    const spec = (await app.inject({ method: "GET", url: "/docs/openapi.json" })).json();
+    const operations = Object.values(spec.paths).flatMap((methods) => Object.values(methods as object));
+    const text = JSON.stringify([
+      Object.keys(spec.paths),
+      operations.map(({ summary, description, tags }) => [summary, description, tags]),
+    ]);
+
+    assert.doesNotMatch(text, /\bses\b|amazon|aws/i);
+  });
+
   it("serves the reference UI", async () => {
     const app = await buildTestApp();
 

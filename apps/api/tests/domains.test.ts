@@ -30,9 +30,9 @@ async function connectedOrganization(app: TestApp) {
   const owner = await createTestKey(app);
   await app.inject({
     method: "PUT",
-    url: "/v1/ses-connection",
+    url: "/v1/provider",
     headers: auth(owner.token),
-    payload: { region: "eu-west-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE", secretAccessKey: "secret" },
+    payload: { type: "ses", region: "eu-west-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE", secretAccessKey: "secret" },
   });
   return owner;
 }
@@ -82,7 +82,7 @@ describe("/v1/domains", { skip: !hasDatabase }, () => {
     assert.equal(ses.commandCalls(CreateEmailIdentityCommand)[0]!.args[0].input.EmailIdentity, body.name);
   });
 
-  it("adopts a domain that already exists in the SES account", async () => {
+  it("adopts a domain that already exists in the provider account", async () => {
     const app = await buildTestApp();
     const { token } = await connectedOrganization(app);
     ses.on(CreateEmailIdentityCommand).rejects(new AlreadyExistsException({ message: "x", $metadata: {} }));
@@ -142,14 +142,15 @@ describe("/v1/domains", { skip: !hasDatabase }, () => {
 });
 
 describe("/v1/domains rejections and isolation", { skip: !hasDatabase }, () => {
-  it("requires an SES connection first", async () => {
+  it("requires a connected provider first", async () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app);
 
     const res = await addDomain(app, token);
 
     assert.equal(res.statusCode, 409);
-    assert.match(res.json().message, /ses-connection/);
+    assert.equal(res.json().code, "ATL_PROVIDER_NOT_CONNECTED");
+    assert.match(res.json().message, /\/v1\/provider/);
     assert.equal(ses.commandCalls(CreateEmailIdentityCommand).length, 0);
   });
 

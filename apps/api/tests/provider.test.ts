@@ -6,58 +6,62 @@ import { GetAccountCommand, SESv2Client, SESv2ServiceException } from "@aws-sdk/
 import { schema } from "@atlair-mail/db";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
-const url = "/v1/ses-connection";
+const url = "/v1/provider";
 const secretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-const credentials = { region: "us-east-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE", secretAccessKey };
+const input = { type: "ses", region: "us-east-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE", secretAccessKey };
 
 const ses = mockClient(SESv2Client);
-
-const sandboxAccount = {
-  SendingEnabled: true,
-  ProductionAccessEnabled: false,
-  SendQuota: { Max24HourSend: 200, MaxSendRate: 1, SentLast24Hours: 0 },
-};
 
 const awsError = (name: string, fault: "client" | "server") =>
   new SESv2ServiceException({ name, $fault: fault, $metadata: {}, message: name });
 
+type TestApp = Awaited<ReturnType<typeof buildTestApp>>;
+
+const storedConnection = async (app: TestApp, organizationId: string) =>
+  (
+    await app.db
+      .select()
+      .from(schema.providerConnections)
+      .where(eq(schema.providerConnections.organizationId, organizationId))
+  )[0];
+
 beforeEach(() => {
   ses.reset();
-  ses.on(GetAccountCommand).resolves(sandboxAccount);
+  ses.on(GetAccountCommand).resolves({
+    SendingEnabled: true,
+    ProductionAccessEnabled: false,
+    SendQuota: { Max24HourSend: 200, MaxSendRate: 1, SentLast24Hours: 0 },
+  });
 });
 
-describe("/v1/ses-connection", { skip: !hasDatabase }, () => {
-  it("checks the credentials with SES and stores only ciphertext", async () => {
+describe("/v1/provider", { skip: !hasDatabase }, () => {
+  it("checks the credentials with the provider and stores only ciphertext", async () => {
     const app = await buildTestApp();
     const { token, organizationId } = await createTestKey(app);
 
-    const res = await app.inject({ method: "PUT", url, headers: auth(token), payload: credentials });
-    const [row] = await app.db
-      .select()
-      .from(schema.sesConnections)
-      .where(eq(schema.sesConnections.organizationId, organizationId));
+    const res = await app.inject({ method: "PUT", url, headers: auth(token), payload: input });
+    const row = await storedConnection(app, organizationId);
 
     assert.equal(res.statusCode, 200);
     assert.ok(!res.body.includes(secretAccessKey));
-    assert.deepEqual(res.json().account, {
-      sendingEnabled: true,
-      productionAccessEnabled: false,
-      max24HourSend: 200,
-      maxSendRate: 1,
-    });
-    assert.equal(ses.commandCalls(GetAccountCommand).length, 1);
+    assert.equal(res.json().type, "ses");
+    assert.deepEqual(res.json().account, { sendingEnabled: true, sandbox: true, dailyQuota: 200, maxSendRate: 1 });
     assert.ok(row);
-    assert.ok(!Object.values(row).some((value) => String(value).includes(secretAccessKey)));
+    assert.equal(row.provider, "ses");
+    assert.deepEqual(row.settings, { region: "us-east-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE" });
+    assert.ok(!JSON.stringify(row).includes(secretAccessKey));
     assert.equal(row.encryptionKeyVersion, app.credentialsCipher.currentKeyVersion);
-    assert.equal(await app.credentialsCipher.decrypt(row.secretAccessKeyEncrypted, organizationId), secretAccessKey);
+    assert.deepEqual(JSON.parse(await app.credentialsCipher.decrypt(row.credentialsEncrypted, organizationId)), {
+      secretAccessKey,
+    });
   });
 
-  it("returns the connection without the secret, then removes it", async () => {
+  it("returns the connection without the secret, then disconnects it", async () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app);
 
     const before = await app.inject({ method: "GET", url, headers: auth(token) });
-    await app.inject({ method: "PUT", url, headers: auth(token), payload: credentials });
+    await app.inject({ method: "PUT", url, headers: auth(token), payload: input });
     const got = await app.inject({ method: "GET", url, headers: auth(token) });
     const removed = await app.inject({ method: "DELETE", url, headers: auth(token) });
     const after = await app.inject({ method: "GET", url, headers: auth(token) });
@@ -65,14 +69,7 @@ describe("/v1/ses-connection", { skip: !hasDatabase }, () => {
 
     assert.equal(before.statusCode, 404);
     assert.equal(got.statusCode, 200);
-    assert.deepEqual(Object.keys(got.json()).sort(), [
-      "accessKeyId",
-      "configurationSet",
-      "createdAt",
-      "id",
-      "region",
-      "updatedAt",
-    ]);
+    assert.deepEqual(Object.keys(got.json()).sort(), ["accessKeyId", "createdAt", "id", "region", "type", "updatedAt"]);
     assert.ok(!got.body.includes(secretAccessKey));
     assert.equal(removed.statusCode, 204);
     assert.equal(after.statusCode, 404);
@@ -83,13 +80,13 @@ describe("/v1/ses-connection", { skip: !hasDatabase }, () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app);
 
-    const first = (await app.inject({ method: "PUT", url, headers: auth(token), payload: credentials })).json();
+    const first = (await app.inject({ method: "PUT", url, headers: auth(token), payload: input })).json();
     const second = (
       await app.inject({
         method: "PUT",
         url,
         headers: auth(token),
-        payload: { ...credentials, region: "eu-west-1", accessKeyId: "AKIAI44QH8DHBEXAMPLE" },
+        payload: { ...input, region: "eu-west-1", accessKeyId: "AKIAI44QH8DHBEXAMPLE" },
       })
     ).json();
 
@@ -98,12 +95,18 @@ describe("/v1/ses-connection", { skip: !hasDatabase }, () => {
     assert.equal(second.accessKeyId, "AKIAI44QH8DHBEXAMPLE");
   });
 
-  it("gives the send path the decrypted credentials", async () => {
+  it("builds a working provider from the stored connection", async () => {
     const app = await buildTestApp();
     const { token, organizationId } = await createTestKey(app);
-    await app.inject({ method: "PUT", url, headers: auth(token), payload: credentials });
+    await app.inject({ method: "PUT", url, headers: auth(token), payload: input });
+    ses.resetHistory();
 
-    assert.deepEqual(await app.services.sesConnections.loadCredentials(organizationId), credentials);
+    const provider = await app.services.providerConnections.requireProvider(organizationId);
+    await provider.verifyAccount();
+
+    assert.equal(provider.type, "ses");
+    assert.equal(ses.commandCalls(GetAccountCommand).length, 1);
+    assert.equal(await app.services.providerConnections.loadProvider("0199c1a0-0000-7000-8000-000000000009"), null);
   });
 
   it("never writes the secret to the logs", async () => {
@@ -111,39 +114,42 @@ describe("/v1/ses-connection", { skip: !hasDatabase }, () => {
     const app = await buildTestApp({ LOG_LEVEL: "trace" }, { logStream: { write: (line) => lines.push(line) } });
     const { token } = await createTestKey(app);
 
-    await app.inject({ method: "PUT", url, headers: auth(token), payload: credentials });
-    app.log.info({ body: credentials }, "body");
-    app.log.info({ request: { body: credentials } }, "nested body");
+    await app.inject({ method: "PUT", url, headers: auth(token), payload: input });
+    app.log.info({ body: input }, "body");
+    app.log.info({ request: { body: input } }, "nested body");
+    app.log.info({ config: { secrets: { secretAccessKey } } }, "config");
 
-    assert.ok(lines.length > 2);
+    assert.ok(lines.length > 3);
     assert.ok(lines.every((line) => !line.includes(secretAccessKey)));
     assert.ok(lines.every((line) => !line.includes(token)));
   });
 });
 
-describe("/v1/ses-connection failures and isolation", { skip: !hasDatabase }, () => {
-  it("rejects credentials SES refuses and stores nothing", async () => {
+describe("/v1/provider failures and isolation", { skip: !hasDatabase }, () => {
+  it("rejects credentials the provider refuses and stores nothing", async () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app);
     ses.on(GetAccountCommand).rejects(awsError("UnrecognizedClientException", "client"));
 
-    const res = await app.inject({ method: "PUT", url, headers: auth(token), payload: credentials });
+    const res = await app.inject({ method: "PUT", url, headers: auth(token), payload: input });
     const got = await app.inject({ method: "GET", url, headers: auth(token) });
 
     assert.equal(res.statusCode, 422);
+    assert.equal(res.json().code, "ATL_PROVIDER_REJECTED");
     assert.match(res.json().message, /UnrecognizedClientException/);
     assert.equal(got.statusCode, 404);
   });
 
-  it("returns 502 when SES cannot be reached", async () => {
+  it("returns 502 when the provider cannot be reached", async () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app);
+
     ses.on(GetAccountCommand).rejects(awsError("InternalFailure", "server"));
+    const unreachable = await app.inject({ method: "PUT", url, headers: auth(token), payload: input });
 
-    const res = await app.inject({ method: "PUT", url, headers: auth(token), payload: credentials });
-
-    assert.equal(res.statusCode, 502);
-    assert.ok(!res.body.includes(secretAccessKey));
+    assert.equal(unreachable.statusCode, 502);
+    assert.equal(unreachable.json().code, "ATL_PROVIDER_UNREACHABLE");
+    assert.ok(!unreachable.body.includes(secretAccessKey));
   });
 
   it("validates the request body", async () => {
@@ -151,9 +157,11 @@ describe("/v1/ses-connection failures and isolation", { skip: !hasDatabase }, ()
     const { token } = await createTestKey(app);
     const put = (payload: object) => app.inject({ method: "PUT", url, headers: auth(token), payload });
 
-    assert.equal((await put({ ...credentials, region: "US East" })).statusCode, 400);
-    assert.equal((await put({ ...credentials, accessKeyId: "not a key" })).statusCode, 400);
-    assert.equal((await put({ ...credentials, secretAccessKey: "" })).statusCode, 400);
+    assert.equal((await put({ ...input, type: "smtp" })).statusCode, 400);
+    assert.equal((await put({ region: "us-east-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE", secretAccessKey })).statusCode, 400);
+    assert.equal((await put({ ...input, region: "US East" })).statusCode, 400);
+    assert.equal((await put({ ...input, accessKeyId: "not a key" })).statusCode, 400);
+    assert.equal((await put({ ...input, secretAccessKey: "" })).statusCode, 400);
     assert.equal(ses.commandCalls(GetAccountCommand).length, 0);
   });
 
@@ -161,7 +169,7 @@ describe("/v1/ses-connection failures and isolation", { skip: !hasDatabase }, ()
     const app = await buildTestApp();
     const { token } = await createTestKey(app, { permission: "sending_access" });
 
-    assert.equal((await app.inject({ method: "PUT", url, headers: auth(token), payload: credentials })).statusCode, 403);
+    assert.equal((await app.inject({ method: "PUT", url, headers: auth(token), payload: input })).statusCode, 403);
     assert.equal((await app.inject({ method: "GET", url, headers: auth(token) })).statusCode, 403);
     assert.equal((await app.inject({ method: "DELETE", url, headers: auth(token) })).statusCode, 403);
   });
@@ -170,7 +178,7 @@ describe("/v1/ses-connection failures and isolation", { skip: !hasDatabase }, ()
     const app = await buildTestApp();
     const first = await createTestKey(app);
     const second = await createTestKey(app);
-    await app.inject({ method: "PUT", url, headers: auth(first.token), payload: credentials });
+    await app.inject({ method: "PUT", url, headers: auth(first.token), payload: input });
 
     const read = await app.inject({ method: "GET", url, headers: auth(second.token) });
     const remove = await app.inject({ method: "DELETE", url, headers: auth(second.token) });
@@ -178,20 +186,15 @@ describe("/v1/ses-connection failures and isolation", { skip: !hasDatabase }, ()
       method: "PUT",
       url,
       headers: auth(second.token),
-      payload: { ...credentials, accessKeyId: "AKIAI44QH8DHBEXAMPLE" },
+      payload: { ...input, accessKeyId: "AKIAI44QH8DHBEXAMPLE" },
     });
     const firstStill = (await app.inject({ method: "GET", url, headers: auth(first.token) })).json();
+    const firstRow = await storedConnection(app, first.organizationId);
 
     assert.equal(read.statusCode, 404);
     assert.equal(remove.statusCode, 404);
-    assert.equal(firstStill.accessKeyId, credentials.accessKeyId);
-    await assert.rejects(app.credentialsCipher.decrypt(
-      (await app.db
-        .select()
-        .from(schema.sesConnections)
-        .where(eq(schema.sesConnections.organizationId, first.organizationId)))[0]!.secretAccessKeyEncrypted,
-      second.organizationId,
-    ));
+    assert.equal(firstStill.accessKeyId, input.accessKeyId);
+    await assert.rejects(app.credentialsCipher.decrypt(firstRow!.credentialsEncrypted, second.organizationId));
   });
 
   it("refuses to start with a malformed encryption key", async () => {

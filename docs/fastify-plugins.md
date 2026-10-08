@@ -141,18 +141,25 @@ curl -X POST localhost:8080/v1/organizations \
 
 **Errors:** the 401 body is `{ "error": "<reason>" }`. That's bearer-auth's own shape, not Fastify's `{ statusCode, error, message }`.
 
-## SES connection and credential encryption
+## Email provider and credential encryption
 
-Each organization connects its own Amazon SES account with `PUT /v1/ses-connection` (`full_access` only). The secret access key is encrypted before it reaches Postgres and is never returned or logged.
+The public API never names a provider. Each organization connects one email provider with `PUT /v1/provider` (`full_access` only); the body is tagged by `type`, so a new provider adds a union member, not a route:
 
-**Saving checks the credentials first.** `src/lib/ses-account.ts` calls SES `GetAccount` with `@aws-sdk/client-sesv2`. Credentials SES refuses return `422` and nothing is stored; an unreachable SES returns `502`. The response includes `account.productionAccessEnabled`, which is `false` while the AWS account is in the SES sandbox.
+```json
+{ "type": "ses", "region": "us-east-1", "accessKeyId": "AKIA...", "secretAccessKey": "..." }
+```
+
+**Provider code** lives in `packages/providers` (no Fastify or Postgres). `createProvider(config)` returns an `EmailProvider` with `verifyAccount()`, `createDomain(name)` and `getDomain(name)`; `send` arrives with ATL-86/ATL-90. Adapters map their failures to `ProviderError` subclasses, which carry the HTTP status: `ATL_PROVIDER_REJECTED` (422), `ATL_PROVIDER_THROTTLED` (429), `ATL_PROVIDER_UNREACHABLE` (502). Only the provider's error *name* reaches the client; the original error stays in `cause`.
+
+**Saving checks the credentials first** with `verifyAccount()`. Nothing is stored if it fails. The response reports `account.sandbox`, `dailyQuota` and `maxSendRate`.
+
+**Storage** (`provider_connections`): `provider`, non-secret `settings` (jsonb, shown in responses) and `credentials_encrypted` (all secrets as one encrypted JSON blob). `fastify.services.providerConnections.requireProvider(organizationId)` is the only place that decrypts; it returns a ready `EmailProvider` or throws `ATL_PROVIDER_NOT_CONNECTED` (409).
 
 **Encryption** lives in `packages/core` (`createCredentialsCipher`) on the AWS Encryption SDK (`@aws-crypto/client-node`):
 
-- Envelope encryption: every secret gets its own data key, wrapped by a raw AES-256 key from `CREDENTIALS_ENCRYPTION_KEYS`.
+- Envelope encryption: every value gets its own data key, wrapped by a raw AES-256 key from `CREDENTIALS_ENCRYPTION_KEYS`.
 - The organization id is the encryption context, so a ciphertext copied into another organization's row does not decrypt.
 - The algorithm suite is key-committing and unsigned (`ALG_AES256_GCM_IV12_TAG16_HKDF_SHA512_COMMIT_KEY`).
-- `fastify.credentialsCipher` is the app's instance; `fastify.services.sesConnections.loadCredentials(organizationId)` is the only place that decrypts.
 
 **Generate a key** (the app refuses to start without a valid one):
 
@@ -160,11 +167,15 @@ Each organization connects its own Amazon SES account with `PUT /v1/ses-connecti
 echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 ```
 
-**Rotate:** prepend a new, higher-numbered key and keep the old one: `CREDENTIALS_ENCRYPTION_KEYS=2:<new>,1:<old>`. New writes use the highest version; existing rows still decrypt with theirs. `ses_connections.encryption_key_version` shows which rows still use an old key; once none do, the old key can be removed. Losing every key means organizations must reconnect SES.
+**Rotate:** prepend a new, higher-numbered key and keep the old one: `CREDENTIALS_ENCRYPTION_KEYS=2:<new>,1:<old>`. New writes use the highest version; existing rows still decrypt with theirs. `provider_connections.encryption_key_version` shows which rows still use an old key; once none do, the old key can be removed. Losing every key means organizations must reconnect their provider.
 
-**Logs:** pino `redact` removes `req.headers.authorization` and any `secretAccessKey` up to two levels deep.
+**Logs:** pino `redact` removes `req.headers.authorization`, any `secretAccessKey` and any `secrets` object, up to two levels deep.
 
-**Least-privilege IAM policy** for the access key an organization connects:
+**Add a provider:** add its settings and secrets types and a `case` in `createProvider` (`packages/providers`), add its value to `providerTypes`, add a union member to `ProviderInputSchema` and `toProviderConfig`, and run `pnpm --filter @atlair-mail/db generate` for the `provider` CHECK constraint.
+
+### Amazon SES (`type: "ses"`)
+
+`settings` = `{ region, accessKeyId }`, secrets = `{ secretAccessKey }`. `sandbox` is `true` until SES production access is granted. Least-privilege IAM policy for the connected key:
 
 ```json
 {
@@ -177,8 +188,7 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
         "ses:SendEmail",
         "ses:SendRawEmail",
         "ses:CreateEmailIdentity",
-        "ses:GetEmailIdentity",
-        "ses:DeleteEmailIdentity"
+        "ses:GetEmailIdentity"
       ],
       "Resource": "*"
     }
@@ -188,32 +198,21 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 
 ## Domains
 
-A sending domain is added with `POST /v1/domains` (`full_access`, SES connection required). The service lives in `src/services/domains.ts`; SES calls are in `src/lib/ses-identities.ts`, which keeps SES types out of the rest of the app.
+A sending domain is added with `POST /v1/domains` (`full_access`, a connected provider required). The service in `src/services/domains.ts` asks the organization's `EmailProvider` to register and check the domain, and stores the DNS records the provider returns in `domains.dns_records`.
 
 **Names** are normalized by `src/lib/domain-names.ts`: trimmed, lowercased, trailing dot removed, unicode converted to punycode. `tldts` rejects IPs, `localhost`, unknown suffixes, and bare public suffixes such as `co.uk`. Subdomains such as `mail.example.com` are allowed.
 
-**DNS records** come back in `records[]`:
+**DNS records** come back in `records[]`: the provider's records (`required: true`) plus a DMARC record the API always adds as a recommendation (`_dmarc.<registrable domain>` = `v=DMARC1; p=none;`, per the Gmail/Yahoo bulk-sender rules).
 
-| Record | Type | Name | Required |
-| --- | --- | --- | --- |
-| DKIM ×3 | CNAME | `<token>._domainkey.<domain>` → `<token>.<SES signing zone>` | Yes |
-| DMARC | TXT | `_dmarc.<registrable domain>` = `v=DMARC1; p=none;` | Recommended (Gmail/Yahoo bulk-sender rules) |
+**Status:** `GET` returns what is stored and never calls the provider. `POST /v1/domains/:id/verify` asks the provider and updates `status` to `pending`, `verified` or `failed`; a domain the provider no longer knows becomes `failed`. Only `verified` domains can send.
 
-The signing zone comes from SES (`dkim_signing_hosted_zone`), not a hard-coded host.
+**Existing registrations are adopted.** If the provider already has the domain, `POST` reads it instead of failing. `DELETE` removes the domain from atlair-mail only, so registrations the customer uses elsewhere are never deleted; it returns `409` while emails reference the domain.
 
-**Status:** `GET` returns what is stored and never calls AWS. `POST /v1/domains/:id/verify` asks SES and updates it:
+### Amazon SES specifics
 
-| SES | `status` |
-| --- | --- |
-| `SUCCESS` and verified for sending | `verified` |
-| `FAILED`, or the identity is not in the connection's region | `failed` |
-| `PENDING`, `TEMPORARY_FAILURE`, `NOT_STARTED` | `pending` |
-
-SES checks DNS for 72 hours, then marks the domain failed. Fix the DNS records, remove the domain, and add it again. Only `verified` domains can send.
-
-**Existing identities are adopted.** If the domain is already in the SES account, `POST` reads it instead of failing. `DELETE` removes the domain from atlair-mail only, so identities the customer uses elsewhere are never deleted; it returns `409` while emails reference the domain.
-
-**SES errors:** `422` when SES rejects the request, `429` when it throttles, `502` when it cannot be reached. Only the AWS error name is exposed.
+- Easy DKIM with 2048-bit keys: three CNAMEs, `<token>._domainkey.<domain>` → `<token>.<SigningHostedZone>`, with the zone taken from SES rather than hard-coded.
+- `SUCCESS` and verified-for-sending → `verified`; `FAILED` or not found in the connection's region → `failed`; `PENDING`, `TEMPORARY_FAILURE`, `NOT_STARTED` → `pending`.
+- SES checks DNS for 72 hours, then marks the domain failed. Fix the records, remove the domain, and add it again.
 
 ## `@fastify/rate-limit`
 

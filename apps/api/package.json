@@ -12,7 +12,7 @@
   "dependencies": {
     "@atlair-mail/core": "workspace:*",
     "@atlair-mail/db": "workspace:*",
-    "@aws-sdk/client-sesv2": "^3.1147.0",
+    "@atlair-mail/providers": "workspace:*",
     "@fastify/autoload": "^6.5.0",
     "@fastify/bearer-auth": "^10.1.3",
     "@fastify/error": "^4.2.0",
@@ -30,6 +30,7 @@
     "typebox": "^1.0.13"
   },
   "devDependencies": {
+    "@aws-sdk/client-sesv2": "^3.1147.0",
     "@types/node": "^24.0.0",
     "aws-sdk-client-mock": "^4.1.0",
     "drizzle-orm": "^0.44.7",
