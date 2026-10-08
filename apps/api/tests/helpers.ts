@@ -46,6 +46,8 @@ export async function buildMigratedTestApp(env: Partial<Env> = {}) {
 
 export function deleteOrganizationAfterTest(app: TestApp, organizationId: string) {
   cleanups.get(app)!.push(async () => {
+    await app.db.delete(schema.emails).where(eq(schema.emails.organizationId, organizationId));
+    await app.db.delete(schema.domains).where(eq(schema.domains.organizationId, organizationId));
     await app.db.delete(schema.sesConnections).where(eq(schema.sesConnections.organizationId, organizationId));
     await app.db.delete(schema.apiKeys).where(eq(schema.apiKeys.organizationId, organizationId));
     await app.db.delete(schema.organizations).where(eq(schema.organizations.id, organizationId));
