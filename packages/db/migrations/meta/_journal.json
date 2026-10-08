@@ -15,6 +15,13 @@
       "when": 1791393784620,
       "tag": "0001_email_pipeline",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791474111152,
+      "tag": "0002_ses_connection_optional_configuration_set",
+      "breakpoints": true
     }
   ]
 }

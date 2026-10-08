@@ -11,7 +11,7 @@ export const sesConnections = pgTable(
     accessKeyId: text("access_key_id").notNull(),
     secretAccessKeyEncrypted: text("secret_access_key_encrypted").notNull(),
     encryptionKeyVersion: encryptionKeyVersion(),
-    configurationSet: text("configuration_set").notNull(),
+    configurationSet: text("configuration_set"),
     ...timestamps,
   },
   (t) => [uniqueIndex("ses_connections_organization_id_unique").on(t.organizationId)],
