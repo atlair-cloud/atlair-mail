@@ -29,11 +29,12 @@ open http://localhost:8080/docs/        # API reference
 ```
 atlair-mail/
 ├── apps/
-│   ├── api/              Fastify HTTP API (emails, domains, API keys, SES webhooks)
+│   ├── api/              Fastify HTTP API (organizations, API keys, provider, domains)
 │   └── worker/           (planned) sends queued emails through a provider
 ├── packages/
-│   ├── db/               (planned) Drizzle schema and Postgres client
-│   ├── providers/        (planned) EmailProvider interface + SES / SMTP implementations
+│   ├── core/             credentials cipher (AWS Encryption SDK)
+│   ├── db/               Drizzle schema, migrations, repositories
+│   ├── providers/        EmailProvider interface, createProvider, SES adapter
 │   └── sdk/              (planned) npm client: mail.emails.send({...})
 ├── infra/terraform/      (planned) SES identities, configuration sets, SNS, IAM
 └── docs/                 design notes
