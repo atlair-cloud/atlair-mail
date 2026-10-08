@@ -48,12 +48,17 @@ export interface EmailTag {
   value: string;
 }
 
+export interface EmailAddress {
+  name?: string;
+  address: string;
+}
+
 export interface EmailMessage {
-  from: string;
-  to: string[];
-  cc?: string[];
-  bcc?: string[];
-  replyTo?: string[];
+  from: EmailAddress;
+  to: EmailAddress[];
+  cc?: EmailAddress[];
+  bcc?: EmailAddress[];
+  replyTo?: EmailAddress[];
   subject: string;
   html?: string;
   text?: string;

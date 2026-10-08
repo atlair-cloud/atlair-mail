@@ -10,7 +10,7 @@ import {
 } from "../src/index.ts";
 import { createFakeProvider } from "../src/testing.ts";
 
-const message = { from: "a@example.com", to: ["b@example.org"], subject: "s", text: "t" };
+const message = { from: { address: "a@example.com" }, to: [{ address: "b@example.org" }], subject: "s", text: "t" };
 const fast = { minTimeout: 1, maxTimeout: 4 };
 
 const failing = (...errors: Error[]) => {

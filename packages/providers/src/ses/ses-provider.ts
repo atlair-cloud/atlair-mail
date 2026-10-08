@@ -11,6 +11,7 @@ import {
   TooManyRequestsException,
   type DkimAttributes,
 } from "@aws-sdk/client-sesv2";
+import libmime from "libmime";
 import {
   ProviderError,
   ProviderRejectedError,
@@ -21,6 +22,7 @@ import {
 import type {
   DomainVerification,
   DomainVerificationStatus,
+  EmailAddress,
   EmailMessage,
   EmailProvider,
   SesSecrets,
@@ -57,14 +59,29 @@ export function toProviderError(error: unknown) {
   return new ProviderTimeoutError({ cause: error });
 }
 
+const printableAscii = /^[\x20-\x7e]*$/;
+
+const unsafeInAddress = /[\u0000-\u0020\u007f<>"]/;
+
+export function formatAddress({ name, address }: EmailAddress) {
+  if (unsafeInAddress.test(address)) throw new ProviderRejectedError("InvalidAddress");
+  if (!name) return address;
+  const displayName = printableAscii.test(name)
+    ? `"${name.replace(/[\\"]/g, "\\$&")}"`
+    : libmime.encodeWord(name, "Q");
+  return `${displayName} <${address}>`;
+}
+
+const formatAddresses = (addresses: EmailAddress[] | undefined) => addresses?.map(formatAddress);
+
 const toSendEmailInput = (message: EmailMessage) => ({
-  FromEmailAddress: message.from,
+  FromEmailAddress: formatAddress(message.from),
   Destination: {
-    ToAddresses: message.to,
-    CcAddresses: message.cc,
-    BccAddresses: message.bcc,
+    ToAddresses: formatAddresses(message.to),
+    CcAddresses: formatAddresses(message.cc),
+    BccAddresses: formatAddresses(message.bcc),
   },
-  ReplyToAddresses: message.replyTo,
+  ReplyToAddresses: formatAddresses(message.replyTo),
   Content: {
     Simple: {
       Subject: { Data: message.subject, Charset: "UTF-8" },
