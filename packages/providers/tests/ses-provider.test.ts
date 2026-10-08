@@ -19,7 +19,7 @@ const provider = createProvider({
   type: "ses",
   settings: { region: "eu-west-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE" },
   secrets: { secretAccessKey },
-});
+}, { retry: false });
 const dkim = { Tokens: ["t1", "t2", "t3"], SigningHostedZone: "dkim.example-zone.com", Status: "PENDING" as const };
 const ses = mockClient(SESv2Client);
 

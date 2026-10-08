@@ -16,7 +16,7 @@ const provider = createProvider({
   type: "ses",
   settings: { region: "eu-west-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE" },
   secrets: { secretAccessKey: "secret" },
-});
+}, { retry: false });
 const ses = mockClient(SESv2Client);
 
 const message = {

@@ -22,7 +22,11 @@ declare module "fastify" {
 
 export default fp(
   async function servicesPlugin(fastify) {
-    const providerConnections = createProviderConnectionService(fastify.db, fastify.credentialsCipher);
+    const providerConnections = createProviderConnectionService(
+      fastify.db,
+      fastify.credentialsCipher,
+      fastify.log.child({ component: "provider" }),
+    );
     fastify.decorate("services", {
       apiKeys: createApiKeyService(fastify.db),
       domains: createDomainService(fastify.db, providerConnections),
