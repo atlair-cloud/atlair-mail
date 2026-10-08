@@ -12,6 +12,7 @@ export const domains = pgTable(
     name: text("name").notNull(),
     status: text("status").$type<DomainStatus>().notNull().default("pending"),
     dkimTokens: text("dkim_tokens").array().notNull().default(sql`'{}'::text[]`),
+    dkimSigningHostedZone: text("dkim_signing_hosted_zone"),
     lastCheckedAt: timestamptz("last_checked_at"),
     verifiedAt: timestamptz("verified_at"),
     ...timestamps,

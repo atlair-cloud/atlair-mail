@@ -1,0 +1,1 @@
+ALTER TABLE "domains" ADD COLUMN "dkim_signing_hosted_zone" text;
