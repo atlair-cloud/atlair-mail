@@ -18,6 +18,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@aws-sdk/client-sesv2": "^3.1147.0"
+    "@aws-sdk/client-sesv2": "^3.1147.0",
+    "p-retry": "^8.0.1"
   }
 }
