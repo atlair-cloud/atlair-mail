@@ -16,6 +16,12 @@ const reservedHeaders = new Set([
   "to",
 ]);
 
+const fieldName = /^[!-9;-~]{1,100}$/;
+
+export function findInvalidHeaderNames(headers: Record<string, string>) {
+  return Object.keys(headers).filter((name) => !fieldName.test(name));
+}
+
 export function findReservedHeaders(headers: Record<string, string>) {
   return Object.keys(headers).filter((name) => {
     const lower = name.toLowerCase();

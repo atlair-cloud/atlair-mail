@@ -1,6 +1,7 @@
 import fp from "fastify-plugin";
 import { createApiKeyService, type ApiKeyService } from "../services/api-keys.ts";
 import { createDomainService, type DomainService } from "../services/domains.ts";
+import { createEmailService, type EmailService } from "../services/emails.ts";
 import { createOrganizationService, type OrganizationService } from "../services/organizations.ts";
 import {
   createProviderConnectionService,
@@ -10,6 +11,7 @@ import {
 export interface Services {
   apiKeys: ApiKeyService;
   domains: DomainService;
+  emails: EmailService;
   organizations: OrganizationService;
   providerConnections: ProviderConnectionService;
 }
@@ -30,6 +32,7 @@ export default fp(
     fastify.decorate("services", {
       apiKeys: createApiKeyService(fastify.db),
       domains: createDomainService(fastify.db, providerConnections),
+      emails: createEmailService(fastify.db),
       organizations: createOrganizationService(fastify.db),
       providerConnections,
     });

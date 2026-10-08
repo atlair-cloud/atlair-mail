@@ -75,3 +75,13 @@ describe("findReservedHeaders", () => {
     );
   });
 });
+
+describe("findInvalidHeaderNames", () => {
+  it("rejects names with control characters, spaces or colons", async () => {
+    const { findInvalidHeaderNames } = await import("../src/lib/email-headers.ts");
+    assert.deepEqual(
+      findInvalidHeaderNames({ "X-Ok": "1", "X-Bad\r\nBcc": "1", "X Bad": "1", "X:Bad": "1", "": "1" }),
+      ["X-Bad\r\nBcc", "X Bad", "X:Bad", ""],
+    );
+  });
+});

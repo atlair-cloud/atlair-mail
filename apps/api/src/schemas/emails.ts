@@ -1,8 +1,10 @@
 import { Type } from "typebox";
 import { emailStatuses } from "@atlair-mail/db";
 import { DateTime, Uuid } from "../lib/schemas.ts";
+import { maxRecipients } from "../services/emails.ts";
 
 const noControlCharacters = "^[^\\u0000-\\u001f\\u007f]*$";
+const headerName = "^[!-9;-~]{1,100}$";
 
 const Address = Type.String({
   minLength: 3,
@@ -13,7 +15,6 @@ const Address = Type.String({
 
 const AddressList = (maxItems: number) => Type.Array(Address, { maxItems });
 
-export const maxRecipients = 50;
 
 export const SendEmailSchema = Type.Object({
   from: Address,
@@ -26,9 +27,9 @@ export const SendEmailSchema = Type.Object({
   text: Type.Optional(Type.String({ minLength: 1, maxLength: 1_000_000 })),
   headers: Type.Optional(
     Type.Record(
-      Type.String({ pattern: "^[!-9;-~]{1,100}$" }),
+      Type.String({ pattern: headerName }),
       Type.String({ maxLength: 2_000, pattern: noControlCharacters }),
-      { maxProperties: 50 },
+      { maxProperties: 50, propertyNames: { pattern: headerName } },
     ),
   ),
   tags: Type.Optional(
