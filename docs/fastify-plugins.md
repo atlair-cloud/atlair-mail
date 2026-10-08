@@ -149,7 +149,22 @@ The public API never names a provider. Each organization connects one email prov
 { "type": "ses", "region": "us-east-1", "accessKeyId": "AKIA...", "secretAccessKey": "..." }
 ```
 
-**Provider code** lives in `packages/providers` (no Fastify or Postgres). `createProvider(config)` returns an `EmailProvider` with `verifyAccount()`, `createDomain(name)` and `getDomain(name)`; `send` arrives with ATL-86/ATL-90. Adapters map their failures to `ProviderError` subclasses, which carry the HTTP status: `ATL_PROVIDER_REJECTED` (422), `ATL_PROVIDER_THROTTLED` (429), `ATL_PROVIDER_UNREACHABLE` (502). Only the provider's error *name* reaches the client; the original error stays in `cause`.
+**Provider code** lives in `packages/providers` (no Fastify or Postgres). `createProvider(config, { logger, retry })` returns an `EmailProvider` with `verifyAccount()`, `createDomain(name)`, `getDomain(name)` and `send(message)`, wrapped as `withRetry(withLogging(adapter))`. Tests use `createFakeProvider()` from `@atlair-mail/providers/testing`.
+
+**Errors.** Adapters map every failure to a `ProviderError` subclass with an HTTP status and a `retryable` flag. Only the provider's error *name* reaches the client; the original error stays in `cause`.
+
+| Code | HTTP | Meaning | Retried in-process |
+| --- | --- | --- | --- |
+| `ATL_PROVIDER_REJECTED` | 422 | Permanent: bad input or credentials, sandbox, unverified sender, suspended account | No |
+| `ATL_PROVIDER_THROTTLED` | 429 | Rate or quota limit | Yes |
+| `ATL_PROVIDER_UNAVAILABLE` | 502 | The request did not land: 5xx, connection refused, DNS failure | Yes |
+| `ATL_PROVIDER_TIMEOUT` | 504 | No answer, so the outcome is unknown | Only for idempotent operations, **never for `send`** |
+
+**Why a `send` timeout is never retried:** sending is not idempotent and SES has no idempotency key. If the request timed out after SES accepted it, a retry would deliver the email twice. The worker decides what to do with an unknown outcome.
+
+**Retries** (`withRetry`, on `p-retry`): at most 3 attempts, exponential backoff from 200ms to 2s with jitter, 5s total. The SDK's own retries are off (`maxAttempts: 1`) so this is the only policy, and `throwOnRequestTimeout` makes the SDK's request timeout actually abort.
+
+**Logging** (`withLogging`): one line per attempt with `provider`, `operation`, `durationMs`, `outcome`, `errorCode`, `retryable`, `recipientCount` and `providerMessageId`. Addresses, subject, body, headers and error messages are never logged. The API passes `fastify.log.child({ component: "provider" })`.
 
 **Saving checks the credentials first** with `verifyAccount()`. Nothing is stored if it fails. The response reports `account.sandbox`, `dailyQuota` and `maxSendRate`.
 
