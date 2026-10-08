@@ -13,6 +13,13 @@ import { emails } from "../src/schema/index.ts";
 import { databaseUrl, newEmail, useTestDb } from "./helpers.ts";
 
 const domainName = () => `${uuidv7()}.example.com`;
+const record = {
+  record: "DKIM" as const,
+  type: "CNAME" as const,
+  name: "a._domainkey.example.com",
+  value: "a.dkim.example-zone.com",
+  required: true,
+};
 
 describe("domain repositories", { skip: !databaseUrl }, () => {
   const t = useTestDb();
@@ -56,19 +63,18 @@ describe("domain repositories", { skip: !databaseUrl }, () => {
 
     const pending = await updateDomainVerification(t.db, key, {
       status: "pending",
-      dkimTokens: ["a", "b", "c"],
-      dkimSigningHostedZone: "dkim.amazonses.com",
+      dnsRecords: [record],
     });
     const verified = await updateDomainVerification(t.db, key, { status: "verified" });
     const again = await updateDomainVerification(t.db, key, { status: "verified" });
     const failed = await updateDomainVerification(t.db, key, { status: "failed" });
 
     assert.ok(pending?.lastCheckedAt);
-    assert.deepEqual(pending.dkimTokens, ["a", "b", "c"]);
+    assert.deepEqual(pending.dnsRecords, [record]);
     assert.equal(pending.verifiedAt, null);
     assert.ok(verified?.verifiedAt);
     assert.equal(again?.verifiedAt?.getTime(), verified.verifiedAt.getTime());
-    assert.deepEqual(again.dkimTokens, ["a", "b", "c"]);
+    assert.deepEqual(again.dnsRecords, [record]);
     assert.equal(failed?.verifiedAt, null);
   });
 

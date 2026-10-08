@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { check, index, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { check, index, jsonb, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import type { DnsRecord } from "@atlair-mail/providers/types";
 import { domainStatuses, type DomainStatus } from "../types.ts";
 import { id, isOneOf, timestamps, timestamptz } from "./_columns.ts";
 import { organizationId } from "./organizations.ts";
@@ -11,8 +12,7 @@ export const domains = pgTable(
     organizationId: organizationId(),
     name: text("name").notNull(),
     status: text("status").$type<DomainStatus>().notNull().default("pending"),
-    dkimTokens: text("dkim_tokens").array().notNull().default(sql`'{}'::text[]`),
-    dkimSigningHostedZone: text("dkim_signing_hosted_zone"),
+    dnsRecords: jsonb("dns_records").$type<DnsRecord[]>().notNull().default([]),
     lastCheckedAt: timestamptz("last_checked_at"),
     verifiedAt: timestamptz("verified_at"),
     ...timestamps,
@@ -24,6 +24,7 @@ export const domains = pgTable(
       .where(sql`${t.status} = 'pending'`),
     check("domains_name_check", sql`${t.name} = lower(${t.name})`),
     check("domains_status_check", isOneOf(t.status, domainStatuses)),
+    check("domains_dns_records_check", sql`jsonb_typeof(${t.dnsRecords}) = 'array'`),
   ],
 );
 

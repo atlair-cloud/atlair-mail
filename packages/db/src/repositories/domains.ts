@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { Executor } from "../client.ts";
 import { domains, type NewDomain } from "../schema/index.ts";
+import type { DnsRecord } from "@atlair-mail/providers/types";
 import type { DomainStatus } from "../types.ts";
 
 type DomainKey = { id: string; organizationId: string };
@@ -29,7 +30,7 @@ export async function findDomainInOrganization(db: Executor, key: DomainKey) {
 export async function updateDomainVerification(
   db: Executor,
   key: DomainKey,
-  values: { status: DomainStatus; dkimTokens?: string[]; dkimSigningHostedZone?: string },
+  values: { status: DomainStatus; dnsRecords?: DnsRecord[] },
 ) {
   const [domain] = await db
     .update(domains)

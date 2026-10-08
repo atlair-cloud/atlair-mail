@@ -4,11 +4,11 @@ import { v7 as uuidv7 } from "uuid";
 import {
   emailEvents,
   emails,
-  sesConnections,
+  providerConnections,
   suppressedAddresses,
   webhookDeliveries,
   webhookEndpoints,
-  type NewSesConnection,
+  type NewProviderConnection,
 } from "../src/schema/index.ts";
 import type { WebhookPayload } from "../src/types.ts";
 import {
@@ -20,24 +20,23 @@ import {
   useTestDb,
 } from "./helpers.ts";
 
-const connection = (organizationId: string): NewSesConnection => ({
+const connection = (organizationId: string): NewProviderConnection => ({
   organizationId,
-  region: "us-east-1",
-  accessKeyId: "AKIAEXAMPLE",
-  secretAccessKeyEncrypted: "ciphertext",
+  provider: "ses",
+  settings: { region: "us-east-1", accessKeyId: "AKIAEXAMPLE" },
+  credentialsEncrypted: "ciphertext",
   encryptionKeyVersion: 1,
-  configurationSet: "atlair-mail",
 });
 
-describe("ses_connections, suppressed_addresses, and webhooks", { skip: !databaseUrl }, () => {
+describe("provider_connections, suppressed_addresses, and webhooks", { skip: !databaseUrl }, () => {
   const t = useTestDb();
 
-  test("an organization has at most one SES connection", async () => {
+  test("an organization has at most one provider connection", async () => {
     const organization = await t.newOrganization();
-    await t.db.insert(sesConnections).values(connection(organization.id));
+    await t.db.insert(providerConnections).values(connection(organization.id));
 
     await assert.rejects(
-      t.db.insert(sesConnections).values(connection(organization.id)),
+      t.db.insert(providerConnections).values(connection(organization.id)),
       pgError(UNIQUE_VIOLATION),
     );
   });
