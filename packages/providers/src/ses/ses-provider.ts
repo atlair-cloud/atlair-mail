@@ -3,16 +3,25 @@ import {
   CreateEmailIdentityCommand,
   GetAccountCommand,
   GetEmailIdentityCommand,
+  LimitExceededException,
   NotFoundException,
+  SendEmailCommand,
   SESv2Client,
   SESv2ServiceException,
   TooManyRequestsException,
   type DkimAttributes,
 } from "@aws-sdk/client-sesv2";
-import { ProviderRejectedError, ProviderThrottledError, ProviderUnreachableError } from "../errors.ts";
+import {
+  ProviderError,
+  ProviderRejectedError,
+  ProviderThrottledError,
+  ProviderTimeoutError,
+  ProviderUnavailableError,
+} from "../errors.ts";
 import type {
   DomainVerification,
   DomainVerificationStatus,
+  EmailMessage,
   EmailProvider,
   SesSecrets,
   SesSettings,
@@ -29,13 +38,45 @@ export function toDomainStatus(
   return "pending";
 }
 
-function toProviderError(error: unknown) {
-  if (error instanceof TooManyRequestsException) return new ProviderThrottledError({ cause: error });
-  if (error instanceof SESv2ServiceException && error.$fault === "client") {
-    return new ProviderRejectedError(error.name, { cause: error });
+const connectionFailureCodes = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH"]);
+
+export function toProviderError(error: unknown) {
+  if (error instanceof ProviderError) return error;
+  if (error instanceof TooManyRequestsException || error instanceof LimitExceededException) {
+    return new ProviderThrottledError({ cause: error });
   }
-  return new ProviderUnreachableError({ cause: error });
+  if (error instanceof SESv2ServiceException) {
+    return error.$fault === "client"
+      ? new ProviderRejectedError(error.name, { cause: error })
+      : new ProviderUnavailableError({ cause: error });
+  }
+  const code = (error as { code?: unknown } | null)?.code;
+  if (typeof code === "string" && connectionFailureCodes.has(code)) {
+    return new ProviderUnavailableError({ cause: error });
+  }
+  return new ProviderTimeoutError({ cause: error });
 }
+
+const toSendEmailInput = (message: EmailMessage) => ({
+  FromEmailAddress: message.from,
+  Destination: {
+    ToAddresses: message.to,
+    CcAddresses: message.cc,
+    BccAddresses: message.bcc,
+  },
+  ReplyToAddresses: message.replyTo,
+  Content: {
+    Simple: {
+      Subject: { Data: message.subject, Charset: "UTF-8" },
+      Body: {
+        Html: message.html === undefined ? undefined : { Data: message.html, Charset: "UTF-8" },
+        Text: message.text === undefined ? undefined : { Data: message.text, Charset: "UTF-8" },
+      },
+      Headers: message.headers && Object.entries(message.headers).map(([Name, Value]) => ({ Name, Value })),
+    },
+  },
+  EmailTags: message.tags?.map(({ name, value }) => ({ Name: name, Value: value })),
+});
 
 const toDomainVerification = (
   domain: string,
@@ -61,8 +102,8 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
     const client = new SESv2Client({
       region: settings.region,
       credentials: { accessKeyId: settings.accessKeyId, secretAccessKey: secrets.secretAccessKey },
-      maxAttempts: 2,
-      requestHandler: { connectionTimeout: 3_000, requestTimeout: 5_000 },
+      maxAttempts: 1,
+      requestHandler: { connectionTimeout: 3_000, requestTimeout: 10_000, throwOnRequestTimeout: true },
     });
     try {
       return await run(client);
@@ -116,6 +157,13 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
           if (error instanceof AlreadyExistsException) return readDomain(client, name);
           throw error;
         }
+      }),
+
+    send: (message) =>
+      call(async (client) => {
+        const sent = await client.send(new SendEmailCommand(toSendEmailInput(message)));
+        if (!sent.MessageId) throw new ProviderTimeoutError();
+        return { providerMessageId: sent.MessageId };
       }),
 
     getDomain: (name) =>

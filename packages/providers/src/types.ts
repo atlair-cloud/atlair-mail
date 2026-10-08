@@ -43,9 +43,34 @@ export interface ProviderAccount {
   maxSendRate: number;
 }
 
+export interface EmailTag {
+  name: string;
+  value: string;
+}
+
+export interface EmailMessage {
+  from: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  replyTo?: string[];
+  subject: string;
+  html?: string;
+  text?: string;
+  headers?: Record<string, string>;
+  tags?: EmailTag[];
+}
+
+export interface SendResult {
+  providerMessageId: string;
+}
+
 export interface EmailProvider {
   readonly type: ProviderType;
   verifyAccount(): Promise<ProviderAccount>;
   createDomain(name: string): Promise<DomainVerification>;
   getDomain(name: string): Promise<DomainVerification | null>;
+  send(message: EmailMessage): Promise<SendResult>;
 }
+
+export type ProviderOperation = Exclude<keyof EmailProvider, "type">;
