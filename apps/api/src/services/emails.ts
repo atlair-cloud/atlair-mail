@@ -10,7 +10,7 @@ import {
   type Database,
 } from "@atlair-mail/db";
 import type { Email } from "@atlair-mail/db/schema";
-import { formatMailbox, parseMailbox, type Mailbox } from "../lib/email-addresses.ts";
+import { formatMailbox, parseMailbox, type Mailbox } from "@atlair-mail/core";
 import { findInvalidHeaderNames, findReservedHeaders } from "../lib/email-headers.ts";
 
 export const InvalidAddressError = createError(

@@ -56,9 +56,6 @@ importers:
       '@scalar/fastify-api-reference':
         specifier: ^1.73.0
         version: 1.73.0
-      email-addresses:
-        specifier: ^5.0.0
-        version: 5.0.0
       env-schema:
         specifier: ^8.0.0
         version: 8.0.0
@@ -102,9 +99,18 @@ importers:
       '@atlair-mail/db':
         specifier: workspace:*
         version: link:../db
+      '@atlair-mail/providers':
+        specifier: workspace:*
+        version: link:../providers
       '@aws-crypto/client-node':
         specifier: ^5.0.2
         version: 5.0.2
+      email-addresses:
+        specifier: ^5.0.0
+        version: 5.0.0
+      tldts:
+        specifier: ^7.4.18
+        version: 7.4.18
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
