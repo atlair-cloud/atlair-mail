@@ -15,6 +15,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@atlair-mail/db": "workspace:*",
     "@aws-crypto/client-node": "^5.0.2"
   }
 }

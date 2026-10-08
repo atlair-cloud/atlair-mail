@@ -93,6 +93,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@atlair-mail/db':
+        specifier: workspace:*
+        version: link:../db
       '@aws-crypto/client-node':
         specifier: ^5.0.2
         version: 5.0.2
