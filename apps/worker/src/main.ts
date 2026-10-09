@@ -4,6 +4,7 @@ import { createCredentialsCipher, loadProvider } from "@atlair-mail/core";
 import { createDb } from "@atlair-mail/db";
 import { loadEnv } from "./env.ts";
 import { shutdownGraceMs } from "./settings.ts";
+import { createWebhookDispatcher } from "./webhook-dispatcher.ts";
 import { createWorker } from "./worker.ts";
 
 const env = loadEnv();
@@ -19,11 +20,14 @@ const worker = createWorker({
   loadProvider: (organizationId) => loadProvider(db, cipher, organizationId, { logger: providerLogger }),
 });
 
+const webhooks = createWebhookDispatcher({ db, cipher, logger: logger.child({ component: "webhooks" }) });
+
 closeWithGrace({ delay: shutdownGraceMs, logger }, async ({ signal, err }) => {
   if (err) logger.error({ err }, "worker crashed");
   logger.info({ signal }, "shutting down");
-  await worker.stop();
+  await Promise.all([worker.stop(), webhooks.stop()]);
   await close();
 });
 
 worker.start();
+webhooks.start();

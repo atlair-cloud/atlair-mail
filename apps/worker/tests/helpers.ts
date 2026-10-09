@@ -20,6 +20,7 @@ export function useWorkerTestDb() {
   after(async () => {
     if (organizationIds.length > 0) {
       const ids = organizationIds;
+      await conn.db.delete(schema.webhookEndpoints).where(inArray(schema.webhookEndpoints.organizationId, ids));
       await conn.db.delete(schema.suppressedAddresses).where(inArray(schema.suppressedAddresses.organizationId, ids));
       await conn.db.delete(schema.emails).where(inArray(schema.emails.organizationId, ids));
       await conn.db.delete(schema.domains).where(inArray(schema.domains.organizationId, ids));

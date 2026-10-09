@@ -28,3 +28,9 @@ export const isOneOf = (column: AnyPgColumn, values: readonly string[]) =>
     values.map((value) => sql.raw(`'${value}'`)),
     sql`, `,
   )})`;
+
+export const isSubsetOf = (column: AnyPgColumn, values: readonly string[]) =>
+  sql`${column} <@ array[${sql.join(
+    values.map((value) => sql.raw(`'${value}'`)),
+    sql`, `,
+  )}]::text[]`;

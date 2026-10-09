@@ -34,6 +34,7 @@ export const webhookDeliveries = pgTable(
       t.emailEventId,
     ),
     index("webhook_deliveries_email_event_id_idx").on(t.emailEventId),
+    index("webhook_deliveries_webhook_endpoint_id_id_idx").on(t.webhookEndpointId, t.id),
     index("webhook_deliveries_next_attempt_at_pending_idx")
       .on(t.nextAttemptAt)
       .where(sql`${t.status} = 'pending'`),

@@ -1,5 +1,6 @@
 import {
   advanceEmailStatus,
+  enqueueWebhookDeliveries,
   findEmailInOrganization,
   insertEmailEvent,
   listEmailEvents,
@@ -19,6 +20,7 @@ export interface RecordedEmailEvent {
   outcome: EmailEventOutcome;
   emailId: string | null;
   suppressed?: number;
+  webhooks?: number;
 }
 
 type EmailEventRow = Awaited<ReturnType<typeof listEmailEvents>>[number];
@@ -57,6 +59,22 @@ export function createEmailEventService(db: Database) {
           suppressionsFromEvent({ type: event.type, details }),
           email.id,
         );
+        const webhooks = await enqueueWebhookDeliveries(tx, {
+          organizationId,
+          emailEventId: stored.id,
+          eventType: event.type,
+          payload: {
+            type: `email.${event.type}`,
+            createdAt: event.occurredAt.toISOString(),
+            data: {
+              emailId: email.id,
+              from: email.fromAddress,
+              to: email.toAddresses,
+              subject: email.subject,
+              ...details,
+            },
+          },
+        });
         const status = statusFromEvents(await listOutcomeEvents(tx, email.id));
         const advanced =
           status &&
@@ -68,7 +86,12 @@ export function createEmailEventService(db: Database) {
             occurredAt: event.occurredAt,
             lastError: status === "failed" ? rejectedByProvider : null,
           }));
-        return { outcome: advanced ? "applied" : "recorded", emailId: email.id, suppressed: suppressed.length };
+        return {
+          outcome: advanced ? "applied" : "recorded",
+          emailId: email.id,
+          suppressed: suppressed.length,
+          webhooks: webhooks.length,
+        };
       });
     },
 

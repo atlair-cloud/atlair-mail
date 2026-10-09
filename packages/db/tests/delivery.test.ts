@@ -107,9 +107,15 @@ describe("provider_connections, suppressed_addresses, and webhooks", { skip: !da
     assert.ok(event && endpoint);
 
     const payload: WebhookPayload = {
-      type: "delivered",
+      type: "email.delivered",
       createdAt: new Date().toISOString(),
-      data: { emailId: email.id, to: email.toAddresses, subject: email.subject },
+      data: {
+        emailId: email.id,
+        from: email.fromAddress,
+        to: email.toAddresses,
+        subject: email.subject,
+        recipients: [{ address: "user@example.org" }],
+      },
     };
     const delivery = { webhookEndpointId: endpoint.id, emailEventId: event.id, payload };
 

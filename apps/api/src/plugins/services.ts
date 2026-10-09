@@ -6,6 +6,7 @@ import { createEmailService, type EmailService } from "../services/emails.ts";
 import { createOrganizationService, type OrganizationService } from "../services/organizations.ts";
 import { createProviderEventService, type ProviderEventService } from "../services/provider-events.ts";
 import { createSuppressionService, type SuppressionService } from "../services/suppressions.ts";
+import { createWebhookService, type WebhookService } from "../services/webhooks.ts";
 import {
   createProviderConnectionService,
   type ProviderConnectionService,
@@ -20,6 +21,7 @@ export interface Services {
   providerConnections: ProviderConnectionService;
   providerEvents: ProviderEventService;
   suppressions: SuppressionService;
+  webhooks: WebhookService;
 }
 
 declare module "fastify" {
@@ -50,6 +52,7 @@ export default fp(
         fastify.log.child({ component: "provider-events" }),
       ),
       suppressions: createSuppressionService(fastify.db),
+      webhooks: createWebhookService(fastify.db, fastify.credentialsCipher),
     });
   },
   { name: "services", dependencies: ["db", "credentials-cipher"] },

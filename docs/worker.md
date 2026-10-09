@@ -1,7 +1,9 @@
 # Worker
 
-`apps/worker` sends queued emails. It is plain Node (no HTTP server) and shares `packages/db`,
-`packages/core` and `packages/providers` with the API.
+`apps/worker` sends queued emails and delivers customer webhooks. It is plain Node (no HTTP server)
+and shares `packages/db`, `packages/core` and `packages/providers` with the API. Both run on the same
+poll loop (`src/poll-loop.ts`): claim up to the free concurrency, process outside any transaction,
+sleep when idle.
 
 ```bash
 cp apps/worker/.env.example apps/worker/.env   # same DATABASE_URL and CREDENTIALS_ENCRYPTION_KEYS as the API
@@ -18,7 +20,8 @@ pnpm --filter @atlair-mail/worker dev
 | `WORKER_CONCURRENCY` | `10` | Emails sent at the same time by one process (1–100) |
 
 Everything else is a constant in `src/settings.ts`: poll every 1s, 120s lease, sweep every 30s,
-6 attempts, backoff 30s → 2m → 10m → 30m → 1h with ±20% jitter, 25s shutdown grace.
+6 attempts, backoff 30s → 2m → 10m → 30m → 1h with ±20% jitter, 25s shutdown grace. Webhooks: 10
+in flight, 60s lease, 15s request timeout, 8 attempts (see [webhooks.md](webhooks.md)).
 
 ## Lifecycle of one email
 
@@ -50,10 +53,26 @@ before the worker wrote `sent`, the worker's guarded update changes nothing.
 Cases that are known not to have reached the provider (pre-send failures, throttling, 5xx,
 connection refused) are retried or failed explicitly.
 
+## Webhook deliveries
+
+```
+claim: UPDATE webhook_deliveries SET next_attempt_at=now()+60s, attempt_count+1
+       WHERE id IN (SELECT id … status='pending' AND next_attempt_at<=now() FOR UPDATE SKIP LOCKED)
+  └─ endpoint disabled            → failed (ATL_WEBHOOK_ENDPOINT_DISABLED)
+  └─ sign (webhook-id = delivery id, fresh timestamp) and POST through request-filtering-agent
+       2xx                        → delivered
+       anything else, attempt < 8 → pending, next_attempt_at = now + 5s/5m/30m/2h/5h/10h/10h
+       attempt 8                  → failed
+```
+
+Results are saved `WHERE status='pending' AND attempt_count = <claimed attempt>`. A worker that dies
+mid-request leaves the row to come due again when its lease ends, so a receiver may see the same
+`webhook-id` twice.
+
 ## Shutdown and scaling
 
-`close-with-grace` handles SIGTERM/SIGINT: stop claiming, wait for in-flight sends (up to 25s, below
-the 120s lease), close the database. Run more processes to scale; `SKIP LOCKED` keeps them from
+`close-with-grace` handles SIGTERM/SIGINT: stop claiming, wait for in-flight sends and webhook
+requests (up to 25s, below both leases), close the database. Run more processes to scale; `SKIP LOCKED` keeps them from
 taking the same email. A Postgres queue is comfortable well below about 100 concurrent senders;
 beyond that, consider LISTEN/NOTIFY wake-ups, partitioning or a broker.
 

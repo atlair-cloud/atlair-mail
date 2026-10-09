@@ -77,7 +77,7 @@ erDiagram
 | `emails` | The queued **command** row and its lifecycle `status`; also the queue. | ATL-77 |
 | `email_events` | Append-only, idempotent log of provider events (`unique(provider_event_id)`). | ATL-77 |
 | `suppressed_addresses` | Lowercased addresses that hard-bounced, complained, or were added manually. | ATL-89 |
-| `webhook_endpoints`, `webhook_deliveries` | Customer webhooks and their transactional outbox. | ATL-87 |
+| `webhook_endpoints`, `webhook_deliveries` | Customer webhook endpoints (encrypted signing secret) and their transactional outbox, one row per endpoint and provider event. | ATL-87 |
 
 Key indexes: `emails(send_at) WHERE status='queued'` (partial, drives the claim);
 `unique(organization_id, idempotency_key)`; `unique(email_events.provider_event_id)`.
@@ -134,7 +134,9 @@ SES events arrive duplicated and out of order, so a transition table rejects ill
   `email_events.provider_event_id`. See `docs/worker.md`.
 - **Bounded retries.** Transient failures back off and retry; exhaustion lands in a terminal `failed`.
 - **Transactional outbox** for customer webhooks: the delivery row is written in the same transaction
-  as the status change, so a restart cannot lose a notification.
+  as the provider event, so a restart cannot lose a notification. The worker claims due deliveries
+  with `SKIP LOCKED`, signs them (Standard Webhooks) and retries 8 times over about a day. See
+  `docs/webhooks.md`.
 
 A Redis-backed queue can slot in behind the same interface later; Postgres stays the default because
 it keeps self-hosting to `docker compose up`.
