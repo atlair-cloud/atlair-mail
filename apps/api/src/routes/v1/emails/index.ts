@@ -1,7 +1,14 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { Uuid } from "../../../lib/schemas.ts";
-import { EmailSchema, QueuedEmailSchema, SendEmailHeadersSchema, SendEmailSchema } from "../../../schemas/emails.ts";
+import {
+  EmailEventSchema,
+  EmailSchema,
+  QueuedEmailSchema,
+  SendEmailHeadersSchema,
+  SendEmailSchema,
+} from "../../../schemas/emails.ts";
+import { toPublicEmailEvent } from "../../../services/email-events.ts";
 import { toPublicEmail, toQueuedEmail } from "../../../services/emails.ts";
 
 const tags = ["Emails"];
@@ -48,6 +55,26 @@ const emailRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       const email = await fastify.services.emails.get(request.apiKey!.organizationId, request.params.id);
       if (!email) throw fastify.httpErrors.notFound("Email not found");
       return toPublicEmail(email);
+    },
+  );
+
+  fastify.get(
+    "/:id/events",
+    {
+      config: { permission: "sending_access" },
+      schema: {
+        summary: "List an email's events",
+        description:
+          "Delivery events reported by the provider, oldest first, with per-recipient detail. Status changes only move forward, so a late or repeated event never undoes a newer one.",
+        tags,
+        params: Type.Object({ id: Uuid() }),
+        response: { 200: Type.Object({ data: Type.Array(EmailEventSchema) }) },
+      },
+    },
+    async (request) => {
+      const events = await fastify.services.emailEvents.list(request.apiKey!.organizationId, request.params.id);
+      if (!events) throw fastify.httpErrors.notFound("Email not found");
+      return { data: events.map(toPublicEmailEvent) };
     },
   );
 };

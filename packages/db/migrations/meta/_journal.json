@@ -50,6 +50,13 @@
       "when": 1791477289752,
       "tag": "0006_email_request_fingerprint",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791521312777,
+      "tag": "0007_email_event_key_per_email",
+      "breakpoints": true
     }
   ]
 }

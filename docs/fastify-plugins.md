@@ -259,7 +259,9 @@ The DMARC record sits on the sending domain itself, never its parent, so it cann
 
 `lastError` explains a failure as `CODE` or `CODE: Reason`, where the reason is the provider's error name only (for example `ATL_PROVIDER_REJECTED: MessageRejected`, which in the SES sandbox usually means the recipient is not verified). Provider messages are never stored because they can contain addresses.
 
-**Status** follows the transition table in `packages/core/src/email-status.ts`: `queued → sending → sent → delivered | bounced | complained | failed`, plus `sending → queued` for retries and `queued → canceled`. Final states never change.
+**Status** follows the transition table in `packages/core/src/email-status.ts`; see [email-lifecycle.md](email-lifecycle.md) for the table, how provider events move it, and why order and repeats do not matter.
+
+`GET /v1/emails/:id/events` returns the provider events for an email, oldest first, as `{ data: [{ id, type, occurredAt, recipients: [{ address, diagnosticCode? }], bounce?, complaint?, smtpResponse?, link? }] }`. It accepts `sending_access` keys and returns 404 for another organization's email.
 
 ## `@fastify/rate-limit`
 

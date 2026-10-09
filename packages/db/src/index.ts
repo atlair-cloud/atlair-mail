@@ -11,3 +11,4 @@ export * from "./repositories/domains.ts";
 export * from "./repositories/emails.ts";
 export * from "./repositories/suppressed-addresses.ts";
 export * from "./repositories/email-queue.ts";
+export * from "./repositories/email-events.ts";

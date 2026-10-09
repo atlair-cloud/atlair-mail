@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { eq, sql } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { domains, emailEvents, emails, type NewEmail } from "../src/schema/index.ts";
-import type { ProviderEventPayload } from "../src/types.ts";
+import type { EmailEventDetails } from "../src/types.ts";
 import {
   CHECK_VIOLATION,
   databaseUrl,
@@ -14,9 +14,9 @@ import {
   useTestDb,
 } from "./helpers.ts";
 
-const payload: ProviderEventPayload = {
-  eventType: "Delivery",
-  mail: { messageId: "ses-1", timestamp: new Date().toISOString(), destination: ["a@b.c"] },
+const payload: EmailEventDetails = {
+  recipients: [{ address: "a@b.c" }],
+  smtpResponse: "250 2.0.0 OK",
 };
 
 describe("domains, emails, and email_events", { skip: !databaseUrl }, () => {

@@ -91,10 +91,7 @@ describe("provider_connections, suppressed_addresses, and webhooks", { skip: !da
         type: "delivered",
         providerEventId: uuidv7(),
         occurredAt: new Date(),
-        payload: {
-          eventType: "Delivery",
-          mail: { messageId: "ses-1", timestamp: new Date().toISOString(), destination: [] },
-        },
+        payload: { recipients: [{ address: "user@example.org" }] },
       })
       .returning();
     const [endpoint] = await t.db
