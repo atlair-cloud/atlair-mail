@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
-import { schema } from "@atlair-mail/db";
+import { enqueueWebhookDeliveries, schema } from "@atlair-mail/db";
 import {
   providerEventKey,
   type EmailEventDetails,
@@ -65,7 +65,7 @@ describe("recording provider events", { skip: !hasDatabase }, () => {
     const first = await app.services.emailEvents.record(organizationId, delivered);
     const repeat = await app.services.emailEvents.record(organizationId, delivered);
 
-    assert.deepEqual(first, { outcome: "applied", emailId: email.id, suppressed: 0 });
+    assert.deepEqual(first, { outcome: "applied", emailId: email.id, suppressed: 0, webhooks: 0 });
     assert.deepEqual(repeat, { outcome: "duplicate", emailId: email.id });
     assert.equal((await statusOf(app, email.id)).status, "delivered");
     assert.equal((await app.services.emailEvents.list(organizationId, email.id))?.length, 1);
@@ -365,5 +365,115 @@ describe("GET /v1/emails/:id/events", { skip: !hasDatabase }, () => {
     assert.deepEqual(empty.json(), { data: [] });
     assert.equal(crossOrg.statusCode, 404);
     assert.equal(unknown.statusCode, 404);
+  });
+
+  describe("customer webhook outbox", () => {
+    const subscribe = async (app: TestApp, organizationId: string, eventTypes: EmailEventType[], disabled = false) => {
+      const [endpoint] = await app.db
+        .insert(schema.webhookEndpoints)
+        .values({
+          organizationId,
+          url: "https://hooks.example.org/in",
+          eventTypes,
+          signingSecretEncrypted: "ciphertext",
+          encryptionKeyVersion: 1,
+          disabledAt: disabled ? new Date() : null,
+        })
+        .returning();
+      return endpoint!;
+    };
+
+    const deliveriesFor = (app: TestApp, endpointId: string) =>
+      app.db
+        .select()
+        .from(schema.webhookDeliveries)
+        .where(eq(schema.webhookDeliveries.webhookEndpointId, endpointId));
+
+    it("queues the payload in the same transaction as the event", async () => {
+      const app = await buildTestApp();
+      const { organizationId, email } = await sentEmail(app);
+      const endpoint = await subscribe(app, organizationId, ["bounced"]);
+      const bounce = providerEvent(email.providerMessageId!, "bounced", {
+        recipients: [{ address: "bob@example.org", diagnosticCode: "smtp; 550 5.1.1" }],
+        bounce: { kind: "permanent", subType: "General" },
+      });
+
+      const result = await app.services.emailEvents.record(organizationId, bounce);
+      const repeat = await app.services.emailEvents.record(organizationId, bounce);
+      const [delivery] = await deliveriesFor(app, endpoint.id);
+      const [event] = await app.db.select().from(schema.emailEvents).where(eq(schema.emailEvents.emailId, email.id));
+
+      assert.equal(result.webhooks, 1);
+      assert.equal(repeat.outcome, "duplicate");
+      assert.equal((await deliveriesFor(app, endpoint.id)).length, 1);
+      assert.equal(delivery?.emailEventId, event?.id);
+      assert.deepEqual(delivery?.payload, {
+        type: "email.bounced",
+        createdAt: "2026-10-09T10:00:00.000Z",
+        data: {
+          emailId: email.id,
+          from: email.fromAddress,
+          to: ["ada@example.org", "bob@example.org"],
+          subject: "Welcome",
+          recipients: [{ address: "bob@example.org", diagnosticCode: "smtp; 550 5.1.1" }],
+          bounce: { kind: "permanent", subType: "General" },
+        },
+      });
+    });
+
+    it("skips disabled endpoints, other event types and other organizations", async () => {
+      const app = await buildTestApp();
+      const { organizationId, email } = await sentEmail(app);
+      const other = await sentEmail(app);
+      const disabled = await subscribe(app, organizationId, ["delivered"], true);
+      const unsubscribed = await subscribe(app, organizationId, ["bounced"]);
+      const foreign = await subscribe(app, other.organizationId, ["delivered"]);
+
+      const result = await app.services.emailEvents.record(
+        organizationId,
+        providerEvent(email.providerMessageId!, "delivered"),
+      );
+
+      assert.equal(result.webhooks, 0);
+      for (const endpoint of [disabled, unsubscribed, foreign]) {
+        assert.equal((await deliveriesFor(app, endpoint.id)).length, 0);
+      }
+    });
+
+    it("leaves no delivery behind when the transaction rolls back", async () => {
+      const app = await buildTestApp();
+      const { organizationId, email } = await sentEmail(app);
+      const endpoint = await subscribe(app, organizationId, ["delivered"]);
+      const [event] = await app.db
+        .insert(schema.emailEvents)
+        .values({
+          emailId: email.id,
+          type: "delivered",
+          providerEventId: uuidv7(),
+          occurredAt: new Date(),
+          payload: { recipients: [] },
+        })
+        .returning();
+
+      await assert.rejects(
+        app.db.transaction(async (tx) => {
+          const queued = await enqueueWebhookDeliveries(tx, {
+            organizationId,
+            emailEventId: event!.id,
+            eventType: "delivered",
+            payload: {
+              type: "email.delivered",
+              createdAt: new Date().toISOString(),
+              data: { emailId: email.id, from: email.fromAddress, to: [], subject: "", recipients: [] },
+            },
+          });
+          assert.equal(queued.length, 1);
+          throw new Error("rollback");
+        }),
+        /rollback/,
+      );
+
+      assert.equal((await deliveriesFor(app, endpoint.id)).length, 0);
+    });
   });
 });

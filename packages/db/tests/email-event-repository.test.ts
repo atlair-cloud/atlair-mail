@@ -61,7 +61,13 @@ describe("email event repositories", { skip: !databaseUrl }, () => {
       emailId: sent.id,
     });
 
-    assert.deepEqual(found, { id: sent.id, status: "sent" });
+    assert.deepEqual(found, {
+      id: sent.id,
+      status: "sent",
+      fromAddress: sent.fromAddress,
+      toAddresses: sent.toAddresses,
+      subject: sent.subject,
+    });
     assert.equal(foreign, null);
   });
 
@@ -77,6 +83,9 @@ describe("email event repositories", { skip: !databaseUrl }, () => {
     assert.deepEqual(await lockEmailForEvent(t.db, target(pending.id, pending.organizationId)), {
       id: pending.id,
       status: "sending",
+      fromAddress: pending.fromAddress,
+      toAddresses: pending.toAddresses,
+      subject: pending.subject,
     });
     assert.equal(await lockEmailForEvent(t.db, target(confirmed.id, confirmed.organizationId)), null);
     assert.equal(await lockEmailForEvent(t.db, target("not-a-uuid", pending.organizationId)), null);

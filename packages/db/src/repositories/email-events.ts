@@ -14,7 +14,13 @@ export interface EmailEventTarget {
 
 async function lockEventEmail(db: Executor, where: SQL | undefined) {
   const [email] = await db
-    .select({ id: emails.id, status: emails.status })
+    .select({
+      id: emails.id,
+      status: emails.status,
+      fromAddress: emails.fromAddress,
+      toAddresses: emails.toAddresses,
+      subject: emails.subject,
+    })
     .from(emails)
     .where(where)
     .limit(1)
