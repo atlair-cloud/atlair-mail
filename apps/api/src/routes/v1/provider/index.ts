@@ -26,6 +26,20 @@ const providerRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     },
   );
 
+  fastify.post(
+    "/events",
+    {
+      schema: {
+        summary: "Set up delivery events",
+        description:
+          "Configures the provider to report delivered, bounced and complained events to this server. Safe to run again. Requires PUBLIC_URL.",
+        tags,
+        response: { 200: ProviderConnectionSchema },
+      },
+    },
+    async (request) => fastify.services.providerConnections.setUpEvents(request.apiKey!.organizationId),
+  );
+
   fastify.get(
     "/",
     {

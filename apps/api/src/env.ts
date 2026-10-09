@@ -21,6 +21,7 @@ const schema = Type.Object({
   CREDENTIALS_ENCRYPTION_KEYS: Type.String({ minLength: 1 }),
   RATE_LIMIT_MAX: Type.Number({ default: 100 }),
   RATE_LIMIT_WINDOW: Type.String({ default: "1 minute" }),
+  PUBLIC_URL: Type.String({ default: "", pattern: "^(https://[^\\s/?#]+(/[^\\s?#]*)?)?$" }),
 });
 
 export type Env = Static<typeof schema>;

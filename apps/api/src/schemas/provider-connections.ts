@@ -21,6 +21,9 @@ const SesConnectionSchema = Type.Object(
     type: Type.Literal("ses"),
     region: Type.String(),
     accessKeyId: Type.String(),
+    eventsEnabled: Type.Boolean({
+      description: "True once delivery events are set up. The provider then reports delivered, bounced and complained.",
+    }),
     createdAt: DateTime(),
     updatedAt: DateTime(),
   },
@@ -39,5 +42,14 @@ export const ProviderAccountSchema = Type.Object({
 });
 
 export const SavedProviderConnectionSchema = Type.Union([
-  Type.Object({ ...SesConnectionSchema.properties, account: ProviderAccountSchema }, { title: "Amazon SES" }),
+  Type.Object(
+    {
+      ...SesConnectionSchema.properties,
+      account: ProviderAccountSchema,
+      eventsError: Type.Union([Type.String(), Type.Null()], {
+        description: "Why delivery events could not be set up, for example a missing permission. Saving still succeeds.",
+      }),
+    },
+    { title: "Amazon SES" },
+  ),
 ]);
