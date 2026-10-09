@@ -1,4 +1,4 @@
-import type { EmailEventDetails, EmailEventType } from "@atlair-mail/providers/types";
+import { emailEventTypes, type EmailEventDetails, type EmailEventType } from "@atlair-mail/providers/types";
 
 export const apiKeyPermissions = ["full_access", "sending_access"] as const;
 export type ApiKeyPermission = (typeof apiKeyPermissions)[number];
@@ -34,6 +34,8 @@ export interface EmailTag {
 }
 
 export type WebhookEventType = `email.${EmailEventType}`;
+
+export const webhookEventTypes = emailEventTypes.map((type): WebhookEventType => `email.${type}`);
 
 export interface WebhookPayload {
   type: WebhookEventType;
