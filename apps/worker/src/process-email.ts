@@ -91,10 +91,8 @@ export async function processEmail(email: Email, deps: ProcessEmailDeps): Promis
     log.info({ outcome: "sent", providerMessageId }, "email sent");
     return "sent";
   } catch (error) {
-    if (error instanceof ProviderRejectedError) return fail(error.code);
-    if (error instanceof ProviderTimeoutError || !(error instanceof ProviderError)) {
-      return fail(errorCodes.unknownOutcome);
-    }
-    return error.retryable ? retryOrFail(error.code) : fail(error.code);
+    if (!(error instanceof ProviderError)) return fail(errorCodes.unknownOutcome);
+    if (error instanceof ProviderRejectedError || error instanceof ProviderTimeoutError) return fail(error.summary);
+    return error.retryable ? retryOrFail(error.summary) : fail(error.summary);
   }
 }

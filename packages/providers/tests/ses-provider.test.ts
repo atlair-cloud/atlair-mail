@@ -71,6 +71,7 @@ describe("SES provider", () => {
       name: "t1._domainkey.example.com",
       value: "t1.dkim.example-zone.com",
       required: true,
+      status: "pending",
     });
     assert.equal(domain.dnsRecords.length, 3);
     assert.deepEqual(ses.commandCalls(CreateEmailIdentityCommand)[0]!.args[0].input, {

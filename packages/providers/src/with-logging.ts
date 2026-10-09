@@ -8,7 +8,7 @@ export interface ProviderLogger {
 
 const errorFields = (error: unknown) =>
   error instanceof ProviderError
-    ? { errorCode: error.code, retryable: error.retryable }
+    ? { errorCode: error.code, reason: error.reason, retryable: error.retryable }
     : { errorCode: error instanceof Error ? error.name : "UnknownError", retryable: false };
 
 export function withLogging(provider: EmailProvider, logger: ProviderLogger): EmailProvider {
@@ -43,6 +43,7 @@ export function withLogging(provider: EmailProvider, logger: ProviderLogger): Em
       run("createDomain", { domain: name }, () => provider.createDomain(name), (result) => ({ status: result.status })),
     getDomain: (name) =>
       run("getDomain", { domain: name }, () => provider.getDomain(name), (result) => ({ status: result?.status ?? null })),
+    configureReturnPath: (name) => run("configureReturnPath", { domain: name }, () => provider.configureReturnPath(name)),
     send: (message) =>
       run(
         "send",

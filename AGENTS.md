@@ -15,12 +15,14 @@ export DATABASE_URL=postgres://atlair:atlair@localhost:5432/atlair_mail
 pnpm --filter @atlair-mail/db migrate
 pnpm --filter @atlair-mail/api dev   # node --watch, http://localhost:8080/health
 pnpm --filter @atlair-mail/worker dev  # sends queued emails, see docs/worker.md
-pnpm test                            # node --test, one package at a time
+docker compose exec postgres createdb -U atlair atlair_mail_test   # once
+DATABASE_URL=postgres://atlair:atlair@localhost:5432/atlair_mail_test pnpm test   # one package at a time
 pnpm typecheck                       # tsc, no emit
 ```
 
 A change is done when `pnpm typecheck` and `pnpm test` both pass. DB tests skip without
-`DATABASE_URL`, so run them with Postgres up.
+`DATABASE_URL`, so run them with Postgres up, against `atlair_mail_test`: a dev worker running on
+`atlair_mail` would otherwise claim the tests' queued emails.
 
 ## TypeScript runs natively
 

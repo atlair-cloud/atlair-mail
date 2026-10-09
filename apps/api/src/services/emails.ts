@@ -116,6 +116,7 @@ export const toPublicEmail = (email: Email) => ({
   headers: email.headers,
   tags: email.tags,
   providerMessageId: email.providerMessageId,
+  lastError: email.lastError,
   scheduledAt: email.sendAt,
   sentAt: email.sentAt,
   createdAt: email.createdAt,
