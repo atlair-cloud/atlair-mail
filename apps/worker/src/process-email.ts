@@ -1,5 +1,5 @@
 import { parseMailbox } from "@atlair-mail/core";
-import { markEmailFailed, markEmailSent, requeueEmail, type Executor } from "@atlair-mail/db";
+import { markEmailSent, requeueEmail, type Executor } from "@atlair-mail/db";
 import type { Email } from "@atlair-mail/db/schema";
 import {
   emailIdTag,
@@ -11,6 +11,7 @@ import {
   type EmailProvider,
 } from "@atlair-mail/providers";
 import type { Logger } from "pino";
+import { failEmail } from "./email-failures.ts";
 import { runPreSendChecks } from "./pre-send-checks.ts";
 import { errorCodes, maxAttempts, retryDelaysSeconds } from "./settings.ts";
 
@@ -55,8 +56,8 @@ export async function processEmail(email: Email, deps: ProcessEmailDeps): Promis
   const log = logger.child({ emailId: email.id, organizationId: email.organizationId, attempt: email.attemptCount });
 
   const fail = async (code: string) => {
-    await markEmailFailed(db, email.id, code);
-    log.warn({ outcome: "failed", errorCode: code }, "email failed");
+    const failed = await failEmail(db, email.id, code);
+    log.warn({ outcome: "failed", errorCode: code, webhooks: failed?.webhooks ?? 0 }, "email failed");
     return "failed" as const;
   };
 
