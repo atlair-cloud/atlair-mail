@@ -2,23 +2,18 @@ import createError from "@fastify/error";
 import {
   deleteProviderConnection,
   findProviderConnectionByOrganization,
-  updateProviderSettings,
+  saveProviderEvents,
   upsertProviderConnection,
   type Database,
 } from "@atlair-mail/db";
 import type { ProviderConnection } from "@atlair-mail/db/schema";
 import {
   loadProvider as loadStoredProvider,
+  normalizePublicUrl,
   providerFromConnection,
   type CredentialsCipher,
 } from "@atlair-mail/core";
-import {
-  createProvider,
-  ProviderError,
-  type EmailProvider,
-  type ProviderConfig,
-  type ProviderLogger,
-} from "@atlair-mail/providers";
+import { createProvider, type ProviderConfig, type ProviderLogger } from "@atlair-mail/providers";
 
 export const ProviderNotConnectedError = createError(
   "ATL_PROVIDER_NOT_CONNECTED",
@@ -26,11 +21,13 @@ export const ProviderNotConnectedError = createError(
   409,
 );
 
-export const PublicUrlNotSetError = createError(
-  "ATL_PUBLIC_URL_NOT_SET",
-  "Set PUBLIC_URL to this server's public HTTPS address so the provider can deliver events",
-  409,
+export const InvalidEventsUrlError = createError(
+  "ATL_INVALID_EVENTS_URL",
+  "url must be this server's public https address on a registered domain, without credentials, query or fragment",
+  400,
 );
+
+export type EventsStatus = "disabled" | "pending_confirmation" | "confirmed";
 
 export interface SesProviderInput {
   type: "ses";
@@ -52,47 +49,35 @@ function toProviderConfig(input: ProviderInput): ProviderConfig {
   }
 }
 
+const eventsStatus = (connection: ProviderConnection): EventsStatus => {
+  if (!connection.eventsUrl) return "disabled";
+  return connection.eventsConfirmedAt ? "confirmed" : "pending_confirmation";
+};
+
 const toPublicConnection = (connection: ProviderConnection) => ({
   id: connection.id,
   type: connection.provider,
   ...connection.settings,
-  eventsEnabled: Boolean(connection.settings.eventTopicArn),
+  events: {
+    url: connection.eventsUrl,
+    status: eventsStatus(connection),
+    confirmedAt: connection.eventsConfirmedAt,
+  },
   createdAt: connection.createdAt,
   updatedAt: connection.updatedAt,
 });
 
-export const eventEndpoint = (publicUrl: string, connectionId: string) =>
-  `${publicUrl.replace(/\/+$/, "")}/webhooks/provider-events/${connectionId}`;
+export const eventEndpoint = (eventsUrl: string, connectionId: string) =>
+  `${eventsUrl}/webhooks/provider-events/${connectionId}`;
 
-export function createProviderConnectionService(
-  db: Database,
-  cipher: CredentialsCipher,
-  logger: ProviderLogger,
-  publicUrl: string,
-) {
+export function createProviderConnectionService(db: Database, cipher: CredentialsCipher, logger: ProviderLogger) {
   const loadProvider = (organizationId: string) => loadStoredProvider(db, cipher, organizationId, { logger });
 
-  async function configureEvents(connection: ProviderConnection, provider: EmailProvider) {
-    if (!publicUrl) throw new PublicUrlNotSetError();
-    const settings = await provider.configureEvents(eventEndpoint(publicUrl, connection.id));
-    return (await updateProviderSettings(db, connection.id, settings)) ?? connection;
-  }
-
-  async function configureEventsIfPossible(connection: ProviderConnection, provider: EmailProvider) {
-    try {
-      return { connection: await configureEvents(connection, provider), eventsError: null };
-    } catch (error) {
-      if (error instanceof ProviderError) return { connection, eventsError: error.summary };
-      if (error instanceof PublicUrlNotSetError) return { connection, eventsError: error.code };
-      throw error;
-    }
-  }
 
   return {
     async save(organizationId: string, input: ProviderInput) {
       const config = toProviderConfig(input);
-      const provider = createProvider(config, { logger });
-      const account = await provider.verifyAccount();
+      const account = await createProvider(config, { logger }).verifyAccount();
       const { ciphertext, keyVersion } = await cipher.encrypt(JSON.stringify(config.secrets), organizationId);
       const connection = await upsertProviderConnection(db, {
         organizationId,
@@ -101,15 +86,18 @@ export function createProviderConnectionService(
         credentialsEncrypted: ciphertext,
         encryptionKeyVersion: keyVersion,
       });
-      const configured = await configureEventsIfPossible(connection, provider);
-      return { ...toPublicConnection(configured.connection), account, eventsError: configured.eventsError };
+      return { ...toPublicConnection(connection), account };
     },
 
-    async setUpEvents(organizationId: string) {
+    async setUpEvents(organizationId: string, url: string) {
+      const eventsUrl = normalizePublicUrl(url);
+      if (!eventsUrl) throw new InvalidEventsUrlError();
       const connection = await findProviderConnectionByOrganization(db, organizationId);
       if (!connection) throw new ProviderNotConnectedError();
       const provider = await providerFromConnection(cipher, connection, { logger });
-      return toPublicConnection(await configureEvents(connection, provider));
+      const settings = await provider.configureEvents(eventEndpoint(eventsUrl, connection.id));
+      const saved = await saveProviderEvents(db, connection.id, { settings, eventsUrl });
+      return toPublicConnection(saved ?? connection);
     },
 
     async get(organizationId: string) {

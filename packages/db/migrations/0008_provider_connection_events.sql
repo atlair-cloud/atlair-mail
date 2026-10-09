@@ -1,0 +1,3 @@
+ALTER TABLE "provider_connections" ADD COLUMN "events_url" text;--> statement-breakpoint
+ALTER TABLE "provider_connections" ADD COLUMN "events_confirmed_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "provider_connections" ADD CONSTRAINT "provider_connections_events_confirmed_check" CHECK ("provider_connections"."events_confirmed_at" is null or "provider_connections"."events_url" is not null);

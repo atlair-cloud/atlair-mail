@@ -4,6 +4,7 @@ import {
   ProviderConnectionSchema,
   ProviderInputSchema,
   SavedProviderConnectionSchema,
+  SetUpEventsSchema,
 } from "../../../schemas/provider-connections.ts";
 
 const tags = ["Provider"];
@@ -32,12 +33,14 @@ const providerRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       schema: {
         summary: "Set up delivery events",
         description:
-          "Configures the provider to report delivered, bounced and complained events to this server. Safe to run again. Requires PUBLIC_URL.",
+          "Registers this server's public https address and configures the provider to report delivered, bounced and complained events to it. Safe to run again.",
         tags,
+        body: SetUpEventsSchema,
         response: { 200: ProviderConnectionSchema },
       },
     },
-    async (request) => fastify.services.providerConnections.setUpEvents(request.apiKey!.organizationId),
+    async (request) =>
+      fastify.services.providerConnections.setUpEvents(request.apiKey!.organizationId, request.body.url),
   );
 
   fastify.get(
