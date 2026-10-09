@@ -75,6 +75,9 @@ importers:
       '@aws-sdk/client-sesv2':
         specifier: ^3.1147.0
         version: 3.1147.0
+      '@aws-sdk/client-sns':
+        specifier: ^3.1148.0
+        version: 3.1148.0
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.1
@@ -186,12 +189,18 @@ importers:
       '@aws-sdk/client-sesv2':
         specifier: ^3.1147.0
         version: 3.1147.0
+      '@aws-sdk/client-sns':
+        specifier: ^3.1148.0
+        version: 3.1148.0
       libmime:
         specifier: ^5.4.7
         version: 5.4.7
       p-retry:
         specifier: ^8.0.1
         version: 8.0.1
+      sns-payload-validator:
+        specifier: ^2.1.0
+        version: 2.1.0
     devDependencies:
       '@types/libmime':
         specifier: ^5.3.0
@@ -266,6 +275,10 @@ packages:
 
   '@aws-sdk/client-sesv2@3.1147.0':
     resolution: {integrity: sha512-Fv2buzcD/rPu3DA2dRoFlUKPc6vhHTPVr8La+4C+XS+qk3hSvwRPDQOYy1wmb02wCl7MgOkoIkTJZ7NZx2IMPw==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-sns@3.1148.0':
+    resolution: {integrity: sha512-21DRDi1+zy+0EvrTf3wzve4CJN7c15BfRfaixtzTgAb+iCeBUJCHpoMwdCC5NgFfMTqU7Ra0UbOzCSvpTA030A==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/core@3.978.1':
@@ -1423,6 +1436,10 @@ packages:
     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
     engines: {node: '>=10'}
 
+  lru-cache@7.18.3:
+    resolution: {integrity: sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA==}
+    engines: {node: '>=12'}
+
   media-typer@1.1.1:
     resolution: {integrity: sha512-yz3xRaG20c6/BOzvYoDaGtPmGscs7YivItZEEqe6GbwNfHuxu9YNmvnEkMzKldAGY4/80pRcQRZSEnhquk9XuQ==}
     engines: {node: '>= 0.8'}
@@ -1556,6 +1573,9 @@ packages:
 
   sinon@18.0.1:
     resolution: {integrity: sha512-a2N2TDY1uGviajJ6r4D1CyRAkzE9NNVlYOV1wX5xQDuAk0ONgzgRl0EjCQuRCPxOwp13ghsMwt9Gdldujs39qw==}
+
+  sns-payload-validator@2.1.0:
+    resolution: {integrity: sha512-N/F1PEMIQM6bvZ90qLT/x5sjx1JOR+oMAWiEXnXU4/sWOzcmdLWXPjZ52qPLJhqGvBactZt9fWNQClMcMCkRjA==}
 
   sonic-boom@4.2.1:
     resolution: {integrity: sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==}
@@ -1831,6 +1851,17 @@ snapshots:
       '@aws-sdk/core': 3.978.1
       '@aws-sdk/credential-provider-node': 3.972.84
       '@aws-sdk/signature-v4-multi-region': 3.996.47
+      '@aws-sdk/types': 3.974.6
+      '@smithy/core': 3.35.1
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.12.1
+      '@smithy/types': 4.19.0
+      tslib: 2.8.1
+
+  '@aws-sdk/client-sns@3.1148.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.1
+      '@aws-sdk/credential-provider-node': 3.972.84
       '@aws-sdk/types': 3.974.6
       '@smithy/core': 3.35.1
       '@smithy/fetch-http-handler': 5.8.0
@@ -2828,6 +2859,8 @@ snapshots:
     dependencies:
       yallist: 4.0.0
 
+  lru-cache@7.18.3: {}
+
   media-typer@1.1.1: {}
 
   mime-db@1.54.0: {}
@@ -2945,6 +2978,10 @@ snapshots:
       diff: 5.2.2
       nise: 6.1.5
       supports-color: 7.2.0
+
+  sns-payload-validator@2.1.0:
+    dependencies:
+      lru-cache: 7.18.3
 
   sonic-boom@4.2.1:
     dependencies:

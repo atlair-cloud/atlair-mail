@@ -69,7 +69,15 @@ describe("/v1/provider", { skip: !hasDatabase }, () => {
 
     assert.equal(before.statusCode, 404);
     assert.equal(got.statusCode, 200);
-    assert.deepEqual(Object.keys(got.json()).sort(), ["accessKeyId", "createdAt", "id", "region", "type", "updatedAt"]);
+    assert.deepEqual(Object.keys(got.json()).sort(), [
+      "accessKeyId",
+      "createdAt",
+      "eventsEnabled",
+      "id",
+      "region",
+      "type",
+      "updatedAt",
+    ]);
     assert.ok(!got.body.includes(secretAccessKey));
     assert.equal(removed.statusCode, 204);
     assert.equal(after.statusCode, 404);

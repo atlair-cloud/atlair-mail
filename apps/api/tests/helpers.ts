@@ -26,6 +26,7 @@ export async function buildTestApp(env: Partial<Env> = {}, opts: Omit<BuildAppOp
       LOG_LEVEL: "silent",
       ROOT_API_KEY: TEST_ROOT_KEY,
       CREDENTIALS_ENCRYPTION_KEYS: TEST_CREDENTIALS_ENCRYPTION_KEYS,
+      PUBLIC_URL: "",
       ...env,
     },
   });

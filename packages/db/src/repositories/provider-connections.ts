@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import type { Executor } from "../client.ts";
+import type { ProviderSettings } from "@atlair-mail/providers/types";
 import { providerConnections, type NewProviderConnection } from "../schema/index.ts";
 
 export async function upsertProviderConnection(db: Executor, values: NewProviderConnection) {
@@ -34,5 +35,19 @@ export async function deleteProviderConnection(db: Executor, organizationId: str
     .delete(providerConnections)
     .where(eq(providerConnections.organizationId, organizationId))
     .returning({ id: providerConnections.id });
+  return connection ?? null;
+}
+
+export async function findProviderConnectionById(db: Executor, id: string) {
+  const [connection] = await db.select().from(providerConnections).where(eq(providerConnections.id, id)).limit(1);
+  return connection ?? null;
+}
+
+export async function updateProviderSettings(db: Executor, id: string, settings: ProviderSettings) {
+  const [connection] = await db
+    .update(providerConnections)
+    .set({ settings, updatedAt: sql`now()` })
+    .where(eq(providerConnections.id, id))
+    .returning();
   return connection ?? null;
 }

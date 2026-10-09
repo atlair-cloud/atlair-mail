@@ -4,6 +4,8 @@ export type ProviderType = (typeof providerTypes)[number];
 export interface SesSettings {
   region: string;
   accessKeyId: string;
+  eventTopicArn?: string;
+  configurationSetName?: string;
 }
 
 export interface SesSecrets {
@@ -117,6 +119,8 @@ export interface EmailProvider {
   createDomain(name: string): Promise<DomainVerification>;
   getDomain(name: string): Promise<DomainVerification | null>;
   configureReturnPath(name: string): Promise<void>;
+  configureEvents(endpointUrl: string): Promise<ProviderSettings>;
+  confirmEvents(token: string): Promise<void>;
   send(message: EmailMessage): Promise<SendResult>;
 }
 

@@ -27,7 +27,7 @@ claim: UPDATE emails SET status='sending', locked_until=now()+120s, attempt_coun
        WHERE id IN (SELECT id … status='queued' AND send_at<=now() ORDER BY send_at FOR UPDATE SKIP LOCKED)
   └─ pre-send checks (src/pre-send-checks.ts), first failure wins → failed
        provider connected → From domain still verified → no recipient suppressed
-  └─ provider.send (withRetry inside, about 5s at most)
+  └─ provider.send (withRetry inside, about 5s at most; through the atlair-mail configuration set once events are set up)
        ok                       → sent (provider_message_id, sent_at)
        ATL_PROVIDER_REJECTED    → failed
        THROTTLED / UNAVAILABLE  → queued again with backoff; failed after attempt 6

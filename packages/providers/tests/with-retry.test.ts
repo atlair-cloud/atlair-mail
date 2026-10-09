@@ -106,7 +106,16 @@ describe("withRetry", () => {
     const wrapped = withRetry(withRetry(createFakeProvider(), fast), fast);
 
     assert.equal(wrapped.type, "ses");
-    assert.deepEqual(Object.keys(wrapped).sort(), ["configureReturnPath", "createDomain", "getDomain", "send", "type", "verifyAccount"]);
+    assert.deepEqual(Object.keys(wrapped).sort(), [
+      "configureEvents",
+      "configureReturnPath",
+      "confirmEvents",
+      "createDomain",
+      "getDomain",
+      "send",
+      "type",
+      "verifyAccount",
+    ]);
     assert.equal((await wrapped.verifyAccount()).sendingEnabled, true);
   });
 });

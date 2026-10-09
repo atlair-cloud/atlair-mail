@@ -4,6 +4,7 @@ import { createDomainService, type DomainService } from "../services/domains.ts"
 import { createEmailEventService, type EmailEventService } from "../services/email-events.ts";
 import { createEmailService, type EmailService } from "../services/emails.ts";
 import { createOrganizationService, type OrganizationService } from "../services/organizations.ts";
+import { createProviderEventService, type ProviderEventService } from "../services/provider-events.ts";
 import {
   createProviderConnectionService,
   type ProviderConnectionService,
@@ -16,6 +17,7 @@ export interface Services {
   emailEvents: EmailEventService;
   organizations: OrganizationService;
   providerConnections: ProviderConnectionService;
+  providerEvents: ProviderEventService;
 }
 
 declare module "fastify" {
@@ -30,14 +32,22 @@ export default fp(
       fastify.db,
       fastify.credentialsCipher,
       fastify.log.child({ component: "provider" }),
+      fastify.config.PUBLIC_URL,
     );
+    const emailEvents = createEmailEventService(fastify.db);
     fastify.decorate("services", {
       apiKeys: createApiKeyService(fastify.db),
       domains: createDomainService(fastify.db, providerConnections),
       emails: createEmailService(fastify.db),
-      emailEvents: createEmailEventService(fastify.db),
+      emailEvents,
       organizations: createOrganizationService(fastify.db),
       providerConnections,
+      providerEvents: createProviderEventService(
+        fastify.db,
+        fastify.credentialsCipher,
+        emailEvents,
+        fastify.log.child({ component: "provider-events" }),
+      ),
     });
   },
   { name: "services", dependencies: ["db", "credentials-cipher"] },

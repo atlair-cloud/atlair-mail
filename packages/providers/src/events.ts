@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { EmailEventDetails, EmailEventType, EventRecipient } from "./types.ts";
 
+export const emailIdTag = "atlair_email_id";
+
 export const eventLimits = {
   recipients: 50,
   address: 320,

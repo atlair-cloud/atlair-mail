@@ -23,10 +23,14 @@ The table lives in `packages/core/src/email-status.ts`; `canTransition(from, to)
 | --- | --- |
 | `sent` | `sent` |
 | `delivered` | `delivered` |
-| `bounced` (permanent or undetermined) | `bounced` |
+| `bounced` (any kind) | `bounced` |
 | `complained` | `complained` |
 | `rejected` | `failed` (`ATL_PROVIDER_REJECTED: Rejected`) |
-| `bounced` (transient), `delivery_delayed`, `opened`, `clicked` | recorded, no status change |
+| `delivery_delayed`, `opened`, `clicked` | recorded, no status change |
+
+A transient bounce also means `bounced`: SES only reports one after it has stopped retrying. The
+bounce `kind` (`permanent`, `transient`, `undetermined`) stays in the event, and only permanent
+bounces and complaints suppress an address.
 
 ### Rules
 

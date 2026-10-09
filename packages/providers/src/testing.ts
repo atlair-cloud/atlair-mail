@@ -1,3 +1,5 @@
+import { createSign, generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
+import { snsValidator } from "./ses/ses-webhook.ts";
 import type {
   DomainVerification,
   EmailMessage,
@@ -30,6 +32,13 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
     createDomain: pendingDomain,
     getDomain: pendingDomain,
     configureReturnPath: async () => {},
+    configureEvents: async () => ({
+      region: "us-east-1",
+      accessKeyId: "AKIAFAKE",
+      eventTopicArn: "arn:aws:sns:us-east-1:123456789012:atlair-mail-events",
+      configurationSetName: "atlair-mail",
+    }),
+    confirmEvents: async () => {},
     send: async (_message: EmailMessage): Promise<SendResult> => ({ providerMessageId: `fake-${++sent}` }),
     ...overrides,
   };
@@ -48,6 +57,38 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
     createDomain: record("createDomain", implementations.createDomain),
     getDomain: record("getDomain", implementations.getDomain),
     configureReturnPath: record("configureReturnPath", implementations.configureReturnPath),
+    configureEvents: record("configureEvents", implementations.configureEvents),
+    confirmEvents: record("confirmEvents", implementations.confirmEvents),
     send: record("send", implementations.send),
+  };
+}
+
+const snsSignedFields: Record<string, string[]> = {
+  Notification: ["Message", "MessageId", "Subject", "Timestamp", "TopicArn", "Type"],
+  SubscriptionConfirmation: ["Message", "MessageId", "SubscribeURL", "Timestamp", "Token", "TopicArn", "Type"],
+};
+
+export function createSnsTestSigner(region = "ap-south-1") {
+  const certUrl = `https://sns.${region}.amazonaws.com/SimpleNotificationService-${randomBytes(16).toString("hex")}.pem`;
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  (snsValidator as unknown as { certCache: Map<string, string> }).certCache.set(
+    certUrl,
+    publicKey.export({ type: "spki", format: "pem" }).toString(),
+  );
+
+  return function sign(fields: Record<string, string> & { Type: string; TopicArn: string }) {
+    const message: Record<string, string> = {
+      MessageId: randomUUID(),
+      Timestamp: new Date().toISOString(),
+      SignatureVersion: "2",
+      SigningCertURL: certUrl,
+      ...fields,
+    };
+    const signer = createSign("sha256WithRSAEncryption");
+    for (const key of snsSignedFields[message.Type!] ?? []) {
+      if (key in message) signer.write(`${key}\n${message[key]}\n`);
+    }
+    signer.end();
+    return { ...message, Signature: signer.sign(privateKey, "base64") };
   };
 }

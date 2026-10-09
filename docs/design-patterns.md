@@ -23,7 +23,7 @@ worker claims queued rows ◀─────────────────
         ▼
  EmailProvider (Retrying(Logging(SesProvider)))  ──▶ SES
         │
-SES events ──SNS──▶ POST /webhooks/ses ──▶ status transition ──▶ notify customer webhooks
+SES events ──SNS──▶ POST /webhooks/provider-events/:connectionId ──▶ status transition ──▶ notify customer webhooks
 ```
 
 ## Layering (architectural, not GoF)

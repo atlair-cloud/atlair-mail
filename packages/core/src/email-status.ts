@@ -1,5 +1,5 @@
 import type { EmailStatus } from "@atlair-mail/db/types";
-import type { BounceKind, EmailEventType } from "@atlair-mail/providers/types";
+import type { EmailEventType } from "@atlair-mail/providers/types";
 
 export const emailTransitions: Readonly<Record<EmailStatus, readonly EmailStatus[]>> = {
   queued: ["sending", "canceled", "failed"],
@@ -21,7 +21,6 @@ export const transitionSources = (to: EmailStatus) =>
 
 export interface StatusEvent {
   type: EmailEventType;
-  bounce?: { kind: BounceKind };
 }
 
 export function statusForEvent(event: StatusEvent): EmailStatus | null {
@@ -31,7 +30,7 @@ export function statusForEvent(event: StatusEvent): EmailStatus | null {
     case "delivered":
       return "delivered";
     case "bounced":
-      return event.bounce?.kind === "transient" ? null : "bounced";
+      return "bounced";
     case "complained":
       return "complained";
     case "rejected":

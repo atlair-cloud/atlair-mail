@@ -91,17 +91,14 @@ describe("recording provider events", { skip: !hasDatabase }, () => {
     assert.equal((await statusOf(app, email.id)).status, "complained");
   });
 
-  it("records transient bounces, delays and engagement without changing status", async () => {
+  it("records delays and engagement without changing status", async () => {
     const app = await buildTestApp();
     const { organizationId, email } = await sentEmail(app);
     const id = email.providerMessageId!;
 
     const outcomes = await Promise.all([
-      app.services.emailEvents.record(
-        organizationId,
-        providerEvent(id, "bounced", { bounce: { kind: "transient", subType: "MailboxFull" } }),
-      ),
       app.services.emailEvents.record(organizationId, providerEvent(id, "delivery_delayed")),
+      app.services.emailEvents.record(organizationId, providerEvent(id, "clicked", { link: "https://example.org" })),
       app.services.emailEvents.record(organizationId, providerEvent(id, "opened")),
     ]);
 
@@ -131,6 +128,19 @@ describe("recording provider events", { skip: !hasDatabase }, () => {
     assert.equal(settled.status, "delivered");
     assert.equal(settled.providerMessageId, providerMessageId);
     assert.equal(settled.lastError, null);
+  });
+
+  it("bounces on a transient bounce because the provider stopped retrying", async () => {
+    const app = await buildTestApp();
+    const { organizationId, email } = await sentEmail(app);
+
+    const result = await app.services.emailEvents.record(
+      organizationId,
+      providerEvent(email.providerMessageId!, "bounced", { bounce: { kind: "transient", subType: "MailboxFull" } }),
+    );
+
+    assert.equal(result.outcome, "applied");
+    assert.equal((await statusOf(app, email.id)).status, "bounced");
   });
 
   it("marks a provider rejection as failed", async () => {
