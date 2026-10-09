@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { normalizePublicUrl } from "../src/index.ts";
+import { normalizePublicUrl, normalizeWebhookUrl } from "../src/index.ts";
 
 describe("normalizePublicUrl", () => {
   it("accepts https base URLs on registrable domains and normalizes them", () => {
@@ -46,6 +46,30 @@ describe("normalizePublicUrl", () => {
       `https://example.com/${"a".repeat(2048)}`,
     ]) {
       assert.equal(normalizePublicUrl(input), null, input);
+    }
+  });
+});
+
+describe("normalizeWebhookUrl", () => {
+  it("keeps the path and query of a public https URL", () => {
+    assert.equal(normalizeWebhookUrl("https://Hooks.Example.com/in/"), "https://hooks.example.com/in/");
+    assert.equal(normalizeWebhookUrl("https://example.com/in?token=a%20b"), "https://example.com/in?token=a%20b");
+    assert.equal(normalizeWebhookUrl("https://example.com"), "https://example.com/");
+  });
+
+  it("rejects fragments, credentials and private hosts", () => {
+    for (const input of [
+      "http://example.com/in",
+      "https://example.com/in#x",
+      "https://u:p@example.com/in",
+      "https://localhost/in",
+      "https://10.0.0.5/in",
+      "https://169.254.169.254/latest",
+      "https://db.internal/in",
+      "https://example.com/in?x=1 2",
+      `https://example.com/?${"a".repeat(2048)}`,
+    ]) {
+      assert.equal(normalizeWebhookUrl(input), null, input);
     }
   });
 });

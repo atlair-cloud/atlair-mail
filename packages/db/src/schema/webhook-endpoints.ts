@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, index, pgTable, text } from "drizzle-orm/pg-core";
-import type { EmailEventType } from "../types.ts";
-import { encryptionKeyVersion, id, timestamps, timestamptz } from "./_columns.ts";
+import { emailEventTypes, type EmailEventType } from "../types.ts";
+import { encryptionKeyVersion, id, isSubsetOf, timestamps, timestamptz } from "./_columns.ts";
 import { organizationId } from "./organizations.ts";
 
 export const webhookEndpoints = pgTable(
@@ -19,6 +19,7 @@ export const webhookEndpoints = pgTable(
   (t) => [
     index("webhook_endpoints_organization_id_idx").on(t.organizationId),
     check("webhook_endpoints_event_types_check", sql`cardinality(${t.eventTypes}) > 0`),
+    check("webhook_endpoints_event_types_known_check", isSubsetOf(t.eventTypes, emailEventTypes)),
   ],
 );
 

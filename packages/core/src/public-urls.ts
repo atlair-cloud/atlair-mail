@@ -2,8 +2,8 @@ import { parse } from "tldts";
 
 export const maxPublicUrlLength = 2048;
 
-export function normalizePublicUrl(input: string): string | null {
-  if (input.length > maxPublicUrlLength || /[\s?#]/.test(input)) return null;
+function parsePublicHttpsUrl(input: string, forbidden: RegExp): URL | null {
+  if (input.length > maxPublicUrlLength || forbidden.test(input)) return null;
   let url: URL;
   try {
     url = new URL(input);
@@ -14,5 +14,15 @@ export function normalizePublicUrl(input: string): string | null {
   const parsed = parse(url.hostname, { allowPrivateDomains: true });
   const registrable = parsed.isIcann === true || parsed.isPrivate === true;
   if (parsed.isIp || !parsed.domain || !registrable || parsed.hostname !== url.hostname) return null;
-  return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+  return url;
+}
+
+export function normalizePublicUrl(input: string): string | null {
+  const url = parsePublicHttpsUrl(input, /[\s?#]/);
+  return url && `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+}
+
+export function normalizeWebhookUrl(input: string): string | null {
+  const url = parsePublicHttpsUrl(input, /[\s#]/);
+  return url && url.href.length <= maxPublicUrlLength ? url.href : null;
 }

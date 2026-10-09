@@ -1,0 +1,2 @@
+CREATE INDEX "webhook_deliveries_webhook_endpoint_id_id_idx" ON "webhook_deliveries" USING btree ("webhook_endpoint_id","id");--> statement-breakpoint
+ALTER TABLE "webhook_endpoints" ADD CONSTRAINT "webhook_endpoints_event_types_known_check" CHECK ("webhook_endpoints"."event_types" <@ array['sent', 'delivered', 'delivery_delayed', 'bounced', 'complained', 'rejected', 'opened', 'clicked']::text[]);
