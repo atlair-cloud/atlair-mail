@@ -104,8 +104,6 @@ fastify.post(
 
 Tests override values without touching `process.env`: `buildApp({ env: { RATE_LIMIT_MAX: 2 } })`.
 
-`PUBLIC_URL` is the API's public HTTPS address (no query or fragment). It is only needed for provider events; leave it empty to run without them.
-
 ## `@fastify/bearer-auth`
 
 Checks `Authorization: Bearer <key>` on every route under `src/routes/v1/`. Missing or unknown keys get a `401` before your handler runs.
@@ -193,7 +191,7 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 
 ### Amazon SES (`type: "ses"`)
 
-`settings` = `{ region, accessKeyId, eventTopicArn?, configurationSetName? }`, secrets = `{ secretAccessKey }`. The last two are written by event setup ([provider-events.md](provider-events.md)) and never returned. `sandbox` is `true` until SES production access is granted. Least-privilege IAM policy for the connected key:
+`settings` = `{ region, accessKeyId, eventTopicArn?, configurationSetName? }`, secrets = `{ secretAccessKey }`. The last two are written by event setup ([provider-events.md](provider-events.md)) and never returned; the registered events URL and its confirmation are columns (`events_url`, `events_confirmed_at`) because they are not provider-specific. `sandbox` is `true` until SES production access is granted. Least-privilege IAM policy for the connected key:
 
 ```json
 {
