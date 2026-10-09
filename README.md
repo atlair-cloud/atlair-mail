@@ -57,6 +57,7 @@ routes/        HTTP routes, loaded automatically; folders become URL prefixes
 - [docs/architecture.md](docs/architecture.md): runtime, tenancy, data model, and the send pipeline.
 - [docs/fastify-plugins.md](docs/fastify-plugins.md): each Fastify plugin we use and how to use it.
 - [docs/design-patterns.md](docs/design-patterns.md): the design patterns this codebase uses and where.
+- [docs/webhooks.md](docs/webhooks.md): customer webhooks, payloads, signature verification and retries.
 - [AGENTS.md](AGENTS.md): conventions for AI coding agents.
 
 ## License
