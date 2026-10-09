@@ -1,6 +1,7 @@
 import type { CredentialsCipher } from "@atlair-mail/core";
 import {
   claimDueWebhookDeliveries,
+  clearExpiredPreviousSecrets,
   recordWebhookAttempt,
   type ClaimedWebhookDelivery,
   type Executor,
@@ -11,6 +12,7 @@ import { createPollLoop } from "./poll-loop.ts";
 import {
   maxWebhookAttempts,
   pollIntervalMs,
+  secretSweepIntervalMs,
   webhookConcurrency,
   webhookErrorCodes,
   webhookLeaseSeconds,
@@ -73,16 +75,27 @@ export async function deliverWebhook(
       return { ok: false, status: null, error: webhookErrorCodes.secretUnavailable };
     }
     const body = JSON.stringify(delivery.payload);
-    const signature = new Webhook(secret).sign(delivery.id, now, body);
+    const secrets = [secret, ...(await previousSecret())];
     return send({
       url: endpoint.url,
       body,
       headers: {
         "webhook-id": delivery.id,
         "webhook-timestamp": String(Math.floor(now.getTime() / 1000)),
-        "webhook-signature": signature,
+        "webhook-signature": secrets.map((key) => new Webhook(key).sign(delivery.id, now, body)).join(" "),
       },
     });
+  }
+
+  async function previousSecret(): Promise<string[]> {
+    const { previousSigningSecretEncrypted, previousSecretExpiresAt } = endpoint;
+    if (!previousSigningSecretEncrypted || !previousSecretExpiresAt || previousSecretExpiresAt <= now) return [];
+    try {
+      return [await cipher.decrypt(previousSigningSecretEncrypted, endpoint.organizationId)];
+    } catch (error) {
+      logger.warn({ ...context, err: error }, "previous webhook signing secret could not be decrypted, signing with the current one only");
+      return [];
+    }
   }
 }
 
@@ -90,13 +103,28 @@ export function createWebhookDispatcher(options: WebhookDispatcherOptions) {
   const { db, logger } = options;
   const send = options.send ?? createWebhookSender();
   const concurrency = options.concurrency ?? webhookConcurrency;
+  let nextSweepAt = 0;
+
+  async function sweepExpiredSecrets() {
+    if (Date.now() < nextSweepAt) return;
+    nextSweepAt = Date.now() + secretSweepIntervalMs;
+    try {
+      const cleared = await clearExpiredPreviousSecrets(db);
+      if (cleared > 0) logger.info({ cleared }, "expired previous webhook signing secrets cleared");
+    } catch (error) {
+      logger.warn({ err: error }, "expired previous webhook signing secrets could not be cleared");
+    }
+  }
 
   const loop = createPollLoop({
     name: "webhook",
     logger,
     concurrency,
     pollIntervalMs: options.pollIntervalMs ?? pollIntervalMs,
-    claim: (limit) => claimDueWebhookDeliveries(db, { limit, leaseSeconds: webhookLeaseSeconds }),
+    claim: async (limit) => {
+      await sweepExpiredSecrets();
+      return claimDueWebhookDeliveries(db, { limit, leaseSeconds: webhookLeaseSeconds });
+    },
     process: (delivery) => deliverWebhook(delivery, { ...options, send }),
   });
 

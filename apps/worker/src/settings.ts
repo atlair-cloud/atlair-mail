@@ -17,6 +17,7 @@ export const webhookConcurrency = 10;
 export const webhookLeaseSeconds = 60;
 export const webhookTimeoutMs = 15_000;
 export const webhookRetryDelaysSeconds = [5, 300, 1_800, 7_200, 18_000, 36_000, 36_000] as const;
+export const secretSweepIntervalMs = 300_000;
 export const maxWebhookAttempts = webhookRetryDelaysSeconds.length + 1;
 
 export const webhookErrorCodes = {

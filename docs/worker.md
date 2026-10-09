@@ -60,7 +60,8 @@ connection refused) are retried or failed explicitly.
 claim: UPDATE webhook_deliveries SET next_attempt_at=now()+60s, attempt_count+1
        WHERE id IN (SELECT id … status='pending' AND next_attempt_at<=now() FOR UPDATE SKIP LOCKED)
   └─ endpoint disabled            → failed (ATL_WEBHOOK_ENDPOINT_DISABLED)
-  └─ sign (webhook-id = delivery id, fresh timestamp) and POST through request-filtering-agent
+  └─ sign (webhook-id = delivery id, fresh timestamp; also with the previous secret during a
+     rotation overlap) and POST through request-filtering-agent
        2xx                        → delivered
        anything else, attempt < 8 → pending, next_attempt_at = now + 5s/5m/30m/2h/5h/10h/10h
        attempt 8                  → failed
@@ -69,6 +70,9 @@ claim: UPDATE webhook_deliveries SET next_attempt_at=now()+60s, attempt_count+1
 Results are saved `WHERE status='pending' AND attempt_count = <claimed attempt>`. A worker that dies
 mid-request leaves the row to come due again when its lease ends, so a receiver may see the same
 `webhook-id` twice.
+
+Before claiming, at most every 5 minutes, the dispatcher clears previous signing secrets whose
+rotation overlap has ended (`clearExpiredPreviousSecrets`).
 
 ## Provider events (pull mode)
 

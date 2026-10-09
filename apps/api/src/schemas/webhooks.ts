@@ -2,7 +2,7 @@ import { Type } from "typebox";
 import { webhookDeliveryStatuses, webhookEventTypes } from "@atlair-mail/db";
 import { maxPublicUrlLength } from "@atlair-mail/core";
 import { DateTime, Uuid } from "../lib/schemas.ts";
-import { maxDeliveryPageSize } from "../services/webhooks.ts";
+import { defaultSecretOverlapHours, maxDeliveryPageSize, maxSecretOverlapHours } from "../services/webhooks.ts";
 
 const Url = Type.String({
   minLength: 9,
@@ -23,6 +23,9 @@ export const WebhookSchema = Type.Object({
   url: Type.String(),
   eventTypes: Type.Array(Type.Enum(webhookEventTypes)),
   enabled: Type.Boolean(),
+  previousSecretExpiresAt: Type.Union([DateTime(), Type.Null()], {
+    description: "While set, requests are also signed with the previous secret, until this time.",
+  }),
   createdAt: DateTime(),
   updatedAt: DateTime(),
 });
@@ -33,6 +36,25 @@ export const CreatedWebhookSchema = Type.Object({
     description: "Shown only once. Use it to verify the webhook-signature header of each request.",
   }),
 });
+
+export const RotatedWebhookSchema = Type.Object({
+  ...WebhookSchema.properties,
+  signingSecret: Type.String({ description: "The new secret. Shown only once." }),
+});
+
+export const RotateSecretSchema = Type.Object(
+  {
+    overlapHours: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        maximum: maxSecretOverlapHours,
+        default: defaultSecretOverlapHours,
+        description: "How long the previous secret keeps signing requests. 0 revokes it at once.",
+      }),
+    ),
+  },
+  { additionalProperties: false },
+);
 
 export const WebhookListSchema = Type.Object({ data: Type.Array(WebhookSchema) });
 

@@ -4,6 +4,8 @@ import { Uuid } from "../../../lib/schemas.ts";
 import {
   CreatedWebhookSchema,
   CreateWebhookSchema,
+  RotatedWebhookSchema,
+  RotateSecretSchema,
   UpdateWebhookSchema,
   WebhookDeliveryListSchema,
   WebhookDeliveryQuerySchema,
@@ -75,6 +77,27 @@ const webhookRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     },
     async (request) =>
       (await fastify.services.webhooks.update(request.apiKey!.organizationId, request.params.id, request.body)) ??
+      notFound(),
+  );
+
+  fastify.post(
+    "/:id/rotate-secret",
+    {
+      schema: {
+        summary: "Rotate a webhook endpoint's signing secret",
+        description:
+          "Returns a new signing secret, shown only in this response. Until previousSecretExpiresAt, each request carries signatures from both the new and the previous secret, so receivers can switch at any time. Rotating again during the overlap replaces the previous secret.",
+        tags,
+        params,
+        body: RotateSecretSchema,
+        response: { 200: RotatedWebhookSchema },
+      },
+      preValidation: async (request) => {
+        request.body ??= {};
+      },
+    },
+    async (request) =>
+      (await fastify.services.webhooks.rotateSecret(request.apiKey!.organizationId, request.params.id, request.body)) ??
       notFound(),
   );
 

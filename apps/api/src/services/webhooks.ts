@@ -7,6 +7,7 @@ import {
   findWebhookEndpoint,
   listWebhookDeliveries,
   listWebhookEndpoints,
+  rotateWebhookSigningSecret,
   updateWebhookEndpoint,
   type Database,
   type EmailEventType,
@@ -31,6 +32,8 @@ export const WebhookLimitError = createError(
 export const maxWebhookEndpoints = 20;
 export const defaultDeliveryPageSize = 50;
 export const maxDeliveryPageSize = 100;
+export const defaultSecretOverlapHours = 24;
+export const maxSecretOverlapHours = 168;
 
 export interface WebhookInput {
   url: string;
@@ -41,6 +44,10 @@ export interface WebhookUpdate {
   url?: string;
   eventTypes?: WebhookEventType[];
   enabled?: boolean;
+}
+
+export interface SecretRotation {
+  overlapHours?: number;
 }
 
 export interface DeliveryQuery {
@@ -64,6 +71,7 @@ const toPublicEndpoint = (endpoint: WebhookEndpoint) => ({
   url: endpoint.url,
   eventTypes: endpoint.eventTypes.map((type): WebhookEventType => `email.${type}`),
   enabled: endpoint.disabledAt === null,
+  previousSecretExpiresAt: endpoint.previousSecretExpiresAt,
   createdAt: endpoint.createdAt,
   updatedAt: endpoint.updatedAt,
 });
@@ -122,6 +130,17 @@ export function createWebhookService(db: Database, cipher: CredentialsCipher) {
           ? await findWebhookEndpoint(db, organizationId, id)
           : await updateWebhookEndpoint(db, organizationId, id, changes);
       return endpoint && toPublicEndpoint(endpoint);
+    },
+
+    async rotateSecret(organizationId: string, id: string, rotation: SecretRotation) {
+      const signingSecret = generateSigningSecret();
+      const { ciphertext, keyVersion } = await cipher.encrypt(signingSecret, organizationId);
+      const endpoint = await rotateWebhookSigningSecret(db, organizationId, id, {
+        ciphertext,
+        keyVersion,
+        overlapSeconds: (rotation.overlapHours ?? defaultSecretOverlapHours) * 3_600,
+      });
+      return endpoint && { ...toPublicEndpoint(endpoint), signingSecret };
     },
 
     remove: (organizationId: string, id: string) => deleteWebhookEndpoint(db, organizationId, id),

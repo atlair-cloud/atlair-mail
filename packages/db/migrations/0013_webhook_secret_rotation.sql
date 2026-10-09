@@ -1,0 +1,4 @@
+ALTER TABLE "webhook_endpoints" ADD COLUMN "previous_signing_secret_encrypted" text;--> statement-breakpoint
+ALTER TABLE "webhook_endpoints" ADD COLUMN "previous_encryption_key_version" integer;--> statement-breakpoint
+ALTER TABLE "webhook_endpoints" ADD COLUMN "previous_secret_expires_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "webhook_endpoints" ADD CONSTRAINT "webhook_endpoints_previous_secret_check" CHECK (("webhook_endpoints"."previous_signing_secret_encrypted" is null) = ("webhook_endpoints"."previous_encryption_key_version" is null) and ("webhook_endpoints"."previous_signing_secret_encrypted" is null) = ("webhook_endpoints"."previous_secret_expires_at" is null));

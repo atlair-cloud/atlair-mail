@@ -5,6 +5,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import {
   claimDueWebhookDeliveries,
+  clearExpiredPreviousSecrets,
   countWebhookEndpoints,
   createWebhookEndpoint,
   deleteWebhookEndpoint,
@@ -13,6 +14,7 @@ import {
   listWebhookDeliveries,
   listWebhookEndpoints,
   recordWebhookAttempt,
+  rotateWebhookSigningSecret,
   updateWebhookEndpoint,
 } from "../src/index.ts";
 import { emailEvents, emails, webhookDeliveries, webhookEndpoints } from "../src/schema/index.ts";
@@ -94,6 +96,97 @@ describe("webhook repositories", { skip: !databaseUrl }, () => {
     assert.equal(await findWebhookEndpoint(t.db, organization.id, created.id), null);
   });
 
+  test("rotating keeps the old secret as previous until the overlap ends", async () => {
+    const organization = await t.newOrganization();
+    const created = await endpoint(organization.id);
+
+    const rotated = await rotateWebhookSigningSecret(t.db, organization.id, created.id, {
+      ciphertext: "ciphertext-2",
+      keyVersion: 2,
+      overlapSeconds: 3_600,
+    });
+
+    assert.equal(rotated?.signingSecretEncrypted, "ciphertext-2");
+    assert.equal(rotated?.encryptionKeyVersion, 2);
+    assert.equal(rotated?.previousSigningSecretEncrypted, "ciphertext");
+    assert.equal(rotated?.previousEncryptionKeyVersion, 1);
+    const overlapMs = rotated!.previousSecretExpiresAt!.getTime() - Date.now();
+    assert.ok(overlapMs > 3_590_000 && overlapMs <= 3_600_000);
+  });
+
+  test("rotating again replaces the previous secret, and a zero overlap drops it", async () => {
+    const organization = await t.newOrganization();
+    const created = await endpoint(organization.id);
+    const rotate = (ciphertext: string, overlapSeconds: number) =>
+      rotateWebhookSigningSecret(t.db, organization.id, created.id, { ciphertext, keyVersion: 1, overlapSeconds });
+
+    await rotate("ciphertext-2", 3_600);
+    const again = await rotate("ciphertext-3", 3_600);
+    const revoked = await rotate("ciphertext-4", 0);
+
+    assert.equal(again?.previousSigningSecretEncrypted, "ciphertext-2");
+    assert.equal(revoked?.signingSecretEncrypted, "ciphertext-4");
+    assert.equal(revoked?.previousSigningSecretEncrypted, null);
+    assert.equal(revoked?.previousEncryptionKeyVersion, null);
+    assert.equal(revoked?.previousSecretExpiresAt, null);
+  });
+
+  test("rotating another organization's endpoint changes nothing", async () => {
+    const organization = await t.newOrganization();
+    const other = await t.newOrganization();
+    const created = await endpoint(organization.id);
+
+    const rotated = await rotateWebhookSigningSecret(t.db, other.id, created.id, {
+      ciphertext: "stolen",
+      keyVersion: 1,
+      overlapSeconds: 60,
+    });
+
+    assert.equal(rotated, null);
+    const unchanged = await findWebhookEndpoint(t.db, organization.id, created.id);
+    assert.equal(unchanged?.signingSecretEncrypted, "ciphertext");
+    assert.equal(unchanged?.previousSigningSecretEncrypted, null);
+  });
+
+  test("the previous secret columns are set or empty together", async () => {
+    const organization = await t.newOrganization();
+    const created = await endpoint(organization.id);
+
+    await assert.rejects(
+      t.db
+        .update(webhookEndpoints)
+        .set({ previousSigningSecretEncrypted: "ciphertext" })
+        .where(eq(webhookEndpoints.id, created.id)),
+      pgError(CHECK_VIOLATION),
+    );
+  });
+
+  test("the sweep clears only expired previous secrets", async () => {
+    const organization = await t.newOrganization();
+    const expired = await endpoint(organization.id);
+    const active = await endpoint(organization.id);
+    const rotate = (id: string) =>
+      rotateWebhookSigningSecret(t.db, organization.id, id, { ciphertext: "next", keyVersion: 1, overlapSeconds: 3_600 });
+    await rotate(expired.id);
+    await rotate(active.id);
+    await t.db
+      .update(webhookEndpoints)
+      .set({ previousSecretExpiresAt: sql`now() - interval '1 second'` })
+      .where(eq(webhookEndpoints.id, expired.id));
+
+    assert.ok((await clearExpiredPreviousSecrets(t.db)) >= 1);
+
+    const [cleared, kept] = await Promise.all([
+      findWebhookEndpoint(t.db, organization.id, expired.id),
+      findWebhookEndpoint(t.db, organization.id, active.id),
+    ]);
+    assert.equal(cleared?.previousSigningSecretEncrypted, null);
+    assert.equal(cleared?.previousEncryptionKeyVersion, null);
+    assert.equal(cleared?.previousSecretExpiresAt, null);
+    assert.equal(cleared?.signingSecretEncrypted, "next");
+    assert.equal(kept?.previousSigningSecretEncrypted, "ciphertext");
+  });
+
   test("queues an event once for each enabled, subscribed endpoint in the organization", async () => {
     const organization = await t.newOrganization();
     const other = await t.newOrganization();
@@ -128,6 +221,8 @@ describe("webhook repositories", { skip: !databaseUrl }, () => {
     assert.equal(claimed?.attempt, 1);
     assert.equal(claimed?.endpoint.id, created.id);
     assert.equal(claimed?.endpoint.signingSecretEncrypted, "ciphertext");
+    assert.equal(claimed?.endpoint.previousSigningSecretEncrypted, null);
+    assert.equal(claimed?.endpoint.previousSecretExpiresAt, null);
     assert.equal(again.length, 0);
     assert.equal(reclaimed?.attempt, 2);
   });

@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, lte, sql } from "drizzle-orm";
 import type { Executor } from "../client.ts";
 import { webhookEndpoints, type NewWebhookEndpoint } from "../schema/index.ts";
 import type { EmailEventType } from "../types.ts";
@@ -58,4 +58,40 @@ export async function deleteWebhookEndpoint(db: Executor, organizationId: string
     .where(inOrganization(organizationId, id))
     .returning({ id: webhookEndpoints.id });
   return endpoint ?? null;
+}
+
+export interface SigningSecretRotation {
+  ciphertext: string;
+  keyVersion: number;
+  overlapSeconds: number;
+}
+
+export async function rotateWebhookSigningSecret(
+  db: Executor,
+  organizationId: string,
+  id: string,
+  rotation: SigningSecretRotation,
+) {
+  const keepPrevious = rotation.overlapSeconds > 0;
+  const [endpoint] = await db
+    .update(webhookEndpoints)
+    .set({
+      signingSecretEncrypted: rotation.ciphertext,
+      encryptionKeyVersion: rotation.keyVersion,
+      previousSigningSecretEncrypted: keepPrevious ? sql`${webhookEndpoints.signingSecretEncrypted}` : null,
+      previousEncryptionKeyVersion: keepPrevious ? sql`${webhookEndpoints.encryptionKeyVersion}` : null,
+      previousSecretExpiresAt: keepPrevious ? sql`now() + make_interval(secs => ${rotation.overlapSeconds})` : null,
+    })
+    .where(inOrganization(organizationId, id))
+    .returning();
+  return endpoint ?? null;
+}
+
+export async function clearExpiredPreviousSecrets(db: Executor) {
+  const cleared = await db
+    .update(webhookEndpoints)
+    .set({ previousSigningSecretEncrypted: null, previousEncryptionKeyVersion: null, previousSecretExpiresAt: null })
+    .where(lte(webhookEndpoints.previousSecretExpiresAt, sql`now()`))
+    .returning({ id: webhookEndpoints.id });
+  return cleared.length;
 }

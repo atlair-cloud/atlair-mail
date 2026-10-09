@@ -5,7 +5,7 @@ import { v7 as uuidv7 } from "uuid";
 import { schema } from "@atlair-mail/db";
 import { providerEventKey } from "@atlair-mail/providers";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
-import { maxWebhookEndpoints } from "../src/services/webhooks.ts";
+import { maxSecretOverlapHours, maxWebhookEndpoints } from "../src/services/webhooks.ts";
 
 const url = "/v1/webhooks";
 type TestApp = Awaited<ReturnType<typeof buildTestApp>>;
@@ -113,6 +113,67 @@ describe("/v1/webhooks", { skip: !hasDatabase }, () => {
     assert.equal((await create(app, sending.token, hook)).statusCode, 403);
     assert.equal((await app.inject({ method: "GET", url, headers: auth(sending.token) })).statusCode, 403);
     assert.equal((await app.inject({ method: "GET", url: `${url}/${id}` })).statusCode, 401);
+  });
+
+  it("rotates the signing secret, shows it once and keeps the previous one for the overlap", async () => {
+    const app = await buildTestApp();
+    const { token, organizationId } = await createTestKey(app);
+    const created = (await create(app, token, hook)).json();
+    const rotate = (payload?: Record<string, unknown>) =>
+      app.inject({ method: "POST", url: `${url}/${created.id}/rotate-secret`, headers: auth(token), payload });
+
+    const response = await rotate();
+    const rotated = response.json();
+    assert.equal(response.statusCode, 200);
+    assert.match(rotated.signingSecret, /^whsec_[A-Za-z0-9+/]{43}=$/);
+    assert.notEqual(rotated.signingSecret, created.signingSecret);
+    assert.equal(created.previousSecretExpiresAt, null);
+    const overlapMs = Date.parse(rotated.previousSecretExpiresAt) - Date.now();
+    assert.ok(overlapMs > 23.9 * 3_600_000 && overlapMs <= 24 * 3_600_000);
+
+    const [stored] = await app.db
+      .select()
+      .from(schema.webhookEndpoints)
+      .where(eq(schema.webhookEndpoints.id, created.id));
+    assert.equal(await app.credentialsCipher.decrypt(stored!.signingSecretEncrypted, organizationId), rotated.signingSecret);
+    assert.equal(
+      await app.credentialsCipher.decrypt(stored!.previousSigningSecretEncrypted!, organizationId),
+      created.signingSecret,
+    );
+
+    const fetched = (await app.inject({ method: "GET", url: `${url}/${created.id}`, headers: auth(token) })).json();
+    assert.equal(fetched.signingSecret, undefined);
+    assert.equal(fetched.previousSecretExpiresAt, rotated.previousSecretExpiresAt);
+    assert.equal(
+      JSON.stringify((await app.inject({ method: "GET", url, headers: auth(token) })).json()).includes("whsec_"),
+      false,
+    );
+
+    const longest = (await rotate({ overlapHours: maxSecretOverlapHours })).json();
+    assert.ok(Date.parse(longest.previousSecretExpiresAt) - Date.now() > (maxSecretOverlapHours - 0.1) * 3_600_000);
+    const revoked = await rotate({ overlapHours: 0 });
+    assert.equal(revoked.statusCode, 200);
+    assert.equal(revoked.json().previousSecretExpiresAt, null);
+    for (const overlapHours of [-1, maxSecretOverlapHours + 1, 1.5, "a day"]) {
+      assert.equal((await rotate({ overlapHours })).statusCode, 400, String(overlapHours));
+    }
+    assert.notEqual((await rotate({ signingSecret: "whsec_mine" })).json().signingSecret, "whsec_mine");
+  });
+
+  it("rotates only the caller's endpoints and requires a full_access key", async () => {
+    const app = await buildTestApp();
+    const { token } = await createTestKey(app);
+    const other = await createTestKey(app);
+    const sending = await createTestKey(app, { permission: "sending_access" });
+    const { id } = (await create(app, token, hook)).json();
+    const rotate = (as: string, target = id) =>
+      app.inject({ method: "POST", url: `${url}/${target}/rotate-secret`, headers: auth(as), payload: {} });
+
+    assert.equal((await rotate(other.token)).statusCode, 404);
+    assert.equal((await rotate(sending.token)).statusCode, 403);
+    assert.equal((await rotate(token, uuidv7())).statusCode, 404);
+    const unchanged = (await app.inject({ method: "GET", url: `${url}/${id}`, headers: auth(token) })).json();
+    assert.equal(unchanged.previousSecretExpiresAt, null);
   });
 
   it(`allows at most ${maxWebhookEndpoints} endpoints per organization`, async () => {

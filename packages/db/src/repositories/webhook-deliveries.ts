@@ -67,6 +67,8 @@ export async function claimDueWebhookDeliveries(db: Executor, options: { limit: 
       url: webhookEndpoints.url,
       signingSecretEncrypted: webhookEndpoints.signingSecretEncrypted,
       encryptionKeyVersion: webhookEndpoints.encryptionKeyVersion,
+      previousSigningSecretEncrypted: webhookEndpoints.previousSigningSecretEncrypted,
+      previousSecretExpiresAt: webhookEndpoints.previousSecretExpiresAt,
       disabledAt: webhookEndpoints.disabledAt,
     })
     .from(webhookEndpoints)
