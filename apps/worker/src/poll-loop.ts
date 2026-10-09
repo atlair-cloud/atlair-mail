@@ -7,7 +7,7 @@ export interface PollLoopOptions<T extends { id: string }> {
   concurrency: number;
   pollIntervalMs: number;
   claim: (limit: number) => Promise<T[]>;
-  process: (item: T) => Promise<unknown>;
+  process: (item: T, signal: AbortSignal) => Promise<unknown>;
 }
 
 export function createPollLoop<T extends { id: string }>(options: PollLoopOptions<T>) {
@@ -22,7 +22,7 @@ export function createPollLoop<T extends { id: string }>(options: PollLoopOption
     const claimed = await options.claim(free);
     for (const item of claimed) {
       const job = options
-        .process(item)
+        .process(item, stopping.signal)
         .catch((error) => logger.error({ err: error, id: item.id }, `${name} processing crashed`))
         .finally(() => inFlight.delete(job));
       inFlight.add(job);

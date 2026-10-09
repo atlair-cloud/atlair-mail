@@ -6,6 +6,8 @@ export interface SesSettings {
   accessKeyId: string;
   eventTopicArn?: string;
   configurationSetName?: string;
+  eventQueueUrl?: string;
+  eventDeadLetterQueueUrl?: string;
 }
 
 export interface SesSecrets {
@@ -113,14 +115,47 @@ export interface ProviderEvent {
   details: EmailEventDetails;
 }
 
+export const eventDeliveryModes = ["push", "pull"] as const;
+export type EventDeliveryMode = (typeof eventDeliveryModes)[number];
+
+export type EventDelivery = { mode: "push"; endpointUrl: string } | { mode: "pull" };
+
+export interface EventMessage {
+  id: string;
+  receipt: string;
+  body: unknown;
+  receiveCount: number;
+}
+
+export interface ReceiveEventsOptions {
+  maxMessages: number;
+  waitSeconds: number;
+  signal?: AbortSignal;
+}
+
+export interface EventsConfiguration {
+  settings: ProviderSettings;
+  subscriptionActive: boolean;
+}
+
+export interface EventQueueStats {
+  backlog: number;
+  deadLetters: number;
+}
+
 export interface EmailProvider {
   readonly type: ProviderType;
   verifyAccount(): Promise<ProviderAccount>;
   createDomain(name: string): Promise<DomainVerification>;
   getDomain(name: string): Promise<DomainVerification | null>;
   configureReturnPath(name: string): Promise<void>;
-  configureEvents(endpointUrl: string): Promise<ProviderSettings>;
+  configureEvents(connectionId: string, delivery: EventDelivery): Promise<EventsConfiguration>;
   confirmEvents(token: string): Promise<void>;
+  removeEventSubscriptions(connectionId: string, mode: EventDeliveryMode): Promise<void>;
+  receiveEventMessages(options: ReceiveEventsOptions): Promise<EventMessage[]>;
+  deleteEventMessages(receipts: string[]): Promise<{ failed: string[] }>;
+  getEventQueueStats(): Promise<EventQueueStats>;
+  redriveEventMessages(): Promise<void>;
   send(message: EmailMessage): Promise<SendResult>;
 }
 

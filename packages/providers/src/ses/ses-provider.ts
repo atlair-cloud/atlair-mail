@@ -23,6 +23,7 @@ import {
   SNSClient,
   SubscribeCommand,
 } from "@aws-sdk/client-sns";
+import { SQSClient } from "@aws-sdk/client-sqs";
 import libmime from "libmime";
 import {
   ProviderError,
@@ -31,6 +32,20 @@ import {
   ProviderTimeoutError,
   ProviderUnavailableError,
 } from "../errors.ts";
+import {
+  deadLetterQueueAttributes,
+  deadLetterQueueName,
+  deleteMessages,
+  ensureQueue,
+  eventQueueAttributes,
+  eventQueueName,
+  queueArn,
+  queueStats,
+  receiveMessages,
+  redrive,
+  removeSubscriptions,
+  subscribeQueue,
+} from "./ses-event-queue.ts";
 import type {
   DnsRecord,
   DnsRecordStatus,
@@ -56,7 +71,15 @@ export function toDomainStatus(
 
 const connectionFailureCodes = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH"]);
 
-const throttlingErrors = new Set(["Throttling", "ThrottlingException", "ThrottledException"]);
+const throttlingErrors = new Set([
+  "Throttling",
+  "ThrottlingException",
+  "ThrottledException",
+  "RequestThrottled",
+  "OverLimit",
+]);
+
+const transientErrors = new Set(["QueueDeletedRecently"]);
 
 const faultOf = (error: unknown) => (error instanceof Error ? (error as { $fault?: unknown }).$fault : undefined);
 
@@ -68,6 +91,9 @@ export function toProviderError(error: unknown) {
     (error instanceof Error && throttlingErrors.has(error.name))
   ) {
     return new ProviderThrottledError({ cause: error, reason: error.name });
+  }
+  if (error instanceof Error && transientErrors.has(error.name)) {
+    return new ProviderUnavailableError({ cause: error, reason: error.name });
   }
   const fault = faultOf(error);
   if (error instanceof Error && (fault === "client" || fault === "server")) {
@@ -237,6 +263,54 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
 
   const callSns = <T>(run: (client: SNSClient) => Promise<T>) => using(new SNSClient(clientConfig), run);
 
+  const callSqs = <T>(run: (client: SQSClient) => Promise<T>, requestTimeout = clientConfig.requestHandler.requestTimeout) =>
+    using(new SQSClient({ ...clientConfig, requestHandler: { ...clientConfig.requestHandler, requestTimeout } }), run);
+
+  const requireTopic = () => {
+    if (!settings.eventTopicArn) throw new ProviderRejectedError("EventsNotConfigured");
+    return settings.eventTopicArn;
+  };
+
+  const requireQueues = () => {
+    if (!settings.eventQueueUrl || !settings.eventDeadLetterQueueUrl) {
+      throw new ProviderRejectedError("EventQueueNotConfigured");
+    }
+    return { queueUrl: settings.eventQueueUrl, deadLetterUrl: settings.eventDeadLetterQueueUrl };
+  };
+
+  async function ensureTopic(sns: SNSClient) {
+    const { TopicArn: topicArn } = await sns.send(new CreateTopicCommand({ Name: eventResources.topic }));
+    if (!topicArn) throw new ProviderUnavailableError({ reason: "MissingTopicArn" });
+    await sns.send(
+      new SetTopicAttributesCommand({
+        TopicArn: topicArn,
+        AttributeName: "Policy",
+        AttributeValue: eventTopicPolicy(topicArn, settings.region),
+      }),
+    );
+    await call((client) => publishEventsTo(client, topicArn));
+    return topicArn;
+  }
+
+  async function ensureEventQueues(connectionId: string, topicArn: string) {
+    const queueArnFor = (name: string) => queueArn(topicArn, name);
+    const eventQueue = eventQueueName(connectionId);
+    const deadLetterQueue = deadLetterQueueName(connectionId);
+    return callSqs(async (sqs) => {
+      const deadLetterUrl = await ensureQueue(
+        sqs,
+        deadLetterQueue,
+        deadLetterQueueAttributes(queueArnFor(deadLetterQueue), queueArnFor(eventQueue)),
+      );
+      const queueUrl = await ensureQueue(
+        sqs,
+        eventQueue,
+        eventQueueAttributes(queueArnFor(eventQueue), queueArnFor(deadLetterQueue), topicArn),
+      );
+      return { queueUrl, deadLetterUrl, eventQueueArn: queueArnFor(eventQueue) };
+    });
+  }
+
   async function publishEventsTo(client: SESv2Client, topicArn: string) {
     const destination = {
       ConfigurationSetName: eventResources.configurationSet,
@@ -319,28 +393,57 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
         );
       }),
 
-    configureEvents: (endpointUrl) =>
+    configureEvents: (connectionId, delivery) =>
       callSns(async (sns) => {
-        const { TopicArn: topicArn } = await sns.send(new CreateTopicCommand({ Name: eventResources.topic }));
-        if (!topicArn) throw new ProviderUnavailableError({ reason: "MissingTopicArn" });
-        await sns.send(
-          new SetTopicAttributesCommand({
-            TopicArn: topicArn,
-            AttributeName: "Policy",
-            AttributeValue: eventTopicPolicy(topicArn, settings.region),
-          }),
-        );
-        await call((client) => publishEventsTo(client, topicArn));
-        await sns.send(new SubscribeCommand({ TopicArn: topicArn, Protocol: "https", Endpoint: endpointUrl }));
-        return { ...settings, eventTopicArn: topicArn, configurationSetName: eventResources.configurationSet };
+        const topicArn = await ensureTopic(sns);
+        const base = { ...settings, eventTopicArn: topicArn, configurationSetName: eventResources.configurationSet };
+        if (delivery.mode === "push") {
+          await sns.send(
+            new SubscribeCommand({ TopicArn: topicArn, Protocol: "https", Endpoint: delivery.endpointUrl }),
+          );
+          return { settings: base, subscriptionActive: false };
+        }
+        const { queueUrl, deadLetterUrl, eventQueueArn } = await ensureEventQueues(connectionId, topicArn);
+        const subscriptionActive = await subscribeQueue(sns, topicArn, eventQueueArn);
+        return {
+          settings: { ...base, eventQueueUrl: queueUrl, eventDeadLetterQueueUrl: deadLetterUrl },
+          subscriptionActive,
+        };
       }),
+
+    removeEventSubscriptions: (connectionId, mode) =>
+      callSns(async (sns) => {
+        await removeSubscriptions(sns, requireTopic(), connectionId, mode);
+      }),
+
+    receiveEventMessages: async (options) => {
+      const { queueUrl } = requireQueues();
+      return callSqs(
+        (sqs) => receiveMessages(sqs, queueUrl, options),
+        (Math.min(Math.max(options.waitSeconds, 0), 20) + 10) * 1_000,
+      );
+    },
+
+    deleteEventMessages: async (receipts) => {
+      const { queueUrl } = requireQueues();
+      return callSqs((sqs) => deleteMessages(sqs, queueUrl, receipts));
+    },
+
+    getEventQueueStats: async () => {
+      const { queueUrl, deadLetterUrl } = requireQueues();
+      return callSqs((sqs) => queueStats(sqs, queueUrl, deadLetterUrl));
+    },
+
+    redriveEventMessages: async () => {
+      const { deadLetterUrl } = requireQueues();
+      return callSqs((sqs) => redrive(sqs, requireTopic(), deadLetterUrl));
+    },
 
     confirmEvents: (token) =>
       callSns(async (sns) => {
-        if (!settings.eventTopicArn) throw new ProviderRejectedError("EventsNotConfigured");
         await sns.send(
           new ConfirmSubscriptionCommand({
-            TopicArn: settings.eventTopicArn,
+            TopicArn: requireTopic(),
             Token: token,
             AuthenticateOnUnsubscribe: "true",
           }),

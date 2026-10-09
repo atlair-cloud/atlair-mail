@@ -1,8 +1,7 @@
 import createError from "@fastify/error";
-import { findProviderConnectionById, markProviderEventsConfirmed, type Database } from "@atlair-mail/db";
-import { providerFromConnection, type CredentialsCipher } from "@atlair-mail/core";
-import { ProviderEventRejectedError, readProviderWebhook, type ProviderLogger } from "@atlair-mail/providers";
-import type { EmailEventOutcome, EmailEventService } from "./email-events.ts";
+import { findProviderConnectionById, type Database } from "@atlair-mail/db";
+import { handleProviderMessage, type CredentialsCipher, type HandledProviderMessage } from "@atlair-mail/core";
+import { ProviderEventRejectedError, type ProviderLogger } from "@atlair-mail/providers";
 
 export const ProviderEventUnverifiedError = createError(
   "ATL_PROVIDER_EVENT_UNVERIFIED",
@@ -10,50 +9,21 @@ export const ProviderEventUnverifiedError = createError(
   403,
 );
 
-export type ProviderEventOutcome = EmailEventOutcome | "confirmed" | "ignored";
+export type ReceivedProviderEvent = HandledProviderMessage;
 
-export interface ReceivedProviderEvent {
-  outcome: ProviderEventOutcome;
-  organizationId: string;
-  emailId?: string | null;
-  type?: string;
-}
-
-export function createProviderEventService(
-  db: Database,
-  cipher: CredentialsCipher,
-  emailEvents: EmailEventService,
-  logger: ProviderLogger,
-) {
+export function createProviderEventService(db: Database, cipher: CredentialsCipher, logger: ProviderLogger) {
   return {
     async receive(connectionId: string, body: unknown): Promise<ReceivedProviderEvent | null> {
       const connection = await findProviderConnectionById(db, connectionId);
       if (!connection) return null;
-      const { organizationId } = connection;
-
-      const webhook = await readProviderWebhook({ type: connection.provider, settings: connection.settings }, body).catch(
-        (error: unknown) => {
-          if (error instanceof ProviderEventRejectedError) {
-            logger.warn({ connectionId, reason: error.reason }, "provider event rejected");
-            throw new ProviderEventUnverifiedError();
-          }
-          throw error;
-        },
-      );
-
-      switch (webhook.kind) {
-        case "confirm": {
-          const provider = await providerFromConnection(cipher, connection, { logger });
-          await provider.confirmEvents(webhook.token);
-          await markProviderEventsConfirmed(db, connection.id);
-          return { outcome: "confirmed", organizationId };
+      try {
+        return await handleProviderMessage({ db, cipher, logger }, connection, "push", body);
+      } catch (error) {
+        if (error instanceof ProviderEventRejectedError) {
+          logger.warn({ connectionId, reason: error.reason }, "provider event rejected");
+          throw new ProviderEventUnverifiedError();
         }
-        case "event": {
-          const recorded = await emailEvents.record(organizationId, webhook.event);
-          return { ...recorded, organizationId, type: webhook.event.type };
-        }
-        case "ignored":
-          return { outcome: "ignored", organizationId };
+        throw error;
       }
     },
   };

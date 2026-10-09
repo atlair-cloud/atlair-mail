@@ -4,6 +4,10 @@ import type {
   DomainVerification,
   EmailMessage,
   EmailProvider,
+  EventDelivery,
+  EventMessage,
+  EventQueueStats,
+  EventsConfiguration,
   ProviderAccount,
   ProviderOperation,
   SendResult,
@@ -32,13 +36,25 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
     createDomain: pendingDomain,
     getDomain: pendingDomain,
     configureReturnPath: async () => {},
-    configureEvents: async () => ({
-      region: "us-east-1",
-      accessKeyId: "AKIAFAKE",
-      eventTopicArn: "arn:aws:sns:us-east-1:123456789012:atlair-mail-events",
-      configurationSetName: "atlair-mail",
+    configureEvents: async (_connectionId: string, delivery: EventDelivery): Promise<EventsConfiguration> => ({
+      settings: {
+        region: "us-east-1",
+        accessKeyId: "AKIAFAKE",
+        eventTopicArn: "arn:aws:sns:us-east-1:123456789012:atlair-mail-events",
+        configurationSetName: "atlair-mail",
+        ...(delivery.mode === "pull" && {
+          eventQueueUrl: "https://sqs.us-east-1.amazonaws.com/123456789012/atlair-mail-events-fake",
+          eventDeadLetterQueueUrl: "https://sqs.us-east-1.amazonaws.com/123456789012/atlair-mail-events-fake-dlq",
+        }),
+      },
+      subscriptionActive: delivery.mode === "pull",
     }),
     confirmEvents: async () => {},
+    removeEventSubscriptions: async () => {},
+    receiveEventMessages: async (): Promise<EventMessage[]> => [],
+    deleteEventMessages: async () => ({ failed: [] }),
+    getEventQueueStats: async (): Promise<EventQueueStats> => ({ backlog: 0, deadLetters: 0 }),
+    redriveEventMessages: async () => {},
     send: async (_message: EmailMessage): Promise<SendResult> => ({ providerMessageId: `fake-${++sent}` }),
     ...overrides,
   };
@@ -59,6 +75,11 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
     configureReturnPath: record("configureReturnPath", implementations.configureReturnPath),
     configureEvents: record("configureEvents", implementations.configureEvents),
     confirmEvents: record("confirmEvents", implementations.confirmEvents),
+    removeEventSubscriptions: record("removeEventSubscriptions", implementations.removeEventSubscriptions),
+    receiveEventMessages: record("receiveEventMessages", implementations.receiveEventMessages),
+    deleteEventMessages: record("deleteEventMessages", implementations.deleteEventMessages),
+    getEventQueueStats: record("getEventQueueStats", implementations.getEventQueueStats),
+    redriveEventMessages: record("redriveEventMessages", implementations.redriveEventMessages),
     send: record("send", implementations.send),
   };
 }
@@ -66,6 +87,7 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
 const snsSignedFields: Record<string, string[]> = {
   Notification: ["Message", "MessageId", "Subject", "Timestamp", "TopicArn", "Type"],
   SubscriptionConfirmation: ["Message", "MessageId", "SubscribeURL", "Timestamp", "Token", "TopicArn", "Type"],
+  UnsubscribeConfirmation: ["Message", "MessageId", "SubscribeURL", "Timestamp", "Token", "TopicArn", "Type"],
 };
 
 export function createSnsTestSigner(region = "ap-south-1") {

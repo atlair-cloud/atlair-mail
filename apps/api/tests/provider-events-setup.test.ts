@@ -13,9 +13,18 @@ import {
   ConfirmSubscriptionCommand,
   CreateTopicCommand,
   SetTopicAttributesCommand,
+  ListSubscriptionsByTopicCommand,
   SNSClient,
   SubscribeCommand,
+  UnsubscribeCommand,
 } from "@aws-sdk/client-sns";
+import {
+  CreateQueueCommand,
+  GetQueueUrlCommand,
+  QueueDoesNotExist,
+  SQSClient,
+  StartMessageMoveTaskCommand,
+} from "@aws-sdk/client-sqs";
 import { schema } from "@atlair-mail/db";
 import { createSnsTestSigner } from "@atlair-mail/providers/testing";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
@@ -28,8 +37,20 @@ const input = {
 };
 const topicArn = "arn:aws:sns:ap-south-1:123456789012:atlair-mail-events";
 
+const disabledEvents = {
+  mode: null,
+  url: null,
+  status: "disabled",
+  confirmedAt: null,
+  lastReceivedAt: null,
+  lastError: null,
+  backlog: null,
+  deadLetters: null,
+};
+
 const ses = mockClient(SESv2Client);
 const sns = mockClient(SNSClient);
+const sqs = mockClient(SQSClient);
 const sign = createSnsTestSigner();
 
 type TestApp = Awaited<ReturnType<typeof buildTestApp>>;
@@ -79,7 +100,7 @@ describe("POST /v1/provider/events", { skip: !hasDatabase }, () => {
 
     const saved = await app.inject({ method: "PUT", url: "/v1/provider", headers: auth(token), payload: input });
 
-    assert.deepEqual(saved.json().events, { url: null, status: "disabled", confirmedAt: null });
+    assert.deepEqual(saved.json().events, disabledEvents);
     assert.equal(sns.commandCalls(SubscribeCommand).length, 0);
   });
 
@@ -95,9 +116,10 @@ describe("POST /v1/provider/events", { skip: !hasDatabase }, () => {
 
     assert.equal(res.statusCode, 200);
     assert.deepEqual(res.json().events, {
+      ...disabledEvents,
+      mode: "push",
       url: "https://mail.example.com",
       status: "pending_confirmation",
-      confirmedAt: null,
     });
     assert.ok(!res.body.includes(topicArn));
     assert.equal(
@@ -122,7 +144,12 @@ describe("POST /v1/provider/events", { skip: !hasDatabase }, () => {
     assert.ok(confirmed.events.confirmedAt);
     assert.equal(rerun.events.status, "confirmed");
     assert.equal(rerun.events.url, "https://a.example.com");
-    assert.deepEqual(moved.events, { url: "https://b.example.com", status: "pending_confirmation", confirmedAt: null });
+    assert.deepEqual(moved.events, {
+      ...disabledEvents,
+      mode: "push",
+      url: "https://b.example.com",
+      status: "pending_confirmation",
+    });
     assert.equal(
       sns.commandCalls(SubscribeCommand).at(-1)!.args[0].input.Endpoint,
       `https://b.example.com/webhooks/provider-events/${connectionId}`,
@@ -186,5 +213,139 @@ describe("POST /v1/provider/events", { skip: !hasDatabase }, () => {
     assert.equal(denied.statusCode, 422);
     assert.equal(denied.json().code, "ATL_PROVIDER_REJECTED");
     assert.equal(after.events.status, "disabled");
+  });
+});
+
+describe("POST /v1/provider/events in pull mode", { skip: !hasDatabase }, () => {
+  const account = "123456789012";
+  const queueFor = (connectionId: string) => {
+    const name = `atlair-mail-events-${connectionId}`;
+    return {
+      arn: `arn:aws:sqs:ap-south-1:${account}:${name}`,
+      url: `https://sqs.ap-south-1.amazonaws.com/${account}/${name}`,
+    };
+  };
+
+  beforeEach(() => {
+    sqs.reset();
+    sqs.on(GetQueueUrlCommand).rejects(new QueueDoesNotExist({ message: "missing", $metadata: {} }));
+    sqs.on(CreateQueueCommand).callsFake((command: { QueueName: string }) => ({
+      QueueUrl: `https://sqs.ap-south-1.amazonaws.com/${account}/${command.QueueName}`,
+    }));
+    sqs.on(StartMessageMoveTaskCommand).resolves({ TaskHandle: "task" });
+    sns.on(SubscribeCommand, { Protocol: "sqs" }).resolves({ SubscriptionArn: `${topicArn}:sqs` });
+    sns.on(UnsubscribeCommand).resolves({});
+  });
+
+  const listing = (connectionId: string) =>
+    sns.on(ListSubscriptionsByTopicCommand).resolves({
+      Subscriptions: [
+        {
+          SubscriptionArn: `${topicArn}:https`,
+          Protocol: "https",
+          Endpoint: `https://a.example.com/webhooks/provider-events/${connectionId}`,
+        },
+        { SubscriptionArn: `${topicArn}:sqs`, Protocol: "sqs", Endpoint: queueFor(connectionId).arn },
+      ],
+    });
+
+  const unsubscribed = () => sns.commandCalls(UnsubscribeCommand).map((call) => call.args[0].input.SubscriptionArn);
+
+  it("sets up the queue, is confirmed at once, removes the push subscription and never shows the queue address", async () => {
+    const app = await buildTestApp();
+    const { token, organizationId, connectionId } = await connectedKey(app);
+    await setUp(app, token, { url: "https://a.example.com" });
+    listing(connectionId);
+
+    const res = await setUp(app, token, { mode: "pull" });
+    const [row] = await app.db
+      .select()
+      .from(schema.providerConnections)
+      .where(eq(schema.providerConnections.organizationId, organizationId));
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().events.mode, "pull");
+    assert.equal(res.json().events.url, null);
+    assert.equal(res.json().events.status, "confirmed");
+    assert.ok(res.json().events.confirmedAt);
+    assert.ok(!res.body.includes("sqs.") && !res.body.includes(account));
+    assert.equal(row!.settings.eventQueueUrl, queueFor(connectionId).url);
+    assert.ok(row!.eventsPollAfter);
+    assert.deepEqual(unsubscribed(), [`${topicArn}:https`]);
+  });
+
+  it("switching back to push keeps the queue subscription until the new one is confirmed", async () => {
+    const app = await buildTestApp();
+    const { token, connectionId } = await connectedKey(app);
+    listing(connectionId);
+    await setUp(app, token, { mode: "pull" });
+    sns.on(UnsubscribeCommand).resolves({});
+    sns.resetHistory();
+
+    const switched = (await setUp(app, token, { url: "https://a.example.com" })).json();
+    const beforeConfirmation = unsubscribed();
+    await confirm(app, connectionId);
+
+    assert.equal(switched.events.mode, "push");
+    assert.equal(switched.events.status, "pending_confirmation");
+    assert.deepEqual(beforeConfirmation, []);
+    assert.deepEqual(unsubscribed(), [`${topicArn}:sqs`]);
+  });
+
+  it("shows when the worker cannot read the queue, with the dead-letter count", async () => {
+    const app = await buildTestApp();
+    const { token, connectionId } = await connectedKey(app);
+    listing(connectionId);
+    await setUp(app, token, { mode: "pull" });
+    await app.db
+      .update(schema.providerConnections)
+      .set({ eventsLastError: "ATL_PROVIDER_REJECTED: AccessDenied", eventsDeadLetters: 3, eventsBacklog: 7 })
+      .where(eq(schema.providerConnections.id, connectionId));
+
+    const events = (await app.inject({ method: "GET", url: "/v1/provider", headers: auth(token) })).json().events;
+
+    assert.equal(events.status, "failing");
+    assert.equal(events.lastError, "ATL_PROVIDER_REJECTED: AccessDenied");
+    assert.equal(events.deadLetters, 3);
+    assert.equal(events.backlog, 7);
+  });
+
+  it("checks the mode and url together", async () => {
+    const app = await buildTestApp();
+    const { token } = await connectedKey(app);
+
+    const pullWithUrl = await setUp(app, token, { mode: "pull", url: "https://a.example.com" });
+    const pushWithoutUrl = await setUp(app, token, { mode: "push" });
+    const unknownMode = await setUp(app, token, { mode: "carrier-pigeon" });
+
+    assert.equal(pullWithUrl.statusCode, 400);
+    assert.equal(pullWithUrl.json().code, "ATL_INVALID_EVENTS_SETUP");
+    assert.equal(pushWithoutUrl.json().code, "ATL_INVALID_EVENTS_SETUP");
+    assert.equal(unknownMode.statusCode, 400);
+    assert.equal(sqs.calls().length, 0);
+  });
+
+  it("redrives the dead-letter queue only in pull mode and only with a full_access key", async () => {
+    const app = await buildTestApp();
+    const { token, connectionId, organizationId } = await connectedKey(app);
+    const sending = await createTestKey(app, { permission: "sending_access" });
+    const redrive = (key: string) =>
+      app.inject({ method: "POST", url: "/v1/provider/events/redrive", headers: auth(key) });
+
+    const beforePull = await redrive(token);
+    listing(connectionId);
+    await setUp(app, token, { mode: "pull" });
+    const started = await redrive(token);
+    const forbidden = await redrive(sending.token);
+
+    assert.equal(beforePull.statusCode, 409);
+    assert.equal(beforePull.json().code, "ATL_EVENT_QUEUE_NOT_CONFIGURED");
+    assert.equal(started.statusCode, 202);
+    assert.deepEqual(started.json(), { status: "started" });
+    assert.deepEqual(sqs.commandCalls(StartMessageMoveTaskCommand).map((call) => call.args[0].input), [
+      { SourceArn: `${queueFor(connectionId).arn}-dlq` },
+    ]);
+    assert.equal(forbidden.statusCode, 403);
+    assert.ok(organizationId);
   });
 });

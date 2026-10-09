@@ -21,7 +21,9 @@ import {
 import { createProvider, ProviderRejectedError, ProviderThrottledError, type SesSettings } from "../src/index.ts";
 
 const topicArn = "arn:aws:sns:ap-south-1:123456789012:atlair-mail-events";
-const endpoint = "https://mail.example.com/webhooks/provider-events/0199";
+const connectionId = "0199c7c2-1111-7000-8000-000000000001";
+const endpoint = `https://mail.example.com/webhooks/provider-events/${connectionId}`;
+const push = { mode: "push" as const, endpointUrl: endpoint };
 const baseSettings: SesSettings = { region: "ap-south-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE" };
 
 const providerWith = (settings: SesSettings = baseSettings) =>
@@ -44,9 +46,12 @@ beforeEach(() => {
 
 describe("SES event publishing setup", () => {
   it("creates the topic, lets only this account's configuration set publish, and subscribes the endpoint", async () => {
-    const settings = await providerWith().configureEvents(endpoint);
+    const configured = await providerWith().configureEvents(connectionId, push);
 
-    assert.deepEqual(settings, { ...baseSettings, eventTopicArn: topicArn, configurationSetName: "atlair-mail" });
+    assert.deepEqual(configured, {
+      settings: { ...baseSettings, eventTopicArn: topicArn, configurationSetName: "atlair-mail" },
+      subscriptionActive: false,
+    });
     assert.deepEqual(sns.commandCalls(CreateTopicCommand)[0]!.args[0].input, { Name: "atlair-mail-events" });
     const policyInput = sns.commandCalls(SetTopicAttributesCommand)[0]!.args[0].input;
     assert.equal(policyInput.AttributeName, "Policy");
@@ -86,7 +91,7 @@ describe("SES event publishing setup", () => {
     ses.on(CreateConfigurationSetEventDestinationCommand).rejects(exists());
     ses.on(UpdateConfigurationSetEventDestinationCommand).resolves({});
 
-    const settings = await providerWith().configureEvents(endpoint);
+    const { settings } = await providerWith().configureEvents(connectionId, push);
 
     assert.equal(settings.eventTopicArn, topicArn);
     assert.equal(ses.commandCalls(UpdateConfigurationSetEventDestinationCommand).length, 1);
@@ -95,14 +100,14 @@ describe("SES event publishing setup", () => {
 
   it("maps missing permissions and throttling to provider errors", async () => {
     sns.on(CreateTopicCommand).rejects(new AuthorizationErrorException({ message: "denied", $metadata: {} }));
-    await assert.rejects(providerWith().configureEvents(endpoint), (error) => {
+    await assert.rejects(providerWith().configureEvents(connectionId, push), (error) => {
       assert.ok(error instanceof ProviderRejectedError);
       assert.equal(error.summary, "ATL_PROVIDER_REJECTED: AuthorizationErrorException");
       return true;
     });
 
     sns.on(CreateTopicCommand).rejects(new ThrottledException({ message: "slow down", $metadata: {} }));
-    await assert.rejects(providerWith().configureEvents(endpoint), ProviderThrottledError);
+    await assert.rejects(providerWith().configureEvents(connectionId, push), ProviderThrottledError);
   });
 
   it("confirms a subscription so that only the topic owner can unsubscribe", async () => {

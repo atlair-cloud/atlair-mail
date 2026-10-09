@@ -24,6 +24,7 @@ export function useWorkerTestDb() {
       await conn.db.delete(schema.suppressedAddresses).where(inArray(schema.suppressedAddresses.organizationId, ids));
       await conn.db.delete(schema.emails).where(inArray(schema.emails.organizationId, ids));
       await conn.db.delete(schema.domains).where(inArray(schema.domains.organizationId, ids));
+      await conn.db.delete(schema.providerConnections).where(inArray(schema.providerConnections.organizationId, ids));
       await conn.db.delete(schema.organizations).where(inArray(schema.organizations.id, ids));
     }
     await conn.close();

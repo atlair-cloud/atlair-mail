@@ -191,33 +191,72 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 
 ### Amazon SES (`type: "ses"`)
 
-`settings` = `{ region, accessKeyId, eventTopicArn?, configurationSetName? }`, secrets = `{ secretAccessKey }`. The last two are written by event setup ([provider-events.md](provider-events.md)) and never returned; the registered events URL and its confirmation are columns (`events_url`, `events_confirmed_at`) because they are not provider-specific. `sandbox` is `true` until SES production access is granted. Least-privilege IAM policy for the connected key:
+`settings` = `{ region, accessKeyId, eventTopicArn?, configurationSetName?, eventQueueUrl?, eventDeadLetterQueueUrl? }`, secrets = `{ secretAccessKey }`. Everything after `accessKeyId` is written by event setup ([provider-events.md](provider-events.md)) and never returned. The delivery mode, push URL, confirmation and pull status are `events_*` columns because they are not provider-specific. `sandbox` is `true` until SES production access is granted. Least-privilege IAM policy for the connected key:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "AtlairMailSes",
       "Effect": "Allow",
       "Action": [
         "ses:GetAccount",
         "ses:CreateEmailIdentity",
         "ses:GetEmailIdentity",
         "ses:PutEmailIdentityMailFromAttributes",
-        "ses:SendEmail",
+        "ses:SendEmail"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AtlairMailEventConfigurationSet",
+      "Effect": "Allow",
+      "Action": [
         "ses:CreateConfigurationSet",
         "ses:CreateConfigurationSetEventDestination",
-        "ses:UpdateConfigurationSetEventDestination",
+        "ses:UpdateConfigurationSetEventDestination"
+      ],
+      "Resource": "arn:aws:ses:*:*:configuration-set/atlair-mail"
+    },
+    {
+      "Sid": "AtlairMailEventTopic",
+      "Effect": "Allow",
+      "Action": [
         "sns:CreateTopic",
         "sns:SetTopicAttributes",
         "sns:Subscribe",
-        "sns:ConfirmSubscription"
+        "sns:ConfirmSubscription",
+        "sns:ListSubscriptionsByTopic",
+        "sns:Unsubscribe"
       ],
-      "Resource": "*"
+      "Resource": "arn:aws:sns:*:*:atlair-mail-events"
+    },
+    {
+      "Sid": "AtlairMailEventQueues",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:GetQueueUrl",
+        "sqs:CreateQueue",
+        "sqs:GetQueueAttributes",
+        "sqs:SetQueueAttributes",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:SendMessage",
+        "sqs:StartMessageMoveTask"
+      ],
+      "Resource": "arn:aws:sqs:*:*:atlair-mail-events-*"
     }
   ]
 }
 ```
+
+| Statement | Needed for |
+| --- | --- |
+| `AtlairMailSes` | Connecting, domains and sending. Identities are named by the customer, so this one stays `*`. |
+| `AtlairMailEventConfigurationSet` | Event setup: only the `atlair-mail` configuration set. |
+| `AtlairMailEventTopic` | Event setup and switching modes: only the `atlair-mail-events` topic. `ListSubscriptionsByTopic` and `Unsubscribe` are checked against the topic ARN. |
+| `AtlairMailEventQueues` | Pull mode only: this connection's `atlair-mail-events-<connection id>` queue and its `-dlq`. `SendMessage` and `StartMessageMoveTask` are only used by `POST /v1/provider/events/redrive`; leave them out if you never redrive. |
 
 ## Domains
 

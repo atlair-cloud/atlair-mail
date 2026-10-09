@@ -4,6 +4,7 @@ import { createCredentialsCipher, loadProvider } from "@atlair-mail/core";
 import { createDb } from "@atlair-mail/db";
 import { loadEnv } from "./env.ts";
 import { shutdownGraceMs } from "./settings.ts";
+import { createEventPoller } from "./event-poller.ts";
 import { createWebhookDispatcher } from "./webhook-dispatcher.ts";
 import { createWorker } from "./worker.ts";
 
@@ -21,13 +22,15 @@ const worker = createWorker({
 });
 
 const webhooks = createWebhookDispatcher({ db, cipher, logger: logger.child({ component: "webhooks" }) });
+const events = createEventPoller({ db, cipher, logger: logger.child({ component: "provider-events" }) });
 
 closeWithGrace({ delay: shutdownGraceMs, logger }, async ({ signal, err }) => {
   if (err) logger.error({ err }, "worker crashed");
   logger.info({ signal }, "shutting down");
-  await Promise.all([worker.stop(), webhooks.stop()]);
+  await Promise.all([worker.stop(), webhooks.stop(), events.stop()]);
   await close();
 });
 
 worker.start();
 webhooks.start();
+events.start();

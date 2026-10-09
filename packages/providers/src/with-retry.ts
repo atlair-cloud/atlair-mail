@@ -53,8 +53,15 @@ export function withRetry(provider: EmailProvider, options: RetryOptions = {}): 
     createDomain: (name) => run("createDomain", () => provider.createDomain(name)),
     getDomain: (name) => run("getDomain", () => provider.getDomain(name)),
     configureReturnPath: (name) => run("configureReturnPath", () => provider.configureReturnPath(name)),
-    configureEvents: (endpointUrl) => run("configureEvents", () => provider.configureEvents(endpointUrl)),
+    configureEvents: (connectionId, delivery) =>
+      run("configureEvents", () => provider.configureEvents(connectionId, delivery)),
     confirmEvents: (token) => run("confirmEvents", () => provider.confirmEvents(token)),
+    removeEventSubscriptions: (connectionId, mode) =>
+      run("removeEventSubscriptions", () => provider.removeEventSubscriptions(connectionId, mode)),
+    receiveEventMessages: (options) => provider.receiveEventMessages(options),
+    deleteEventMessages: (receipts) => run("deleteEventMessages", () => provider.deleteEventMessages(receipts)),
+    getEventQueueStats: () => run("getEventQueueStats", () => provider.getEventQueueStats()),
+    redriveEventMessages: () => provider.redriveEventMessages(),
     send: (message) => run("send", () => provider.send(message)),
   };
 }
