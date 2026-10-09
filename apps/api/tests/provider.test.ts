@@ -72,7 +72,7 @@ describe("/v1/provider", { skip: !hasDatabase }, () => {
     assert.deepEqual(Object.keys(got.json()).sort(), [
       "accessKeyId",
       "createdAt",
-      "eventsEnabled",
+      "events",
       "id",
       "region",
       "type",

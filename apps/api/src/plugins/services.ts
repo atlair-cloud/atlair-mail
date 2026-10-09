@@ -32,7 +32,6 @@ export default fp(
       fastify.db,
       fastify.credentialsCipher,
       fastify.log.child({ component: "provider" }),
-      fastify.config.PUBLIC_URL,
     );
     const emailEvents = createEmailEventService(fastify.db);
     fastify.decorate("services", {

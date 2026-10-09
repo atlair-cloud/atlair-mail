@@ -1,5 +1,5 @@
 import createError from "@fastify/error";
-import { findProviderConnectionById, type Database } from "@atlair-mail/db";
+import { findProviderConnectionById, markProviderEventsConfirmed, type Database } from "@atlair-mail/db";
 import { providerFromConnection, type CredentialsCipher } from "@atlair-mail/core";
 import { ProviderEventRejectedError, readProviderWebhook, type ProviderLogger } from "@atlair-mail/providers";
 import type { EmailEventOutcome, EmailEventService } from "./email-events.ts";
@@ -45,6 +45,7 @@ export function createProviderEventService(
         case "confirm": {
           const provider = await providerFromConnection(cipher, connection, { logger });
           await provider.confirmEvents(webhook.token);
+          await markProviderEventsConfirmed(db, connection.id);
           return { outcome: "confirmed", organizationId };
         }
         case "event": {

@@ -71,12 +71,3 @@ export async function markProviderEventsConfirmed(db: Executor, id: string) {
     .returning({ id: providerConnections.id });
   return connection ?? null;
 }
-
-export async function updateProviderSettings(db: Executor, id: string, settings: ProviderSettings) {
-  const [connection] = await db
-    .update(providerConnections)
-    .set({ settings, updatedAt: sql`now()` })
-    .where(eq(providerConnections.id, id))
-    .returning();
-  return connection ?? null;
-}
