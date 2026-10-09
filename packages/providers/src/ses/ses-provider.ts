@@ -5,11 +5,13 @@ import {
   GetEmailIdentityCommand,
   LimitExceededException,
   NotFoundException,
+  PutEmailIdentityMailFromAttributesCommand,
   SendEmailCommand,
   SESv2Client,
   SESv2ServiceException,
   TooManyRequestsException,
   type DkimAttributes,
+  type MailFromAttributes,
 } from "@aws-sdk/client-sesv2";
 import libmime from "libmime";
 import {
@@ -20,6 +22,7 @@ import {
   ProviderUnavailableError,
 } from "../errors.ts";
 import type {
+  DnsRecord,
   DnsRecordStatus,
   DomainVerification,
   DomainVerificationStatus,
@@ -102,23 +105,54 @@ export function toRecordStatus(status: string | undefined): DnsRecordStatus {
   return "pending";
 }
 
+export const returnPathDomain = (domain: string) => `bounce.${domain}`;
+
+const returnPathRecords = (region: string, mailFrom: MailFromAttributes | undefined): DnsRecord[] => {
+  if (!mailFrom?.MailFromDomain) return [];
+  const status = toRecordStatus(mailFrom.MailFromDomainStatus);
+  return [
+    {
+      record: "MAIL_FROM",
+      type: "MX",
+      name: mailFrom.MailFromDomain,
+      value: `feedback-smtp.${region}.amazonses.com`,
+      priority: 10,
+      required: false,
+      status,
+    },
+    {
+      record: "SPF",
+      type: "TXT",
+      name: mailFrom.MailFromDomain,
+      value: "v=spf1 include:amazonses.com ~all",
+      required: false,
+      status,
+    },
+  ];
+};
+
 const toDomainVerification = (
   domain: string,
+  region: string,
   dkim: DkimAttributes | undefined,
   verificationStatus: string | undefined,
   verifiedForSending: boolean | undefined,
+  mailFrom?: MailFromAttributes,
 ): DomainVerification => {
   const zone = dkim?.SigningHostedZone ?? defaultDkimSigningHostedZone;
   return {
     status: toDomainStatus(verificationStatus, verifiedForSending),
-    dnsRecords: (dkim?.Tokens ?? []).map((token) => ({
-      record: "DKIM",
-      type: "CNAME",
-      name: `${token}._domainkey.${domain}`,
-      value: `${token}.${zone}`,
-      required: true,
-      status: toRecordStatus(dkim?.Status),
-    })),
+    dnsRecords: [
+      ...(dkim?.Tokens ?? []).map((token): DnsRecord => ({
+        record: "DKIM",
+        type: "CNAME",
+        name: `${token}._domainkey.${domain}`,
+        value: `${token}.${zone}`,
+        required: true,
+        status: toRecordStatus(dkim?.Status),
+      })),
+      ...returnPathRecords(region, mailFrom),
+    ],
   };
 };
 
@@ -143,9 +177,11 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
     const identity = await client.send(new GetEmailIdentityCommand({ EmailIdentity: name }));
     return toDomainVerification(
       name,
+      settings.region,
       identity.DkimAttributes,
       identity.VerificationStatus ?? identity.DkimAttributes?.Status,
       identity.VerifiedForSendingStatus,
+      identity.MailFromAttributes,
     );
   }
 
@@ -174,6 +210,7 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
           );
           return toDomainVerification(
             name,
+            settings.region,
             created.DkimAttributes,
             created.DkimAttributes?.Status,
             created.VerifiedForSendingStatus,
@@ -182,6 +219,17 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
           if (error instanceof AlreadyExistsException) return readDomain(client, name);
           throw error;
         }
+      }),
+
+    configureReturnPath: (name) =>
+      call(async (client) => {
+        await client.send(
+          new PutEmailIdentityMailFromAttributesCommand({
+            EmailIdentity: name,
+            MailFromDomain: returnPathDomain(name),
+            BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
+          }),
+        );
       }),
 
     send: (message) =>

@@ -7,7 +7,9 @@ import {
   GetAccountCommand,
   GetEmailIdentityCommand,
   NotFoundException,
+  PutEmailIdentityMailFromAttributesCommand,
   SESv2Client,
+  SESv2ServiceException,
 } from "@aws-sdk/client-sesv2";
 import { schema } from "@atlair-mail/db";
 import { v7 as uuidv7 } from "uuid";
@@ -146,6 +148,76 @@ describe("/v1/domains", { skip: !hasDatabase }, () => {
     );
     assert.equal(removed.statusCode, 204);
     assert.equal(gone.statusCode, 404);
+  });
+});
+
+describe("/v1/domains return path", { skip: !hasDatabase }, () => {
+  const mailFrom = (status: "PENDING" | "SUCCESS") => ({
+    ...identity("SUCCESS"),
+    MailFromAttributes: {
+      MailFromDomain: "bounce.placeholder",
+      MailFromDomainStatus: status,
+      BehaviorOnMxFailure: "USE_DEFAULT_VALUE" as const,
+    },
+  });
+
+  it("configures bounce.<domain> once the domain is verified and returns its records", async () => {
+    const app = await buildTestApp();
+    const { token } = await connectedOrganization(app);
+    const { id, name } = (await addDomain(app, token)).json();
+    const verify = async () =>
+      (await app.inject({ method: "POST", url: `${url}/${id}/verify`, headers: auth(token) })).json();
+
+    ses.on(GetEmailIdentityCommand).resolves(identity("PENDING"));
+    const pending = await verify();
+    const putsWhilePending = ses.commandCalls(PutEmailIdentityMailFromAttributesCommand).length;
+
+    ses.reset();
+    ses
+      .on(GetEmailIdentityCommand)
+      .resolvesOnce(identity("SUCCESS"))
+      .resolves({
+        ...mailFrom("PENDING"),
+        MailFromAttributes: { ...mailFrom("PENDING").MailFromAttributes, MailFromDomain: `bounce.${name}` },
+      });
+    const verified = await verify();
+    const again = await verify();
+
+    assert.equal(pending.status, "pending");
+    assert.equal(putsWhilePending, 0);
+    assert.equal(verified.status, "verified");
+    assert.deepEqual(ses.commandCalls(PutEmailIdentityMailFromAttributesCommand)[0]!.args[0].input, {
+      EmailIdentity: name,
+      MailFromDomain: `bounce.${name}`,
+      BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
+    });
+    assert.equal(ses.commandCalls(PutEmailIdentityMailFromAttributesCommand).length, 1);
+    assert.deepEqual(
+      verified.records
+        .filter((record: { record: string }) => ["MAIL_FROM", "SPF"].includes(record.record))
+        .map((record: { record: string; name: string; status: string }) => [record.record, record.name, record.status]),
+      [
+        ["MAIL_FROM", `bounce.${name}`, "pending"],
+        ["SPF", `bounce.${name}`, "pending"],
+      ],
+    );
+    assert.equal(again.records.length, verified.records.length);
+  });
+
+  it("still verifies when the provider refuses the return path", async () => {
+    const app = await buildTestApp();
+    const { token } = await connectedOrganization(app);
+    const { id } = (await addDomain(app, token)).json();
+    ses.on(GetEmailIdentityCommand).resolves(identity("SUCCESS"));
+    ses
+      .on(PutEmailIdentityMailFromAttributesCommand)
+      .rejects(new SESv2ServiceException({ name: "AccessDeniedException", $fault: "client", $metadata: {}, message: "x" }));
+
+    const res = await app.inject({ method: "POST", url: `${url}/${id}/verify`, headers: auth(token) });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().status, "verified");
+    assert.ok(!res.json().records.some((record: { record: string }) => record.record === "MAIL_FROM"));
   });
 });
 

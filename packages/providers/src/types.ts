@@ -79,6 +79,7 @@ export interface EmailProvider {
   verifyAccount(): Promise<ProviderAccount>;
   createDomain(name: string): Promise<DomainVerification>;
   getDomain(name: string): Promise<DomainVerification | null>;
+  configureReturnPath(name: string): Promise<void>;
   send(message: EmailMessage): Promise<SendResult>;
 }
 

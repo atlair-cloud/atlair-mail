@@ -43,6 +43,7 @@ export function withLogging(provider: EmailProvider, logger: ProviderLogger): Em
       run("createDomain", { domain: name }, () => provider.createDomain(name), (result) => ({ status: result.status })),
     getDomain: (name) =>
       run("getDomain", { domain: name }, () => provider.getDomain(name), (result) => ({ status: result?.status ?? null })),
+    configureReturnPath: (name) => run("configureReturnPath", { domain: name }, () => provider.configureReturnPath(name)),
     send: (message) =>
       run(
         "send",

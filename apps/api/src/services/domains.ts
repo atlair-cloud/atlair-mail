@@ -11,6 +11,11 @@ import {
 } from "@atlair-mail/db";
 import type { Domain } from "@atlair-mail/db/schema";
 import { normalizeDomainName } from "@atlair-mail/core";
+import {
+  ProviderRejectedError,
+  type DomainVerification,
+  type EmailProvider,
+} from "@atlair-mail/providers";
 import type { ProviderConnectionService } from "./provider-connections.ts";
 
 export const InvalidDomainNameError = createError(
@@ -44,13 +49,25 @@ export function withDnsRecords(domain: Domain) {
   };
 }
 
+async function withReturnPath(provider: EmailProvider, name: string, verification: DomainVerification) {
+  if (verification.status !== "verified") return verification;
+  if (verification.dnsRecords.some((record) => record.record === "MAIL_FROM")) return verification;
+  try {
+    await provider.configureReturnPath(name);
+  } catch (error) {
+    if (error instanceof ProviderRejectedError) return verification;
+    throw error;
+  }
+  return (await provider.getDomain(name)) ?? verification;
+}
+
 export function createDomainService(db: Database, providerConnections: ProviderConnectionService) {
   return {
     async create(organizationId: string, input: { name: string }) {
       const name = normalizeDomainName(input.name);
       if (!name) throw new InvalidDomainNameError();
       const provider = await providerConnections.requireProvider(organizationId);
-      const verification = await provider.createDomain(name);
+      const verification = await withReturnPath(provider, name, await provider.createDomain(name));
       const domain = await insertDomain(db, {
         organizationId,
         name,
@@ -77,7 +94,8 @@ export function createDomainService(db: Database, providerConnections: ProviderC
       const domain = await findDomainInOrganization(db, key);
       if (!domain) return null;
       const provider = await providerConnections.requireProvider(organizationId);
-      const verification = await provider.getDomain(domain.name);
+      const found = await provider.getDomain(domain.name);
+      const verification = found && (await withReturnPath(provider, domain.name, found));
       const updated = await updateDomainVerification(db, key, verification ?? { status: "failed" });
       return updated && withDnsRecords(updated);
     },

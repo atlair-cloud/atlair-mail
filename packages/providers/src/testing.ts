@@ -29,6 +29,7 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
     }),
     createDomain: pendingDomain,
     getDomain: pendingDomain,
+    configureReturnPath: async () => {},
     send: async (_message: EmailMessage): Promise<SendResult> => ({ providerMessageId: `fake-${++sent}` }),
     ...overrides,
   };
@@ -46,6 +47,7 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
     verifyAccount: record("verifyAccount", implementations.verifyAccount),
     createDomain: record("createDomain", implementations.createDomain),
     getDomain: record("getDomain", implementations.getDomain),
+    configureReturnPath: record("configureReturnPath", implementations.configureReturnPath),
     send: record("send", implementations.send),
   };
 }
