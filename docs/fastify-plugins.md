@@ -191,7 +191,7 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 
 ### Amazon SES (`type: "ses"`)
 
-`settings` = `{ region, accessKeyId, eventTopicArn?, configurationSetName? }`, secrets = `{ secretAccessKey }`. The last two are written by event setup ([provider-events.md](provider-events.md)) and never returned; the registered events URL and its confirmation are columns (`events_url`, `events_confirmed_at`) because they are not provider-specific. `sandbox` is `true` until SES production access is granted. Least-privilege IAM policy for the connected key:
+`settings` = `{ region, accessKeyId, eventTopicArn?, configurationSetName?, eventQueueUrl?, eventDeadLetterQueueUrl? }`, secrets = `{ secretAccessKey }`. Everything after `accessKeyId` is written by event setup ([provider-events.md](provider-events.md)) and never returned. The delivery mode, push URL, confirmation and pull status are `events_*` columns because they are not provider-specific. `sandbox` is `true` until SES production access is granted. Least-privilege IAM policy for the connected key:
 
 ```json
 {
@@ -211,13 +211,33 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
         "sns:CreateTopic",
         "sns:SetTopicAttributes",
         "sns:Subscribe",
-        "sns:ConfirmSubscription"
+        "sns:ConfirmSubscription",
+        "sns:ListSubscriptionsByTopic",
+        "sns:Unsubscribe"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "PullModeEventQueues",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:GetQueueUrl",
+        "sqs:CreateQueue",
+        "sqs:GetQueueAttributes",
+        "sqs:SetQueueAttributes",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:SendMessage",
+        "sqs:StartMessageMoveTask"
+      ],
+      "Resource": "arn:aws:sqs:*:*:atlair-mail-events-*"
     }
   ]
 }
 ```
+
+The second statement is only needed for pull mode. `sqs:SendMessage` and `sqs:StartMessageMoveTask`
+are used by `POST /v1/provider/events/redrive` to move set-aside events back to the queue.
 
 ## Domains
 

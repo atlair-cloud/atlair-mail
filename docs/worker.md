@@ -1,6 +1,6 @@
 # Worker
 
-`apps/worker` sends queued emails and delivers customer webhooks. It is plain Node (no HTTP server)
+`apps/worker` sends queued emails, delivers customer webhooks and reads provider events in pull mode. It is plain Node (no HTTP server)
 and shares `packages/db`, `packages/core` and `packages/providers` with the API. Both run on the same
 poll loop (`src/poll-loop.ts`): claim up to the free concurrency, process outside any transaction,
 sleep when idle.
@@ -69,6 +69,22 @@ claim: UPDATE webhook_deliveries SET next_attempt_at=now()+60s, attempt_count+1
 Results are saved `WHERE status='pending' AND attempt_count = <claimed attempt>`. A worker that dies
 mid-request leaves the row to come due again when its lease ends, so a receiver may see the same
 `webhook-id` twice.
+
+## Provider events (pull mode)
+
+`src/event-poller.ts`, on the same poll loop, for connections with `events_poll_after` set:
+
+```
+claim: UPDATE provider_connections SET events_poll_after = now()+120s
+       WHERE id IN (SELECT id … events_poll_after <= now() ORDER BY events_poll_after FOR UPDATE SKIP LOCKED)
+  └─ receive up to 10 (10s long poll, aborted on shutdown)
+  └─ each message: handleProviderMessage (checks + record in one transaction) → delete only the handled ones
+  └─ every 5 minutes: queue backlog and dead-letter counts
+  └─ save the result only if events_poll_after still equals this lease
+       ok → poll again now · error → back off 30s … 15m · draining after a switch to push and empty → stop
+```
+
+At most 20 connections are polled at once per worker. See [provider-events.md](provider-events.md).
 
 ## Shutdown and scaling
 

@@ -16,13 +16,14 @@ flowchart TB
     Worker["apps/worker"] -->|claim SKIP LOCKED| Pg
     Worker --> Chain["pre-send chain"] --> Prov["EmailProvider (per organization)"] --> Ses["Amazon SES"]
     Ses --> Sns["SNS topic"]
-    Sns --> Hook["POST /webhooks/provider-events/:connectionId (public)"]
+    Sns --> Hook["POST /webhooks/provider-events/:connectionId (public, push mode)"]
+    Sns --> Sqs["SQS queue (pull mode)"] -->|event poller| Worker
     Hook -->|verify signature, transition| Pg
     Pg --> Out["outbox"] --> Cust["customer webhook endpoints"]
 ```
 
 - **`apps/api`** — HTTP surface: organizations, API keys, domains, credentials, email enqueue, SES webhooks.
-- **`apps/worker`** — drains the queue and delivers the outbox. Same packages, own process.
+- **`apps/worker`** — drains the queue, delivers the outbox and, in pull mode, reads provider events from SQS. Same packages, own process.
 - **Postgres** — the single source of truth *and* the queue (see [Concurrency](#concurrency-and-delivery-guarantees)).
 
 ## Runtime decision
