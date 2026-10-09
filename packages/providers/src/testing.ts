@@ -30,6 +30,13 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
     createDomain: pendingDomain,
     getDomain: pendingDomain,
     configureReturnPath: async () => {},
+    configureEvents: async () => ({
+      region: "us-east-1",
+      accessKeyId: "AKIAFAKE",
+      eventTopicArn: "arn:aws:sns:us-east-1:123456789012:atlair-mail-events",
+      configurationSetName: "atlair-mail",
+    }),
+    confirmEvents: async () => {},
     send: async (_message: EmailMessage): Promise<SendResult> => ({ providerMessageId: `fake-${++sent}` }),
     ...overrides,
   };
@@ -48,6 +55,8 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
     createDomain: record("createDomain", implementations.createDomain),
     getDomain: record("getDomain", implementations.getDomain),
     configureReturnPath: record("configureReturnPath", implementations.configureReturnPath),
+    configureEvents: record("configureEvents", implementations.configureEvents),
+    confirmEvents: record("confirmEvents", implementations.confirmEvents),
     send: record("send", implementations.send),
   };
 }
