@@ -13,7 +13,10 @@ type TestApp = Awaited<ReturnType<typeof buildTestApp>>;
 const create = (app: TestApp, token: string, payload: Record<string, unknown>) =>
   app.inject({ method: "POST", url, headers: auth(token), payload });
 
-const hook = { url: "https://hooks.example.com/atlair?token=abc", eventTypes: ["email.delivered", "email.bounced"] };
+const hook = {
+  url: "https://hooks.example.com/atlair?token=abc",
+  eventTypes: ["email.delivered", "email.bounced", "email.failed"],
+};
 
 describe("/v1/webhooks", { skip: !hasDatabase }, () => {
   it("creates an endpoint and shows its signing secret only once, stored encrypted", async () => {

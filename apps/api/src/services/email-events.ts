@@ -9,7 +9,7 @@ import {
   suppressAddresses,
   type Database,
 } from "@atlair-mail/db";
-import { eventSettledStatuses, statusFromEvents, suppressionsFromEvent } from "@atlair-mail/core";
+import { eventSettledStatuses, statusFromEvents, suppressionsFromEvent, webhookPayload } from "@atlair-mail/core";
 import { boundEventDetails, type ProviderEvent } from "@atlair-mail/providers";
 
 export const rejectedByProvider = "ATL_PROVIDER_REJECTED: Rejected";
@@ -63,17 +63,7 @@ export function createEmailEventService(db: Database) {
           organizationId,
           emailEventId: stored.id,
           eventType: event.type,
-          payload: {
-            type: `email.${event.type}`,
-            createdAt: event.occurredAt.toISOString(),
-            data: {
-              emailId: email.id,
-              from: email.fromAddress,
-              to: email.toAddresses,
-              subject: email.subject,
-              ...details,
-            },
-          },
+          payload: webhookPayload(email, { type: event.type, occurredAt: event.occurredAt, details }),
         });
         const status = statusFromEvents(await listOutcomeEvents(tx, email.id));
         const advanced =

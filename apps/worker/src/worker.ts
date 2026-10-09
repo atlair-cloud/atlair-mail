@@ -1,9 +1,10 @@
-import { claimDueEmails, failExpiredLeases, type Executor } from "@atlair-mail/db";
+import { claimDueEmails, listExpiredLeases, type Executor } from "@atlair-mail/db";
 import type { EmailProvider } from "@atlair-mail/providers";
 import type { Logger } from "pino";
+import { failEmail } from "./email-failures.ts";
 import { createPollLoop } from "./poll-loop.ts";
 import { processEmail } from "./process-email.ts";
-import { errorCodes, leaseSeconds, pollIntervalMs, sweepIntervalMs } from "./settings.ts";
+import { errorCodes, leaseSeconds, pollIntervalMs, sweepBatchSize, sweepIntervalMs } from "./settings.ts";
 
 export interface WorkerOptions {
   db: Executor;
@@ -29,8 +30,11 @@ export function createWorker(options: WorkerOptions) {
 
   async function sweep() {
     try {
-      const expired = await failExpiredLeases(db, errorCodes.leaseExpired);
-      if (expired.length > 0) logger.warn({ count: expired.length }, "failed emails whose lease expired");
+      let failed = 0;
+      for (const id of await listExpiredLeases(db, sweepBatchSize)) {
+        if (await failEmail(db, id, errorCodes.leaseExpired, { leaseExpired: true })) failed++;
+      }
+      if (failed > 0) logger.warn({ count: failed }, "failed emails whose lease expired");
     } catch (error) {
       logger.error({ err: error }, "lease sweep failed");
     }

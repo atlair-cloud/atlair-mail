@@ -344,6 +344,28 @@ describe("GET /v1/emails/:id/events", { skip: !hasDatabase }, () => {
     assert.equal(data[1].recipients[0].diagnosticCode, "smtp; 550 5.1.1 user unknown");
   });
 
+  it("shows a failed event with its error code", async () => {
+    const app = await buildTestApp();
+    const { token, email } = await sentEmail(app, { status: "failed", lastError: "ATL_RECIPIENT_SUPPRESSED" });
+    await app.db.insert(schema.emailEvents).values({
+      emailId: email.id,
+      type: "failed",
+      providerEventId: "atlair:failed",
+      occurredAt: new Date("2026-10-09T10:00:00.000Z"),
+      payload: { recipients: [], error: "ATL_RECIPIENT_SUPPRESSED" },
+    });
+
+    const res = await app.inject({ method: "GET", url: `/v1/emails/${email.id}/events`, headers: auth(token) });
+
+    assert.deepEqual(res.json().data[0], {
+      id: res.json().data[0].id,
+      type: "failed",
+      occurredAt: "2026-10-09T10:00:00.000Z",
+      recipients: [],
+      error: "ATL_RECIPIENT_SUPPRESSED",
+    });
+  });
+
   it("returns an empty list before any event, and 404 across organizations or for unknown ids", async () => {
     const app = await buildTestApp();
     const { token, email } = await sentEmail(app);

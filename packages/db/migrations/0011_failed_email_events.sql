@@ -1,0 +1,4 @@
+ALTER TABLE "email_events" DROP CONSTRAINT "email_events_type_check";--> statement-breakpoint
+ALTER TABLE "webhook_endpoints" DROP CONSTRAINT "webhook_endpoints_event_types_known_check";--> statement-breakpoint
+ALTER TABLE "email_events" ADD CONSTRAINT "email_events_type_check" CHECK ("email_events"."type" in ('sent', 'delivered', 'delivery_delayed', 'bounced', 'complained', 'rejected', 'opened', 'clicked', 'failed'));--> statement-breakpoint
+ALTER TABLE "webhook_endpoints" ADD CONSTRAINT "webhook_endpoints_event_types_known_check" CHECK ("webhook_endpoints"."event_types" <@ array['sent', 'delivered', 'delivery_delayed', 'bounced', 'complained', 'rejected', 'opened', 'clicked', 'failed']::text[]);

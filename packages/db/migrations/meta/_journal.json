@@ -78,6 +78,13 @@
       "when": 1791528811626,
       "tag": "0010_webhook_delivery_lookups",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791530806996,
+      "tag": "0011_failed_email_events",
+      "breakpoints": true
     }
   ]
 }

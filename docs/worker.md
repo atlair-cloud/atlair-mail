@@ -35,7 +35,8 @@ claim: UPDATE emails SET status='sending', locked_until=now()+120s, attempt_coun
        ATL_PROVIDER_REJECTED    → failed
        THROTTLED / UNAVAILABLE  → queued again with backoff; failed after attempt 6
        ATL_PROVIDER_TIMEOUT     → failed (outcome unknown, never resent)
-sweeper: status='sending' AND locked_until < now() → failed (ATL_WORKER_LEASE_EXPIRED)
+sweeper: status='sending' AND locked_until < now() → failed (ATL_WORKER_LEASE_EXPIRED), one guarded update per email
+every failed → same transaction: failed event + email.failed webhook deliveries (src/email-failures.ts)
 ```
 
 Every outcome is written with `WHERE status = 'sending'`, so a late writer cannot overwrite a row the

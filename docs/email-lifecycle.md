@@ -57,6 +57,9 @@ received it.
   message, the sweeper marks the email `failed (ATL_WORKER_LEASE_EXPIRED)`. Later events prove the
   send happened, so the email takes the computed status and `lastError` is cleared. A send the
   provider refused never produces events, so this cannot resurrect a real failure.
+- **Worker failures are events too.** Whenever the worker sets `failed`, the same transaction adds a
+  `failed` event (key `atlair:failed`, `error` holds the code) and queues `email.failed` webhooks. It
+  is not an outcome event, so it never changes the computed status. See [webhooks.md](webhooks.md).
 
 ## Recording one event
 

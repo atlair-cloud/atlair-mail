@@ -39,7 +39,8 @@ receiver through a tunnel such as cloudflared or ngrok.
 | `email.delivery_delayed` | Delivery is being retried by the provider. |
 | `email.bounced` | A recipient bounced. `bounce.kind` is `permanent`, `transient` or `undetermined`. |
 | `email.complained` | A recipient reported spam. |
-| `email.rejected` | The provider refused to send it. |
+| `email.rejected` | The provider refused it after accepting the request. |
+| `email.failed` | atlair-mail gave up before or while handing it to the provider. `data.error` says why. |
 | `email.opened`, `email.clicked` | Engagement, when tracking is enabled at the provider. |
 
 One delivery is made per provider event, so an email to three people can produce three
@@ -62,9 +63,28 @@ One delivery is made per provider event, so an email to three people can produce
 }
 ```
 
-`createdAt` is when the provider saw the event. `recipients` lists the addresses the event is about.
+`createdAt` is when the provider saw the event, or when atlair-mail failed the email. `recipients` lists the addresses the event is about.
 `bounce`, `complaint`, `smtpResponse` and `link` appear when they apply. The payload is fixed when the
 event arrives, so every retry sends the same bytes.
+
+### `email.failed`
+
+Sent once per email, in the same transaction that sets its status to `failed`. `recipients` is empty
+and `data.error` is one of:
+
+| `error` | Meaning |
+| --- | --- |
+| `ATL_RECIPIENT_SUPPRESSED` | A recipient was suppressed after the email was queued. |
+| `ATL_DOMAIN_NOT_VERIFIED` | The From domain is no longer verified. |
+| `ATL_PROVIDER_NOT_CONNECTED` | No provider is connected. |
+| `ATL_INVALID_ADDRESS` | A stored address could not be parsed. |
+| `ATL_PROVIDER_REJECTED: <Reason>` | The provider refused the send request. |
+| `ATL_PROVIDER_THROTTLED: <Reason>`, `ATL_PROVIDER_UNAVAILABLE: <Reason>` | Still failing after the last retry. |
+| `ATL_PROVIDER_TIMEOUT`, `ATL_WORKER_LEASE_EXPIRED` | The outcome is unknown, so the email is not resent. |
+
+`<Reason>` is a short provider error name such as `MessageRejected`, never a provider message. After
+`ATL_PROVIDER_TIMEOUT` or `ATL_WORKER_LEASE_EXPIRED` the provider may still have sent the email: a
+later `email.delivered`, `email.bounced` or `email.complained` can follow and moves the status on.
 
 ## Verifying requests
 
