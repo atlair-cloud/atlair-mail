@@ -1,5 +1,4 @@
-import type { EmailStatus, SuppressionReason } from "@atlair-mail/db/types";
-import type { EmailEventDetails, EmailEventType } from "@atlair-mail/providers/types";
+import type { EmailEventDetails, EmailEventType, EmailStatus, SuppressionReason } from "@atlair-mail/db/types";
 
 export const emailTransitions: Readonly<Record<EmailStatus, readonly EmailStatus[]>> = {
   queued: ["sending", "canceled", "failed"],

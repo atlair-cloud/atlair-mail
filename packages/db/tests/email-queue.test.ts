@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { eq, inArray, sql } from "drizzle-orm";
 import {
   claimDueEmails,
-  failExpiredLeases,
+  listExpiredLeases,
   markEmailFailed,
   markEmailSent,
   requeueEmail,
@@ -59,7 +59,9 @@ describe("email queue repositories", { skip: !databaseUrl }, () => {
 
     assert.ok(await markEmailSent(t.db, sentId!, "provider-1"));
     assert.ok(await requeueEmail(t.db, requeuedId!, { sendAt: retryAt, lastError: "ATL_PROVIDER_THROTTLED" }));
-    assert.ok(await markEmailFailed(t.db, failedId!, "ATL_PROVIDER_REJECTED"));
+    const failedEmail = await markEmailFailed(t.db, failedId!, "ATL_PROVIDER_REJECTED");
+    assert.equal(failedEmail?.id, failedId);
+    assert.equal(failedEmail?.subject, "Hello");
     assert.equal(await markEmailFailed(t.db, sentId!, "late"), null);
     assert.equal(await markEmailSent(t.db, failedId!, "provider-2"), null);
 
@@ -76,10 +78,14 @@ describe("email queue repositories", { skip: !databaseUrl }, () => {
     await claimDueEmails(t.db, { limit: 100, ...lease });
     await t.db.update(emails).set({ lockedUntil: sql`now() - interval '1 second'` }).where(eq(emails.id, expiredId!));
 
-    const swept = (await failExpiredLeases(t.db, "ATL_WORKER_LEASE_EXPIRED")).map((row) => row.id);
+    const expired = await listExpiredLeases(t.db, 1000);
+    const failedActive = await markEmailFailed(t.db, activeId!, "ATL_WORKER_LEASE_EXPIRED", { leaseExpired: true });
+    const failedExpired = await markEmailFailed(t.db, expiredId!, "ATL_WORKER_LEASE_EXPIRED", { leaseExpired: true });
 
-    assert.ok(swept.includes(expiredId!));
-    assert.ok(!swept.includes(activeId!));
+    assert.ok(expired.includes(expiredId!));
+    assert.ok(!expired.includes(activeId!));
+    assert.equal(failedActive, null);
+    assert.equal(failedExpired?.id, expiredId);
     assert.equal((await read(expiredId!)).status, "failed");
     assert.equal((await read(activeId!)).status, "sending");
   });

@@ -42,19 +42,34 @@ export async function requeueEmail(db: Executor, id: string, values: { sendAt: D
   return email ?? null;
 }
 
-export async function markEmailFailed(db: Executor, id: string, lastError: string) {
+const leaseExpired = lt(emails.lockedUntil, sql`now()`);
+
+export async function markEmailFailed(
+  db: Executor,
+  id: string,
+  lastError: string,
+  options: { leaseExpired?: boolean } = {},
+) {
   const [email] = await db
     .update(emails)
     .set({ status: "failed", lastError, lockedUntil: null })
-    .where(and(eq(emails.id, id), sending))
-    .returning({ id: emails.id });
+    .where(and(eq(emails.id, id), sending, options.leaseExpired ? leaseExpired : undefined))
+    .returning({
+      id: emails.id,
+      organizationId: emails.organizationId,
+      fromAddress: emails.fromAddress,
+      toAddresses: emails.toAddresses,
+      subject: emails.subject,
+    });
   return email ?? null;
 }
 
-export async function failExpiredLeases(db: Executor, lastError: string) {
-  return db
-    .update(emails)
-    .set({ status: "failed", lastError, lockedUntil: null })
-    .where(and(sending, lt(emails.lockedUntil, sql`now()`)))
-    .returning({ id: emails.id });
+export async function listExpiredLeases(db: Executor, limit: number) {
+  const rows = await db
+    .select({ id: emails.id })
+    .from(emails)
+    .where(and(sending, leaseExpired))
+    .orderBy(asc(emails.lockedUntil))
+    .limit(limit);
+  return rows.map((row) => row.id);
 }

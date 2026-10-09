@@ -68,10 +68,13 @@ describe("webhook repositories", { skip: !databaseUrl }, () => {
   const claimOwn = async (ids: string[], limit = 100) =>
     (await claimDueWebhookDeliveries(t.db, { limit, leaseSeconds: 60 })).filter((row) => ids.includes(row.id));
 
-  test("rejects unknown event types", async () => {
+  test("accepts failed and rejects unknown event types", async () => {
     const organization = await t.newOrganization();
 
+    assert.deepEqual((await endpoint(organization.id, ["failed"])).eventTypes, ["failed"]);
+    assert.ok(await emailEvent(organization.id, "failed"));
     await assert.rejects(endpoint(organization.id, ["exploded" as EmailEventType]), pgError(CHECK_VIOLATION));
+    await assert.rejects(emailEvent(organization.id, "exploded" as EmailEventType), pgError(CHECK_VIOLATION));
   });
 
   test("endpoints are only visible and changeable inside their organization", async () => {
