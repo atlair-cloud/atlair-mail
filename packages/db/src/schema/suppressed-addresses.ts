@@ -21,6 +21,7 @@ export const suppressedAddresses = pgTable(
       t.address,
     ),
     index("suppressed_addresses_source_email_id_idx").on(t.sourceEmailId),
+    index("suppressed_addresses_organization_id_id_idx").on(t.organizationId, t.id),
     check("suppressed_addresses_address_check", sql`${t.address} = lower(${t.address})`),
     check("suppressed_addresses_reason_check", isOneOf(t.reason, suppressionReasons)),
   ],

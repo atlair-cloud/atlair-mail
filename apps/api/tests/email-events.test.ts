@@ -65,7 +65,7 @@ describe("recording provider events", { skip: !hasDatabase }, () => {
     const first = await app.services.emailEvents.record(organizationId, delivered);
     const repeat = await app.services.emailEvents.record(organizationId, delivered);
 
-    assert.deepEqual(first, { outcome: "applied", emailId: email.id });
+    assert.deepEqual(first, { outcome: "applied", emailId: email.id, suppressed: 0 });
     assert.deepEqual(repeat, { outcome: "duplicate", emailId: email.id });
     assert.equal((await statusOf(app, email.id)).status, "delivered");
     assert.equal((await app.services.emailEvents.list(organizationId, email.id))?.length, 1);
@@ -128,6 +128,122 @@ describe("recording provider events", { skip: !hasDatabase }, () => {
     assert.equal(settled.status, "delivered");
     assert.equal(settled.providerMessageId, providerMessageId);
     assert.equal(settled.lastError, null);
+  });
+
+  it("counts an out-of-office reply as delivered in any order, and never suppresses it", async () => {
+    const app = await buildTestApp();
+    const first = await sentEmail(app);
+    const second = await sentEmail(app);
+    const outOfOffice = (id: string) =>
+      providerEvent(
+        id,
+        "bounced",
+        { bounce: { kind: "transient", subType: "General" } },
+        new Date("2026-10-09T10:00:03.000Z"),
+      );
+    const delivered = (id: string) => providerEvent(id, "delivered");
+
+    for (const event of [outOfOffice(first.email.providerMessageId!), delivered(first.email.providerMessageId!)]) {
+      await app.services.emailEvents.record(first.organizationId, event);
+    }
+    for (const event of [delivered(second.email.providerMessageId!), outOfOffice(second.email.providerMessageId!)]) {
+      await app.services.emailEvents.record(second.organizationId, event);
+    }
+
+    assert.equal((await statusOf(app, first.email.id)).status, "delivered");
+    assert.equal((await statusOf(app, second.email.id)).status, "delivered");
+    const suppressed = await app.db
+      .select()
+      .from(schema.suppressedAddresses)
+      .where(eq(schema.suppressedAddresses.organizationId, first.organizationId));
+    assert.equal(suppressed.length, 0);
+  });
+
+  it("suppresses permanently bounced and complaining recipients, then blocks sending to them", async () => {
+    const app = await buildTestApp();
+    const { organizationId, token, email } = await sentEmail(app);
+    const id = email.providerMessageId!;
+
+    const bounced = await app.services.emailEvents.record(
+      organizationId,
+      providerEvent(id, "bounced", {
+        recipients: [{ address: "Bob@Example.org", diagnosticCode: "smtp; 550 5.1.1 user unknown" }],
+        bounce: { kind: "permanent", subType: "General" },
+      }),
+    );
+    await app.services.emailEvents.record(
+      organizationId,
+      providerEvent(id, "complained", { complaint: { feedbackType: "abuse" } }),
+    );
+    await app.services.emailEvents.record(
+      organizationId,
+      providerEvent(id, "complained", {
+        recipients: [{ address: "cy@example.org" }],
+        complaint: { feedbackType: "not-spam" },
+      }),
+    );
+    const rows = await app.db
+      .select()
+      .from(schema.suppressedAddresses)
+      .where(eq(schema.suppressedAddresses.organizationId, organizationId));
+    const blocked = await app.inject({
+      method: "POST",
+      url: "/v1/emails",
+      headers: auth(token),
+      payload: { from: email.fromAddress, to: ["bob@example.org"], subject: "Again", text: "Hi" },
+    });
+
+    assert.equal(bounced.suppressed, 1);
+    assert.deepEqual(
+      rows.map(({ address, reason, sourceEmailId }) => ({ address, reason, sourceEmailId })).sort((a, b) =>
+        a.address.localeCompare(b.address),
+      ),
+      [
+        { address: "ada@example.org", reason: "complaint", sourceEmailId: email.id },
+        { address: "bob@example.org", reason: "hard_bounce", sourceEmailId: email.id },
+      ],
+    );
+    assert.equal(blocked.statusCode, 422);
+    assert.equal(blocked.json().code, "ATL_RECIPIENT_SUPPRESSED");
+  });
+
+  it("keeps suppressions inside the organization that received the event", async () => {
+    const app = await buildTestApp();
+    const first = await sentEmail(app);
+    const second = await sentEmail(app);
+
+    await app.services.emailEvents.record(
+      first.organizationId,
+      providerEvent(first.email.providerMessageId!, "bounced", { bounce: { kind: "permanent", subType: "General" } }),
+    );
+
+    const other = await app.db
+      .select()
+      .from(schema.suppressedAddresses)
+      .where(eq(schema.suppressedAddresses.organizationId, second.organizationId));
+    assert.equal(other.length, 0);
+  });
+
+  it("counts every event when several arrive for one email at once", async () => {
+    const app = await buildTestApp();
+    const { organizationId, email } = await sentEmail(app, {
+      toAddresses: ["a@example.org", "b@example.org", "c@example.org", "d@example.org"],
+    });
+    const id = email.providerMessageId!;
+    const events = [
+      providerEvent(id, "delivered", { recipients: [{ address: "a@example.org" }] }),
+      providerEvent(id, "delivered", { recipients: [{ address: "b@example.org" }] }),
+      providerEvent(id, "bounced", {
+        recipients: [{ address: "c@example.org" }],
+        bounce: { kind: "permanent", subType: "General" },
+      }),
+      providerEvent(id, "delivered", { recipients: [{ address: "d@example.org" }] }),
+    ];
+
+    await Promise.all(events.map((event) => app.services.emailEvents.record(organizationId, event)));
+
+    assert.equal((await statusOf(app, email.id)).status, "bounced");
+    assert.equal((await app.services.emailEvents.list(organizationId, email.id))?.length, 4);
   });
 
   it("bounces on a transient bounce because the provider stopped retrying", async () => {
