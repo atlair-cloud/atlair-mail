@@ -48,7 +48,6 @@ export default fp(
       providerEvents: createProviderEventService(
         fastify.db,
         fastify.credentialsCipher,
-        emailEvents,
         fastify.log.child({ component: "provider-events" }),
       ),
       suppressions: createSuppressionService(fastify.db),

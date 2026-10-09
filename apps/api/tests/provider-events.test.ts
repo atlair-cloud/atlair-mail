@@ -31,6 +31,8 @@ async function connected(app: TestApp) {
       settings: { region: "ap-south-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE", eventTopicArn: topicArn },
       credentialsEncrypted: ciphertext,
       encryptionKeyVersion: keyVersion,
+      eventsMode: "push",
+      eventsUrl: "https://mail.example.com",
     })
     .returning();
   const [domain] = await app.db
@@ -115,6 +117,24 @@ describe("POST /webhooks/provider-events/:connectionId", { skip: !hasDatabase },
       Token: "token-1",
       AuthenticateOnUnsubscribe: "true",
     });
+  });
+
+  it("ignores a confirmation when events are not in push mode", async () => {
+    const app = await buildTestApp();
+    const { topicArn, connection } = await connected(app);
+    await app.db
+      .update(schema.providerConnections)
+      .set({ eventsMode: null, eventsUrl: null })
+      .where(eq(schema.providerConnections.id, connection.id));
+
+    const res = await post(
+      app,
+      connection.id,
+      sign({ Type: "SubscriptionConfirmation", TopicArn: topicArn, Token: "token-2", Message: "subscribe" }),
+    );
+
+    assert.equal(res.statusCode, 204);
+    assert.equal(sns.commandCalls(ConfirmSubscriptionCommand).length, 0);
   });
 
   it("rejects tampered, unsigned and foreign-topic messages with 403", async () => {
