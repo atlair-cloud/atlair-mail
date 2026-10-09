@@ -43,8 +43,9 @@ sweeper or another worker already moved. `last_error` holds an error code, never
 **At most once when the outcome is unknown.** Sending is not idempotent and SES has no idempotency
 key, so a timeout or a worker that died mid-send leaves the email `failed` instead of resending it.
 A duplicate email is worse than a visible failure the customer can retry. Every send carries an
-`atlair_email_id` tag; once SES events are processed (ATL-85), an email that SES did deliver can be
-corrected from those events.
+`atlair_email_id` tag, so a later `delivered`, `bounced` or `complained` event moves such an email
+out of `failed` (see [email-lifecycle.md](email-lifecycle.md)). If an event already moved the email
+before the worker wrote `sent`, the worker's guarded update changes nothing.
 
 Cases that are known not to have reached the provider (pre-send failures, throttling, 5xx,
 connection refused) are retried or failed explicitly.
