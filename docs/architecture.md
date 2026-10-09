@@ -16,7 +16,7 @@ flowchart TB
     Worker["apps/worker"] -->|claim SKIP LOCKED| Pg
     Worker --> Chain["pre-send chain"] --> Prov["EmailProvider (per organization)"] --> Ses["Amazon SES"]
     Ses --> Sns["SNS topic"]
-    Sns --> Hook["POST /webhooks/ses (public)"]
+    Sns --> Hook["POST /webhooks/provider-events/:connectionId (public)"]
     Hook -->|verify signature, transition| Pg
     Pg --> Out["outbox"] --> Cust["customer webhook endpoints"]
 ```
@@ -31,7 +31,7 @@ flowchart TB
 whole premise (AGPL-3.0, independent of `atlair-platform`).
 
 **Cloudflare Workers is an optional edge target, not the default.** It cannot run the product for a
-self-hoster, so nothing may depend on it. Where it fits later: the public `POST /webhooks/ses`
+self-hoster, so nothing may depend on it. Where it fits later: the public `POST /webhooks/provider-events/:connectionId`
 receiver, and an opt-in managed deployment for Atlair's own instance.
 
 The SES adapter uses the official `@aws-sdk/client-sesv2` (prefer maintained libraries). All SDK use
@@ -103,7 +103,7 @@ worker claims queued rows ◀─────────────────
         ▼
  EmailProvider (per organization: Retrying(Logging(SesProvider))) ──▶ SES
         │
-SES events ──SNS──▶ POST /webhooks/ses ──▶ transition ──▶ outbox ──▶ customer webhooks
+SES events ──SNS──▶ POST /webhooks/provider-events/:connectionId ──▶ transition ──▶ outbox ──▶ customer webhooks
 ```
 
 **Lifecycle (State):** `queued → sending → sent → delivered | bounced | complained | failed`, plus `canceled` for a scheduled send withdrawn before it is claimed.

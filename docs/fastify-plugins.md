@@ -56,7 +56,7 @@ const emailRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
 export default emailRoutes;
 ```
 
-**Add a public route group** (no API key), such as SES webhooks: create `src/routes/webhooks/ses/index.ts`. It sits outside `v1/`, so the v1 `autohooks.ts` doesn't apply.
+**Add a public route group** (no API key), such as provider events: `src/routes/webhooks/provider-events/index.ts`. It sits outside `v1/`, so the v1 `autohooks.ts` doesn't apply.
 
 **Add an app-wide plugin:** create `src/plugins/<name>.ts` that default-exports `fp(async (fastify) => { ... }, { name: "<name>" })`. If it reads another decorator, declare that with `dependencies: ["config"]`.
 
@@ -103,6 +103,8 @@ fastify.post(
 **Add a variable:** add it to the schema in `src/env.ts` with a self-explanatory name, and add it to `apps/api/.env.example`. Read it anywhere as `fastify.config.MY_VAR`, fully typed. Never read `process.env` directly.
 
 Tests override values without touching `process.env`: `buildApp({ env: { RATE_LIMIT_MAX: 2 } })`.
+
+`PUBLIC_URL` is the API's public HTTPS address (no query or fragment). It is only needed for provider events; leave it empty to run without them.
 
 ## `@fastify/bearer-auth`
 
@@ -191,7 +193,7 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 
 ### Amazon SES (`type: "ses"`)
 
-`settings` = `{ region, accessKeyId }`, secrets = `{ secretAccessKey }`. `sandbox` is `true` until SES production access is granted. Least-privilege IAM policy for the connected key:
+`settings` = `{ region, accessKeyId, eventTopicArn?, configurationSetName? }`, secrets = `{ secretAccessKey }`. The last two are written by event setup ([provider-events.md](provider-events.md)) and never returned. `sandbox` is `true` until SES production access is granted. Least-privilege IAM policy for the connected key:
 
 ```json
 {
@@ -204,7 +206,14 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
         "ses:CreateEmailIdentity",
         "ses:GetEmailIdentity",
         "ses:PutEmailIdentityMailFromAttributes",
-        "ses:SendEmail"
+        "ses:SendEmail",
+        "ses:CreateConfigurationSet",
+        "ses:CreateConfigurationSetEventDestination",
+        "ses:UpdateConfigurationSetEventDestination",
+        "sns:CreateTopic",
+        "sns:SetTopicAttributes",
+        "sns:Subscribe",
+        "sns:ConfirmSubscription"
       ],
       "Resource": "*"
     }
@@ -278,6 +287,7 @@ Limits each API key to `RATE_LIMIT_MAX` requests per `RATE_LIMIT_WINDOW` on `/v1
   ```
 
   Set `config: { rateLimit: false }` to exempt a route.
+- **Public webhooks have their own limit.** `/webhooks/provider-events` registers rate-limit in its own scope, keyed by IP, 3000 requests per minute.
 - **Counters live in memory, per process.** That's fine for one instance. Once you run more than one, pass `redis` (from `@fastify/redis`) in the registration options so every instance shares one count.
 
 ## `@fastify/sensible`
