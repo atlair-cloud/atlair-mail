@@ -78,6 +78,9 @@ importers:
       '@aws-sdk/client-sns':
         specifier: ^3.1148.0
         version: 3.1148.0
+      '@aws-sdk/client-sqs':
+        specifier: ^3.1148.0
+        version: 3.1148.0
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.1
