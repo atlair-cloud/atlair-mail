@@ -95,7 +95,10 @@ export function createProviderConnectionService(db: Database, cipher: Credential
       const connection = await findProviderConnectionByOrganization(db, organizationId);
       if (!connection) throw new ProviderNotConnectedError();
       const provider = await providerFromConnection(cipher, connection, { logger });
-      const settings = await provider.configureEvents(eventEndpoint(eventsUrl, connection.id));
+      const { settings } = await provider.configureEvents(connection.id, {
+        mode: "push",
+        endpointUrl: eventEndpoint(eventsUrl, connection.id),
+      });
       const saved = await saveProviderEvents(db, connection.id, { settings, eventsUrl });
       return toPublicConnection(saved ?? connection);
     },
