@@ -7,6 +7,7 @@ import { createCredentialsCipher } from "@atlair-mail/core";
 import {
   claimDueWebhookDeliveries,
   enqueueWebhookDeliveries,
+  rotateWebhookSigningSecret,
   schema,
   type WebhookPayload,
 } from "@atlair-mail/db";
@@ -21,6 +22,7 @@ import { databaseUrl, silentLogger, useWorkerTestDb, waitFor } from "./helpers.t
 
 const cipher = createCredentialsCipher(`1:${Buffer.alloc(32, 7).toString("base64")}`);
 const secret = `whsec_${Buffer.alloc(32, 9).toString("base64")}`;
+const nextSecret = `whsec_${Buffer.alloc(32, 5).toString("base64")}`;
 
 function recordingSender(respond: (request: WebhookRequest) => WebhookResponse = () => ({ ok: true, status: 200 })) {
   const requests: WebhookRequest[] = [];
@@ -81,7 +83,7 @@ describe("webhook dispatcher", { skip: !databaseUrl }, () => {
         .set({ disabledAt: new Date() })
         .where(eq(schema.webhookEndpoints.id, endpoint!.id));
     }
-    return { id: queued!.id, payload, endpointId: endpoint!.id };
+    return { id: queued!.id, payload, endpointId: endpoint!.id, organizationId: from.organizationId };
   }
 
   const read = async (id: string) =>
@@ -148,6 +150,80 @@ describe("webhook dispatcher", { skip: !databaseUrl }, () => {
     assert.throws(() =>
       new Webhook(secret).verify(request!.body.replace("Welcome", "Hacked"), request!.headers),
     );
+  });
+
+  const rotate = async (delivery: { endpointId: string; organizationId: string }, overlapSeconds = 3_600) => {
+    const encrypted = await cipher.encrypt(nextSecret, delivery.organizationId);
+    return rotateWebhookSigningSecret(t.db, delivery.organizationId, delivery.endpointId, {
+      ciphertext: encrypted.ciphertext,
+      keyVersion: encrypted.keyVersion,
+      overlapSeconds,
+    });
+  };
+
+  it("signs with both secrets during a rotation overlap, so either one verifies", async () => {
+    const delivery = await queuedDelivery();
+    await rotate(delivery);
+    const claimed = await claimOwn(delivery.id);
+    const { requests, send } = recordingSender();
+
+    await deliverWebhook(claimed!, { db: t.db, logger: silentLogger, cipher, send });
+
+    const [request] = requests;
+    assert.equal(request!.headers["webhook-signature"]!.split(" ").length, 2);
+    assert.match(request!.headers["webhook-signature"]!, /^v1,\S+ v1,\S+$/);
+    assert.deepEqual(new Webhook(nextSecret).verify(request!.body, request!.headers), delivery.payload);
+    assert.deepEqual(new Webhook(secret).verify(request!.body, request!.headers), delivery.payload);
+  });
+
+  it("signs with the new secret only once the overlap has ended", async () => {
+    const delivery = await queuedDelivery();
+    const rotated = await rotate(delivery);
+    const claimed = await claimOwn(delivery.id);
+    const { requests, send } = recordingSender();
+    const after = new Date(rotated!.previousSecretExpiresAt!.getTime() + 1_000);
+
+    await deliverWebhook(claimed!, { db: t.db, logger: silentLogger, cipher, send, now: () => after });
+
+    const signature = requests[0]!.headers["webhook-signature"];
+    assert.equal(signature, new Webhook(nextSecret).sign(delivery.id, after, requests[0]!.body));
+    assert.ok(!signature!.includes(new Webhook(secret).sign(delivery.id, after, requests[0]!.body)));
+  });
+
+  it("still delivers, signed with the new secret, when the previous one cannot be decrypted", async () => {
+    const delivery = await queuedDelivery();
+    await rotate(delivery);
+    await t.db
+      .update(schema.webhookEndpoints)
+      .set({ previousSigningSecretEncrypted: "not-a-ciphertext" })
+      .where(eq(schema.webhookEndpoints.id, delivery.endpointId));
+    const claimed = await claimOwn(delivery.id);
+    const { requests, send } = recordingSender();
+
+    const outcome = await deliverWebhook(claimed!, { db: t.db, logger: silentLogger, cipher, send });
+
+    assert.equal(outcome, "delivered");
+    assert.deepEqual(new Webhook(nextSecret).verify(requests[0]!.body, requests[0]!.headers), delivery.payload);
+    assert.throws(() => new Webhook(secret).verify(requests[0]!.body, requests[0]!.headers));
+  });
+
+  it("clears expired previous secrets while it runs", async () => {
+    const delivery = await queuedDelivery();
+    await rotate(delivery);
+    await t.db
+      .update(schema.webhookEndpoints)
+      .set({ previousSecretExpiresAt: sql`now() - interval '1 second'` })
+      .where(eq(schema.webhookEndpoints.id, delivery.endpointId));
+    const endpoint = async () =>
+      (await t.db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, delivery.endpointId)))[0]!;
+
+    const dispatcher = start(recordingSender().send);
+    await waitFor(async () => (await endpoint()).previousSigningSecretEncrypted === null);
+    await dispatcher.stop();
+
+    const row = await endpoint();
+    assert.equal(row.previousEncryptionKeyVersion, null);
+    assert.equal(row.previousSecretExpiresAt, null);
   });
 
   it("retries on the backoff schedule and dead-letters after the last attempt", async () => {
