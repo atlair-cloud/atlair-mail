@@ -2,6 +2,7 @@ import { parseMailbox } from "@atlair-mail/core";
 import { markEmailFailed, markEmailSent, requeueEmail, type Executor } from "@atlair-mail/db";
 import type { Email } from "@atlair-mail/db/schema";
 import {
+  emailIdTag,
   ProviderError,
   ProviderRejectedError,
   ProviderTimeoutError,
@@ -11,7 +12,7 @@ import {
 } from "@atlair-mail/providers";
 import type { Logger } from "pino";
 import { runPreSendChecks } from "./pre-send-checks.ts";
-import { emailIdTag, errorCodes, maxAttempts, retryDelaysSeconds } from "./settings.ts";
+import { errorCodes, maxAttempts, retryDelaysSeconds } from "./settings.ts";
 
 export interface ProcessEmailDeps {
   db: Executor;

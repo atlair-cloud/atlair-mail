@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
 import { emailStatuses, type EmailStatus } from "@atlair-mail/db/types";
-import { bounceKinds, emailEventTypes } from "@atlair-mail/providers/types";
+import { emailEventTypes } from "@atlair-mail/providers/types";
 import {
   canTransition,
   emailTransitions,
@@ -17,10 +17,7 @@ const apply = (status: EmailStatus, event: StatusEvent) => {
   return next && canTransition(status, next) ? next : status;
 };
 
-const statusEvent = fc.record(
-  { type: fc.constantFrom(...emailEventTypes), bounce: fc.record({ kind: fc.constantFrom(...bounceKinds) }) },
-  { requiredKeys: ["type"] },
-);
+const statusEvent = fc.record({ type: fc.constantFrom(...emailEventTypes) });
 
 describe("email status transitions", () => {
   it("covers every status", () => {
@@ -75,14 +72,12 @@ describe("statusForEvent", () => {
   it("maps provider events to statuses", () => {
     assert.equal(statusForEvent({ type: "sent" }), "sent");
     assert.equal(statusForEvent({ type: "delivered" }), "delivered");
-    assert.equal(statusForEvent({ type: "bounced", bounce: { kind: "permanent" } }), "bounced");
-    assert.equal(statusForEvent({ type: "bounced", bounce: { kind: "undetermined" } }), "bounced");
+    assert.equal(statusForEvent({ type: "bounced" }), "bounced");
     assert.equal(statusForEvent({ type: "complained" }), "complained");
     assert.equal(statusForEvent({ type: "rejected" }), "failed");
   });
 
-  it("records transient bounces, delays and engagement without changing status", () => {
-    assert.equal(statusForEvent({ type: "bounced", bounce: { kind: "transient" } }), null);
+  it("records delays and engagement without changing status", () => {
     assert.equal(statusForEvent({ type: "delivery_delayed" }), null);
     assert.equal(statusForEvent({ type: "opened" }), null);
     assert.equal(statusForEvent({ type: "clicked" }), null);

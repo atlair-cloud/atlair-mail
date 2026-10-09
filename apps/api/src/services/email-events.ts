@@ -47,7 +47,7 @@ export function createEmailEventService(db: Database) {
         });
         if (!stored) return { outcome: "duplicate", emailId: email.id };
 
-        const status = statusForEvent({ type: event.type, bounce: event.details.bounce });
+        const status = statusForEvent(event);
         if (!status) return { outcome: "recorded", emailId: email.id };
 
         const advanced = await advanceEmailStatus(tx, {
