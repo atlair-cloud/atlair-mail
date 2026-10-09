@@ -1,4 +1,5 @@
 import { findProviderConnectionByOrganization, type Executor } from "@atlair-mail/db";
+import type { ProviderConnection } from "@atlair-mail/db/schema";
 import {
   createProvider,
   type CreateProviderOptions,
@@ -8,6 +9,17 @@ import {
 } from "@atlair-mail/providers";
 import type { CredentialsCipher } from "./credentials-cipher.ts";
 
+export async function providerFromConnection(
+  cipher: CredentialsCipher,
+  connection: ProviderConnection,
+  options: CreateProviderOptions = {},
+): Promise<EmailProvider> {
+  const secrets = JSON.parse(
+    await cipher.decrypt(connection.credentialsEncrypted, connection.organizationId),
+  ) as ProviderSecrets;
+  return createProvider({ type: connection.provider, settings: connection.settings, secrets } as ProviderConfig, options);
+}
+
 export async function loadProvider(
   db: Executor,
   cipher: CredentialsCipher,
@@ -15,7 +27,5 @@ export async function loadProvider(
   options: CreateProviderOptions = {},
 ): Promise<EmailProvider | null> {
   const connection = await findProviderConnectionByOrganization(db, organizationId);
-  if (!connection) return null;
-  const secrets = JSON.parse(await cipher.decrypt(connection.credentialsEncrypted, organizationId)) as ProviderSecrets;
-  return createProvider({ type: connection.provider, settings: connection.settings, secrets } as ProviderConfig, options);
+  return connection && providerFromConnection(cipher, connection, options);
 }
