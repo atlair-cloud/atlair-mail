@@ -97,4 +97,7 @@ export const EmailEventSchema = Type.Object({
   complaint: Type.Optional(Type.Object({ feedbackType: Type.Optional(Type.String()) })),
   smtpResponse: Type.Optional(Type.String()),
   link: Type.Optional(Type.String()),
+  error: Type.Optional(
+    Type.String({ description: "On failed events: why atlair-mail gave up, for example ATL_RECIPIENT_SUPPRESSED." }),
+  ),
 });
