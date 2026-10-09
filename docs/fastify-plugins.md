@@ -260,7 +260,7 @@ The DMARC record sits on the sending domain itself, never its parent, so it cann
 3. Headers: routing, identity and MIME headers (`From`, `To`, `Cc`, `Bcc`, `Reply-To`, `Sender`, `Return-Path`, `Message-ID`, `Date`, `MIME-Version`, `Content-*`, `DKIM-Signature`, `Received`) cannot be set.
 4. `Idempotency-Key`: a repeat with the same normalized request returns the original email with `Idempotent-Replayed: true`; a different request gets `422 ATL_IDEMPOTENCY_KEY_REUSED` (IETF draft semantics). The fingerprint is SHA-256 over the request serialized with `safe-stable-stringify`. Keys are scoped to the organization and kept for the life of the email.
 5. The From domain must be `verified` in the caller's organization (`422 ATL_DOMAIN_NOT_VERIFIED`).
-6. No recipient may be in the organization's suppression list (`422 ATL_RECIPIENT_SUPPRESSED`).
+6. No recipient may be in the organization's suppression list (`422 ATL_RECIPIENT_SUPPRESSED`). See [suppressions.md](suppressions.md) for how entries are added and `/v1/suppressions`.
 
 `scheduledAt` may be up to 30 days ahead; a past time means now. Request bodies are never logged.
 
