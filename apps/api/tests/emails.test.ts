@@ -59,7 +59,7 @@ describe("POST /v1/emails", { skip: !hasDatabase }, () => {
     assert.equal(got.statusCode, 200);
     assert.equal(got.json().subject, "Welcome");
     assert.deepEqual(Object.keys(got.json()).sort(), [
-      "bcc", "cc", "createdAt", "from", "headers", "html", "id", "providerMessageId", "replyTo",
+      "bcc", "cc", "createdAt", "from", "headers", "html", "id", "lastError", "providerMessageId", "replyTo",
       "scheduledAt", "sentAt", "status", "subject", "tags", "text", "to", "updatedAt",
     ]);
   });
@@ -215,6 +215,21 @@ describe("POST /v1/emails rejections", { skip: !hasDatabase }, () => {
 });
 
 describe("GET /v1/emails/:id", { skip: !hasDatabase }, () => {
+  it("shows why the last attempt failed", async () => {
+    const app = await buildTestApp();
+    const { token, from } = await sender(app);
+    const { id } = (await send(app, token, message(from))).json();
+    await app.db
+      .update(schema.emails)
+      .set({ status: "failed", lastError: "ATL_PROVIDER_REJECTED: MessageRejected" })
+      .where(eq(schema.emails.id, id));
+
+    const got = (await app.inject({ method: "GET", url: `${url}/${id}`, headers: auth(token) })).json();
+
+    assert.equal(got.status, "failed");
+    assert.equal(got.lastError, "ATL_PROVIDER_REJECTED: MessageRejected");
+  });
+
   it("returns 404 for another organization's email and for unknown ids", async () => {
     const app = await buildTestApp();
     const first = await sender(app);

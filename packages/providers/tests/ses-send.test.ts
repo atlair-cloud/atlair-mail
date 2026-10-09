@@ -132,3 +132,33 @@ describe("formatAddress", () => {
     }
   });
 });
+
+describe("provider error reasons", () => {
+  it("keeps the provider error name and nothing else", async () => {
+    const { toReason, ProviderRejectedError } = await import("../src/index.ts");
+
+    assert.equal(toReason("MessageRejected"), "MessageRejected");
+    assert.equal(toReason("Email address is not verified: ada@example.org"), "Unknown");
+    assert.equal(toReason("a".repeat(65)), "Unknown");
+    assert.equal(toReason(undefined), "Unknown");
+    assert.equal(new ProviderRejectedError("MessageRejected").summary, "ATL_PROVIDER_REJECTED: MessageRejected");
+    assert.equal(new ProviderRejectedError("bad <ada@example.org>").summary, "ATL_PROVIDER_REJECTED: Unknown");
+  });
+
+  it("maps SES failures with their reason", async () => {
+    ses.on(SendEmailCommand).rejects(sesError(MessageRejected));
+    await assert.rejects(provider.send(message), (error: unknown) => {
+      return error instanceof ProviderError && error.summary === "ATL_PROVIDER_REJECTED: MessageRejected";
+    });
+
+    ses.on(SendEmailCommand).rejects(sesError(LimitExceededException));
+    await assert.rejects(provider.send(message), (error: unknown) => {
+      return error instanceof ProviderError && error.summary === "ATL_PROVIDER_THROTTLED: LimitExceededException";
+    });
+
+    ses.on(SendEmailCommand).rejects(Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" }));
+    await assert.rejects(provider.send(message), (error: unknown) => {
+      return error instanceof ProviderError && error.summary === "ATL_PROVIDER_UNAVAILABLE: ENOTFOUND";
+    });
+  });
+});

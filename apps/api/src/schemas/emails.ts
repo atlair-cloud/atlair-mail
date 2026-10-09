@@ -76,6 +76,9 @@ export const EmailSchema = Type.Object({
   headers: Type.Record(Type.String(), Type.String()),
   tags: Type.Array(Type.Object({ name: Type.String(), value: Type.String() })),
   providerMessageId: Type.Union([Type.String(), Type.Null()]),
+  lastError: Type.Union([Type.String(), Type.Null()], {
+    description: "Why the last attempt failed, for example ATL_PROVIDER_REJECTED: MessageRejected.",
+  }),
   scheduledAt: DateTime(),
   sentAt: Type.Union([DateTime(), Type.Null()]),
   createdAt: DateTime(),

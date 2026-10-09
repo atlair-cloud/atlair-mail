@@ -57,7 +57,7 @@ describe("worker", { skip: !databaseUrl }, () => {
     await settled([id!]);
     await worker.stop();
 
-    assert.deepEqual([(await t.read(id!)).status, (await t.read(id!)).lastError], ["failed", "ATL_PROVIDER_REJECTED"]);
+    assert.deepEqual([(await t.read(id!)).status, (await t.read(id!)).lastError], ["failed", "ATL_PROVIDER_REJECTED: MessageRejected"]);
     assert.equal(fake.calls.filter((call) => call.operation === "send").length, 1);
   });
 
@@ -80,6 +80,7 @@ describe("worker", { skip: !databaseUrl }, () => {
     assert.equal(retried.status, "queued");
     assert.equal(retried.attemptCount, 1);
     assert.equal(retried.lastError, "ATL_PROVIDER_THROTTLED");
+    assert.equal(exhausted.lastError, "ATL_PROVIDER_THROTTLED");
     assert.ok(retried.sendAt.getTime() > Date.now() + 20_000);
     assert.equal(exhausted.status, "failed");
     assert.equal(exhausted.attemptCount, maxAttempts);

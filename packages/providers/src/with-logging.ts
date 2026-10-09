@@ -8,7 +8,7 @@ export interface ProviderLogger {
 
 const errorFields = (error: unknown) =>
   error instanceof ProviderError
-    ? { errorCode: error.code, retryable: error.retryable }
+    ? { errorCode: error.code, reason: error.reason, retryable: error.retryable }
     : { errorCode: error instanceof Error ? error.name : "UnknownError", retryable: false };
 
 export function withLogging(provider: EmailProvider, logger: ProviderLogger): EmailProvider {

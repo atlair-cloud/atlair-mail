@@ -45,18 +45,18 @@ const connectionFailureCodes = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN"
 export function toProviderError(error: unknown) {
   if (error instanceof ProviderError) return error;
   if (error instanceof TooManyRequestsException || error instanceof LimitExceededException) {
-    return new ProviderThrottledError({ cause: error });
+    return new ProviderThrottledError({ cause: error, reason: error.name });
   }
   if (error instanceof SESv2ServiceException) {
     return error.$fault === "client"
       ? new ProviderRejectedError(error.name, { cause: error })
-      : new ProviderUnavailableError({ cause: error });
+      : new ProviderUnavailableError({ cause: error, reason: error.name });
   }
   const code = (error as { code?: unknown } | null)?.code;
   if (typeof code === "string" && connectionFailureCodes.has(code)) {
-    return new ProviderUnavailableError({ cause: error });
+    return new ProviderUnavailableError({ cause: error, reason: code.replace(/[^A-Za-z0-9]/g, "") });
   }
-  return new ProviderTimeoutError({ cause: error });
+  return new ProviderTimeoutError({ cause: error, reason: error instanceof Error ? error.name : undefined });
 }
 
 const printableAscii = /^[\x20-\x7e]*$/;
