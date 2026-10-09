@@ -85,6 +85,13 @@
       "when": 1791530806996,
       "tag": "0011_failed_email_events",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791531622244,
+      "tag": "0012_provider_events_pull_mode",
+      "breakpoints": true
     }
   ]
 }

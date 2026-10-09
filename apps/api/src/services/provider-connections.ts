@@ -99,7 +99,7 @@ export function createProviderConnectionService(db: Database, cipher: Credential
         mode: "push",
         endpointUrl: eventEndpoint(eventsUrl, connection.id),
       });
-      const saved = await saveProviderEvents(db, connection.id, { settings, eventsUrl });
+      const saved = await saveProviderEvents(db, connection.id, { mode: "push", settings, eventsUrl, active: false });
       return toPublicConnection(saved ?? connection);
     },
 
