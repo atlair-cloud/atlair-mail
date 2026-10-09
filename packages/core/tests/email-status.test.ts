@@ -1,111 +1,193 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { emailStatuses, type EmailStatus } from "@atlair-mail/db/types";
-import { emailEventTypes } from "@atlair-mail/providers/types";
+import { emailStatuses } from "@atlair-mail/db/types";
+import { bounceKinds, emailEventTypes } from "@atlair-mail/providers/types";
 import {
+  canSettleFromEvents,
   canTransition,
   emailTransitions,
-  isTerminal,
-  statusForEvent,
-  transitionSources,
-  type StatusEvent,
+  recipientOutcomes,
+  statusFromEvents,
+  suppressionsFromEvent,
+  type OutcomeEvent,
 } from "../src/index.ts";
 
-const apply = (status: EmailStatus, event: StatusEvent) => {
-  const next = statusForEvent(event);
-  return next && canTransition(status, next) ? next : status;
-};
+const event = (type: OutcomeEvent["type"], addresses: string[], extra: Partial<OutcomeEvent["details"]> = {}) => ({
+  type,
+  details: { recipients: addresses.map((address) => ({ address })), ...extra },
+});
 
-const statusEvent = fc.record({ type: fc.constantFrom(...emailEventTypes) });
+const simulatorRun: OutcomeEvent[] = [
+  event("sent", [
+    "success@simulator.amazonses.com",
+    "bounce@simulator.amazonses.com",
+    "complaint@simulator.amazonses.com",
+    "ooto@simulator.amazonses.com",
+    "suppressionlist@simulator.amazonses.com",
+  ]),
+  event("complained", ["complaint@simulator.amazonses.com"], { complaint: { feedbackType: "abuse" } }),
+  event("bounced", ["ooto@simulator.amazonses.com"], { bounce: { kind: "transient", subType: "General" } }),
+  event("bounced", ["bounce@simulator.amazonses.com", "suppressionlist@simulator.amazonses.com"], {
+    bounce: { kind: "permanent", subType: "General" },
+  }),
+  event("delivered", [
+    "success@simulator.amazonses.com",
+    "complaint@simulator.amazonses.com",
+    "ooto@simulator.amazonses.com",
+  ]),
+];
 
-describe("email status transitions", () => {
-  it("covers every status", () => {
+const addresses = ["ada@example.org", "bob@example.org", "cy@example.org"];
+
+const outcomeEvent: fc.Arbitrary<OutcomeEvent> = fc.record({
+  type: fc.constantFrom(...emailEventTypes),
+  details: fc.record(
+    {
+      recipients: fc.subarray(addresses, { minLength: 1 }).map((list) => list.map((address) => ({ address }))),
+      bounce: fc.record({ kind: fc.constantFrom(...bounceKinds), subType: fc.constant("General") }),
+      complaint: fc.record({ feedbackType: fc.constantFrom("abuse", "not-spam", "fraud") }),
+    },
+    { requiredKeys: ["recipients"] },
+  ),
+});
+
+describe("worker transitions", () => {
+  it("covers every status and only the worker's moves", () => {
     assert.deepEqual(Object.keys(emailTransitions).sort(), [...emailStatuses].sort());
-  });
-
-  it("allows the send lifecycle", () => {
     assert.ok(canTransition("queued", "sending"));
     assert.ok(canTransition("sending", "sent"));
     assert.ok(canTransition("sending", "queued"));
-    assert.ok(canTransition("sent", "delivered"));
-    assert.ok(canTransition("delivered", "bounced"));
-    assert.ok(canTransition("delivered", "complained"));
-    assert.ok(canTransition("bounced", "complained"));
     assert.ok(canTransition("queued", "canceled"));
-  });
-
-  it("lets provider evidence settle an email the worker could not confirm", () => {
-    for (const from of ["sending", "failed"] as const) {
-      for (const to of ["delivered", "bounced", "complained"] as const) assert.ok(canTransition(from, to));
-    }
-    assert.ok(!canTransition("failed", "sent"));
-    assert.ok(!canTransition("failed", "queued"));
-  });
-
-  it("rejects moves backwards or out of a final state", () => {
-    assert.ok(!canTransition("delivered", "sending"));
-    assert.ok(!canTransition("delivered", "sent"));
-    assert.ok(!canTransition("bounced", "delivered"));
-    assert.ok(!canTransition("complained", "bounced"));
     assert.ok(!canTransition("sent", "queued"));
     assert.ok(!canTransition("sending", "canceled"));
-    assert.ok(!canTransition("queued", "sent"));
-    for (const status of ["complained", "canceled"] as const) {
-      assert.ok(isTerminal(status));
-      for (const next of emailStatuses) assert.ok(!canTransition(status, next));
-    }
-  });
-
-  it("never transitions a status to itself", () => {
     for (const status of emailStatuses) assert.ok(!canTransition(status, status));
   });
 
-  it("lists the statuses that may move to a target", () => {
-    assert.deepEqual(transitionSources("delivered").sort(), ["failed", "sending", "sent"]);
-    assert.deepEqual(transitionSources("complained").sort(), ["bounced", "delivered", "failed", "sending", "sent"]);
-    assert.deepEqual(transitionSources("queued"), ["sending"]);
+  it("lets provider events settle only emails the provider may have seen", () => {
+    assert.deepEqual(
+      emailStatuses.filter(canSettleFromEvents),
+      ["sending", "sent", "delivered", "bounced", "complained", "failed"],
+    );
   });
 });
 
-describe("statusForEvent", () => {
-  it("maps provider events to statuses", () => {
-    assert.equal(statusForEvent({ type: "sent" }), "sent");
-    assert.equal(statusForEvent({ type: "delivered" }), "delivered");
-    assert.equal(statusForEvent({ type: "bounced" }), "bounced");
-    assert.equal(statusForEvent({ type: "complained" }), "complained");
-    assert.equal(statusForEvent({ type: "rejected" }), "failed");
+describe("recipientOutcomes", () => {
+  it("resolves the live simulator run per recipient", () => {
+    assert.deepEqual(Object.fromEntries(recipientOutcomes(simulatorRun)), {
+      "success@simulator.amazonses.com": "delivered",
+      "bounce@simulator.amazonses.com": "bounced",
+      "complaint@simulator.amazonses.com": "complained",
+      "ooto@simulator.amazonses.com": "delivered",
+      "suppressionlist@simulator.amazonses.com": "bounced",
+    });
   });
 
-  it("records delays and engagement without changing status", () => {
-    assert.equal(statusForEvent({ type: "delivery_delayed" }), null);
-    assert.equal(statusForEvent({ type: "opened" }), null);
-    assert.equal(statusForEvent({ type: "clicked" }), null);
+  it("treats an out-of-office reply as delivered, and a transient bounce alone as bounced", () => {
+    const transient = event("bounced", ["ada@example.org"], { bounce: { kind: "transient", subType: "General" } });
+
+    assert.equal(statusFromEvents([transient, event("delivered", ["ada@example.org"])]), "delivered");
+    assert.equal(statusFromEvents([event("delivered", ["ada@example.org"]), transient]), "delivered");
+    assert.equal(statusFromEvents([event("sent", ["ada@example.org"]), transient]), "bounced");
   });
 
-  it("reaches the same status whatever order the events arrive in", () => {
+  it("matches recipients case-insensitively", () => {
+    const outcomes = recipientOutcomes([
+      event("delivered", ["Ada@Example.org"]),
+      event("complained", ["ada@example.org"], { complaint: { feedbackType: "abuse" } }),
+    ]);
+
+    assert.deepEqual(Object.fromEntries(outcomes), { "ada@example.org": "complained" });
+  });
+});
+
+describe("statusFromEvents", () => {
+  it("is the most severe recipient outcome", () => {
+    assert.equal(statusFromEvents(simulatorRun), "complained");
+    assert.equal(statusFromEvents(simulatorRun.slice(0, 1)), "sent");
+    assert.equal(statusFromEvents([event("sent", addresses), event("delivered", ["ada@example.org"])]), "delivered");
+    assert.equal(
+      statusFromEvents([
+        event("delivered", ["ada@example.org"]),
+        event("bounced", ["bob@example.org"], { bounce: { kind: "undetermined", subType: "Undetermined" } }),
+      ]),
+      "bounced",
+    );
+  });
+
+  it("fails on a rejection and ignores delays, opens, clicks and not-spam reports", () => {
+    assert.equal(statusFromEvents([event("sent", addresses), event("rejected", addresses)]), "failed");
+    assert.equal(statusFromEvents([event("delivery_delayed", addresses), event("opened", addresses)]), null);
+    assert.equal(
+      statusFromEvents([
+        event("delivered", addresses),
+        event("complained", addresses, { complaint: { feedbackType: "not-spam" } }),
+      ]),
+      "delivered",
+    );
+  });
+
+  it("does not depend on the order or repetition of events", () => {
     fc.assert(
       fc.property(
-        fc.constantFrom<EmailStatus>("sending", "sent"),
         fc
-          .array(statusEvent, { maxLength: 8 })
+          .array(outcomeEvent, { maxLength: 10 })
           .chain((events) =>
             fc.tuple(fc.constant(events), fc.shuffledSubarray(events, { minLength: events.length })),
           ),
-        (start, [events, shuffled]) => {
-          assert.equal(shuffled.reduce(apply, start), events.reduce(apply, start));
+        ([events, shuffled]) => {
+          assert.equal(statusFromEvents(shuffled), statusFromEvents(events));
+          assert.equal(statusFromEvents([...events, ...events]), statusFromEvents(events));
         },
       ),
       { numRuns: 1000 },
     );
   });
+});
 
-  it("ignores a repeated event", () => {
-    fc.assert(
-      fc.property(fc.constantFrom(...emailStatuses), statusEvent, (start, event) => {
-        const once = apply(start, event);
-        assert.equal(apply(once, event), once);
-      }),
+describe("suppressionsFromEvent", () => {
+  it("suppresses permanent bounces and complaints only", () => {
+    const [, complained, outOfOffice, bounced, delivered] = simulatorRun;
+
+    assert.deepEqual(suppressionsFromEvent(bounced!), [
+      { address: "bounce@simulator.amazonses.com", reason: "hard_bounce" },
+      { address: "suppressionlist@simulator.amazonses.com", reason: "hard_bounce" },
+    ]);
+    assert.deepEqual(suppressionsFromEvent(complained!), [
+      { address: "complaint@simulator.amazonses.com", reason: "complaint" },
+    ]);
+    assert.deepEqual(suppressionsFromEvent(outOfOffice!), []);
+    assert.deepEqual(suppressionsFromEvent(delivered!), []);
+  });
+
+  it("skips undetermined bounces, not-spam reports and malformed addresses", () => {
+    const permanent = { bounce: { kind: "permanent" as const, subType: "General" } };
+
+    assert.deepEqual(
+      suppressionsFromEvent(
+        event("bounced", ["ada@example.org"], { bounce: { kind: "undetermined", subType: "Undetermined" } }),
+      ),
+      [],
     );
+    assert.deepEqual(
+      suppressionsFromEvent(event("complained", ["ada@example.org"], { complaint: { feedbackType: "not-spam" } })),
+      [],
+    );
+    assert.deepEqual(
+      suppressionsFromEvent(
+        event(
+          "bounced",
+          [" Ada@Example.ORG ", "ada@example.org", "no-at-sign", "a b@example.org", `${"x".repeat(320)}@e.org`],
+          permanent,
+        ),
+      ),
+      [{ address: "ada@example.org", reason: "hard_bounce" }],
+    );
+  });
+
+  it("suppresses a complaint without a feedback type", () => {
+    assert.deepEqual(suppressionsFromEvent(event("complained", ["ada@example.org"], { complaint: {} })), [
+      { address: "ada@example.org", reason: "complaint" },
+    ]);
   });
 });

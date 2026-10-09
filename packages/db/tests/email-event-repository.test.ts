@@ -5,9 +5,10 @@ import { eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import {
   advanceEmailStatus,
-  findEmailForEvent,
   insertEmailEvent,
   listEmailEvents,
+  listOutcomeEvents,
+  lockEmailForEvent,
 } from "../src/repositories/email-events.ts";
 import { emails, type NewEmail } from "../src/schema/index.ts";
 import type { EmailStatus } from "../src/types.ts";
@@ -50,11 +51,11 @@ describe("email event repositories", { skip: !databaseUrl }, () => {
     const sent = await email();
     const other = await t.newOrganization();
 
-    const found = await findEmailForEvent(t.db, {
+    const found = await lockEmailForEvent(t.db, {
       organizationId: sent.organizationId,
       providerMessageId: sent.providerMessageId!,
     });
-    const foreign = await findEmailForEvent(t.db, {
+    const foreign = await lockEmailForEvent(t.db, {
       organizationId: other.id,
       providerMessageId: sent.providerMessageId!,
       emailId: sent.id,
@@ -73,12 +74,12 @@ describe("email event repositories", { skip: !databaseUrl }, () => {
       emailId,
     });
 
-    assert.deepEqual(await findEmailForEvent(t.db, target(pending.id, pending.organizationId)), {
+    assert.deepEqual(await lockEmailForEvent(t.db, target(pending.id, pending.organizationId)), {
       id: pending.id,
       status: "sending",
     });
-    assert.equal(await findEmailForEvent(t.db, target(confirmed.id, confirmed.organizationId)), null);
-    assert.equal(await findEmailForEvent(t.db, target("not-a-uuid", pending.organizationId)), null);
+    assert.equal(await lockEmailForEvent(t.db, target(confirmed.id, confirmed.organizationId)), null);
+    assert.equal(await lockEmailForEvent(t.db, target("not-a-uuid", pending.organizationId)), null);
   });
 
   test("stores an event once per email", async () => {
@@ -185,5 +186,46 @@ describe("email event repositories", { skip: !databaseUrl }, () => {
     assert.deepEqual(applied, { id: forward.id, status: "complained" });
     assert.equal(skipped, null);
     assert.equal((await read(backward.id)).status, "complained");
+  });
+
+  test("a second event for the same email waits for the first and then sees it", async () => {
+    const sent = await email();
+    const target = { organizationId: sent.organizationId, providerMessageId: sent.providerMessageId! };
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let secondLocked = false;
+
+    const first = t.db.transaction(async (tx) => {
+      await lockEmailForEvent(tx, target);
+      await insertEmailEvent(tx, { ...event(sent.id), type: "bounced" });
+      await gate;
+    });
+    await delay(50);
+    const second = t.db.transaction(async (tx) => {
+      await lockEmailForEvent(tx, target);
+      secondLocked = true;
+      return listOutcomeEvents(tx, sent.id);
+    });
+    await delay(100);
+    const lockedWhileFirstOpen = secondLocked;
+    release();
+    const [, seen] = await Promise.all([first, second]);
+
+    assert.equal(lockedWhileFirstOpen, false);
+    assert.deepEqual(
+      seen.map((row) => row.type),
+      ["bounced"],
+    );
+  });
+
+  test("outcome events leave out delays and engagement", async () => {
+    const sent = await email();
+    for (const type of ["sent", "delivery_delayed", "opened", "clicked", "delivered"] as const) {
+      await insertEmailEvent(t.db, { ...event(sent.id), type });
+    }
+
+    const rows = await listOutcomeEvents(t.db, sent.id);
+
+    assert.deepEqual(rows.map((row) => row.type).sort(), ["delivered", "sent"]);
   });
 });
