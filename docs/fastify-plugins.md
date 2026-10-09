@@ -198,16 +198,31 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "AtlairMailSes",
       "Effect": "Allow",
       "Action": [
         "ses:GetAccount",
         "ses:CreateEmailIdentity",
         "ses:GetEmailIdentity",
         "ses:PutEmailIdentityMailFromAttributes",
-        "ses:SendEmail",
+        "ses:SendEmail"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AtlairMailEventConfigurationSet",
+      "Effect": "Allow",
+      "Action": [
         "ses:CreateConfigurationSet",
         "ses:CreateConfigurationSetEventDestination",
-        "ses:UpdateConfigurationSetEventDestination",
+        "ses:UpdateConfigurationSetEventDestination"
+      ],
+      "Resource": "arn:aws:ses:*:*:configuration-set/atlair-mail"
+    },
+    {
+      "Sid": "AtlairMailEventTopic",
+      "Effect": "Allow",
+      "Action": [
         "sns:CreateTopic",
         "sns:SetTopicAttributes",
         "sns:Subscribe",
@@ -215,10 +230,10 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
         "sns:ListSubscriptionsByTopic",
         "sns:Unsubscribe"
       ],
-      "Resource": "*"
+      "Resource": "arn:aws:sns:*:*:atlair-mail-events"
     },
     {
-      "Sid": "PullModeEventQueues",
+      "Sid": "AtlairMailEventQueues",
       "Effect": "Allow",
       "Action": [
         "sqs:GetQueueUrl",
@@ -236,8 +251,12 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 }
 ```
 
-The second statement is only needed for pull mode. `sqs:SendMessage` and `sqs:StartMessageMoveTask`
-are used by `POST /v1/provider/events/redrive` to move set-aside events back to the queue.
+| Statement | Needed for |
+| --- | --- |
+| `AtlairMailSes` | Connecting, domains and sending. Identities are named by the customer, so this one stays `*`. |
+| `AtlairMailEventConfigurationSet` | Event setup: only the `atlair-mail` configuration set. |
+| `AtlairMailEventTopic` | Event setup and switching modes: only the `atlair-mail-events` topic. `ListSubscriptionsByTopic` and `Unsubscribe` are checked against the topic ARN. |
+| `AtlairMailEventQueues` | Pull mode only: this connection's `atlair-mail-events-<connection id>` queue and its `-dlq`. `SendMessage` and `StartMessageMoveTask` are only used by `POST /v1/provider/events/redrive`; leave them out if you never redrive. |
 
 ## Domains
 
