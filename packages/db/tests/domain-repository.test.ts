@@ -19,6 +19,7 @@ const record = {
   name: "a._domainkey.example.com",
   value: "a.dkim.example-zone.com",
   required: true,
+  status: "pending" as const,
 };
 
 describe("domain repositories", { skip: !databaseUrl }, () => {

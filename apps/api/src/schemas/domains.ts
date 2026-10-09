@@ -3,11 +3,17 @@ import { domainStatuses } from "@atlair-mail/db";
 import { DateTime, Uuid } from "../lib/schemas.ts";
 
 export const DnsRecordSchema = Type.Object({
-  record: Type.Enum(["DKIM", "SPF", "MX", "DMARC"]),
+  record: Type.Enum(["DKIM", "MAIL_FROM", "SPF", "DMARC"]),
   type: Type.Enum(["CNAME", "TXT", "MX"]),
   name: Type.String(),
   value: Type.String(),
-  required: Type.Boolean({ description: "Required records must be published to verify. DMARC is recommended for deliverability." }),
+  priority: Type.Optional(Type.Integer({ description: "MX priority." })),
+  required: Type.Boolean({
+    description: "Required records must be published to send. The others improve deliverability.",
+  }),
+  status: Type.Union([Type.Enum(["pending", "verified", "failed"]), Type.Null()], {
+    description: "Whether the provider has found this record. Null for records the provider does not check.",
+  }),
 });
 
 export const DomainSchema = Type.Object({

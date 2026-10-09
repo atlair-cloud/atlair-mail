@@ -67,8 +67,16 @@ describe("/v1/domains", { skip: !hasDatabase }, () => {
         name: `${token}._domainkey.mail.example-shop.co.uk`,
         value: `${token}.${zone}`,
         required: true,
+        status: "pending",
       })),
-      { record: "DMARC", type: "TXT", name: "_dmarc.example-shop.co.uk", value: "v=DMARC1; p=none;", required: false },
+      {
+        record: "DMARC",
+        type: "TXT",
+        name: "_dmarc.mail.example-shop.co.uk",
+        value: "v=DMARC1; p=none;",
+        required: false,
+        status: null,
+      },
     ]);
     assert.deepEqual(Object.keys(body).sort(), [
       "createdAt",

@@ -20,6 +20,7 @@ import {
   ProviderUnavailableError,
 } from "../errors.ts";
 import type {
+  DnsRecordStatus,
   DomainVerification,
   DomainVerificationStatus,
   EmailAddress,
@@ -95,6 +96,12 @@ const toSendEmailInput = (message: EmailMessage) => ({
   EmailTags: message.tags?.map(({ name, value }) => ({ Name: name, Value: value })),
 });
 
+export function toRecordStatus(status: string | undefined): DnsRecordStatus {
+  if (status === "SUCCESS") return "verified";
+  if (status === "FAILED") return "failed";
+  return "pending";
+}
+
 const toDomainVerification = (
   domain: string,
   dkim: DkimAttributes | undefined,
@@ -110,6 +117,7 @@ const toDomainVerification = (
       name: `${token}._domainkey.${domain}`,
       value: `${token}.${zone}`,
       required: true,
+      status: toRecordStatus(dkim?.Status),
     })),
   };
 };

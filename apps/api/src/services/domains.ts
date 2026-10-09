@@ -1,5 +1,4 @@
 import createError from "@fastify/error";
-import { getDomain } from "tldts";
 import {
   deleteDomain,
   findDomainInOrganization,
@@ -32,13 +31,14 @@ export function withDnsRecords(domain: Domain) {
   return {
     ...domain,
     records: [
-      ...domain.dnsRecords,
+      ...domain.dnsRecords.map((record) => ({ ...record, status: record.status ?? null })),
       {
         record: "DMARC" as const,
         type: "TXT" as const,
-        name: `_dmarc.${getDomain(domain.name) ?? domain.name}`,
+        name: `_dmarc.${domain.name}`,
         value: "v=DMARC1; p=none;",
         required: false,
+        status: null,
       },
     ],
   };

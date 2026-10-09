@@ -23,12 +23,16 @@ export type ProviderSecrets = ProviderConfig["secrets"];
 
 export type DomainVerificationStatus = "pending" | "verified" | "failed";
 
+export type DnsRecordStatus = "pending" | "verified" | "failed";
+
 export interface DnsRecord {
-  record: "DKIM" | "SPF" | "MX" | "DMARC";
+  record: "DKIM" | "MAIL_FROM" | "SPF" | "DMARC";
   type: "CNAME" | "TXT" | "MX";
   name: string;
   value: string;
+  priority?: number;
   required: boolean;
+  status: DnsRecordStatus | null;
 }
 
 export interface DomainVerification {
