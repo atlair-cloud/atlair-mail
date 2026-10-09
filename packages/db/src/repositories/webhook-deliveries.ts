@@ -72,7 +72,10 @@ export async function claimDueWebhookDeliveries(db: Executor, options: { limit: 
     .from(webhookEndpoints)
     .where(inArray(webhookEndpoints.id, [...new Set(claimed.map((delivery) => delivery.webhookEndpointId))]));
   const byId = new Map(endpoints.map((endpoint) => [endpoint.id, endpoint]));
-  return claimed.map(({ webhookEndpointId, ...delivery }) => ({ ...delivery, endpoint: byId.get(webhookEndpointId)! }));
+  return claimed.flatMap(({ webhookEndpointId, ...delivery }) => {
+    const endpoint = byId.get(webhookEndpointId);
+    return endpoint ? [{ ...delivery, endpoint }] : [];
+  });
 }
 
 export type ClaimedWebhookDelivery = Awaited<ReturnType<typeof claimDueWebhookDeliveries>>[number];
