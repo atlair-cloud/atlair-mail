@@ -1,5 +1,6 @@
 import { Type } from "typebox";
-import { emailStatuses } from "@atlair-mail/db";
+import { emailEventTypes, emailStatuses } from "@atlair-mail/db";
+import { bounceKinds } from "@atlair-mail/providers/types";
 import { DateTime, Uuid } from "../lib/schemas.ts";
 import { maxRecipients } from "../services/emails.ts";
 
@@ -83,4 +84,17 @@ export const EmailSchema = Type.Object({
   sentAt: Type.Union([DateTime(), Type.Null()]),
   createdAt: DateTime(),
   updatedAt: DateTime(),
+});
+
+export const EmailEventSchema = Type.Object({
+  id: Uuid(),
+  type: Type.Enum(emailEventTypes),
+  occurredAt: DateTime(),
+  recipients: Type.Array(
+    Type.Object({ address: Type.String(), diagnosticCode: Type.Optional(Type.String()) }),
+  ),
+  bounce: Type.Optional(Type.Object({ kind: Type.Enum(bounceKinds), subType: Type.String() })),
+  complaint: Type.Optional(Type.Object({ feedbackType: Type.Optional(Type.String()) })),
+  smtpResponse: Type.Optional(Type.String()),
+  link: Type.Optional(Type.String()),
 });
