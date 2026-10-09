@@ -20,6 +20,7 @@ All routes need a `full_access` key and only see the caller's organization.
 | `GET /v1/webhooks` | Lists endpoints. |
 | `GET /v1/webhooks/:id` | One endpoint, without the secret. |
 | `PATCH /v1/webhooks/:id` `{ "url"?, "eventTypes"?, "enabled"? }` | Changes the endpoint. Disabled endpoints receive nothing. |
+| `POST /v1/webhooks/:id/rotate-secret` `{ "overlapHours"? }` | Returns a new `signingSecret`, shown only here. The previous secret keeps signing until `previousSecretExpiresAt`. See [Rotating the secret](#rotating-the-secret). |
 | `DELETE /v1/webhooks/:id` | `204`. Also deletes its delivery history and anything still pending. |
 | `GET /v1/webhooks/:id/deliveries` | Newest first: status, attempts, next attempt, last response code and error. `limit` (1–100) and `before` (last `id` of the previous page). |
 
@@ -111,6 +112,30 @@ const event = wh.verify(rawBody, {
 
 `verify` throws on a bad signature or a timestamp more than 5 minutes off, which stops replays.
 
+## Rotating the secret
+
+```bash
+curl -X POST https://mail.example.com/v1/webhooks/$ID/rotate-secret \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{"overlapHours": 24}'
+```
+
+1. The response carries the new `signingSecret`, shown only once, and `previousSecretExpiresAt`.
+2. Until then every request carries two signatures, `v1,<new> v1,<previous>`. Standard Webhooks
+   libraries accept a request when any signature matches, so the receiver can switch to the new
+   secret at any point in the window.
+3. After `previousSecretExpiresAt` only the new secret signs. Retries are signed again on each
+   attempt, so a retry after the window carries only the new signature.
+
+| `overlapHours` | |
+| --- | --- |
+| omitted | 24 |
+| `1`–`168` | Up to 7 days. |
+| `0` | Revokes the previous secret at once, for a leaked secret. Receivers still on it fail until updated. |
+
+Rotating again during an overlap makes the current secret the previous one; the older secret stops
+signing at once. `GET /v1/webhooks/:id` shows `previousSecretExpiresAt` while an overlap is active
+and never shows a secret. The worker clears expired previous secrets every 5 minutes.
+
 ## Retries
 
 Any `2xx` within 15 seconds counts as delivered. The response body is ignored. Redirects are not
@@ -153,6 +178,7 @@ Error codes in `lastError`:
 | SSRF | URL rules when saved, plus [request-filtering-agent](https://github.com/azu/request-filtering-agent) checking the resolved IP on every connection (covers DNS rebinding). No redirects. |
 | Forged or replayed requests | HMAC-SHA256 signature over id, timestamp and body; receivers reject old timestamps. |
 | Secret exposure | 32 random bytes, encrypted with `CREDENTIALS_ENCRYPTION_KEYS` and bound to the organization; returned once; never logged. |
+| Leaked secret | `rotate-secret` with `overlapHours: 0` replaces it immediately; otherwise the previous secret is kept, encrypted, only until `previousSecretExpiresAt` and then cleared. |
 | Slow or hostile receivers | 15s timeout, body never read, 10 deliveries in flight per worker, no database locks held during HTTP. |
 | Tenant isolation | Deliveries fan out only to the event's organization; every route filters by it. |
 | Personal data in logs | Only delivery id, endpoint id, attempt, status and error code are logged. |

@@ -183,7 +183,7 @@ The public API never names a provider. Each organization connects one email prov
 echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 ```
 
-**Rotate:** prepend a new, higher-numbered key and keep the old one: `CREDENTIALS_ENCRYPTION_KEYS=2:<new>,1:<old>`. New writes use the highest version; existing rows still decrypt with theirs. `provider_connections.encryption_key_version` shows which rows still use an old key; once none do, the old key can be removed. Losing every key means organizations must reconnect their provider.
+**Rotate:** prepend a new, higher-numbered key and keep the old one: `CREDENTIALS_ENCRYPTION_KEYS=2:<new>,1:<old>`. New writes use the highest version; existing rows still decrypt with theirs. `provider_connections.encryption_key_version` and `webhook_endpoints.encryption_key_version` show which rows still use an old key, and `webhook_endpoints.previous_encryption_key_version` covers a rotated webhook secret until its overlap ends (at most 7 days); once none do, the old key can be removed. Losing every key means organizations must reconnect their provider.
 
 **Logs:** pino `redact` removes `req.headers.authorization`, any `secretAccessKey` and any `secrets` object, up to two levels deep.
 
