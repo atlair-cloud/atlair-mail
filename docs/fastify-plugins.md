@@ -201,10 +201,10 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
       "Effect": "Allow",
       "Action": [
         "ses:GetAccount",
-        "ses:SendEmail",
-        "ses:SendRawEmail",
         "ses:CreateEmailIdentity",
-        "ses:GetEmailIdentity"
+        "ses:GetEmailIdentity",
+        "ses:PutEmailIdentityMailFromAttributes",
+        "ses:SendEmail"
       ],
       "Resource": "*"
     }
@@ -218,7 +218,18 @@ A sending domain is added with `POST /v1/domains` (`full_access`, a connected pr
 
 **Names** are normalized by `src/lib/domain-names.ts`: trimmed, lowercased, trailing dot removed, unicode converted to punycode. `tldts` rejects IPs, `localhost`, unknown suffixes, and bare public suffixes such as `co.uk`. Subdomains such as `mail.example.com` are allowed.
 
-**DNS records** come back in `records[]`: the provider's records (`required: true`) plus a DMARC record the API always adds as a recommendation (`_dmarc.<registrable domain>` = `v=DMARC1; p=none;`, per the Gmail/Yahoo bulk-sender rules).
+**DNS records** come back in `records[]`, each with a `status` (`pending`, `verified`, `failed`, or `null` when the provider does not check it):
+
+| record | type | name | required |
+| --- | --- | --- | --- |
+| `DKIM` | CNAME | from the provider | yes, needed to send |
+| `MAIL_FROM` | MX (`priority`) | return path, `bounce.<domain>` | no, aligns SPF |
+| `SPF` | TXT | return path, `bounce.<domain>` | no, aligns SPF |
+| `DMARC` | TXT | `_dmarc.<domain>` = `v=DMARC1; p=none;` | no, added by the API |
+
+The DMARC record sits on the sending domain itself, never its parent, so it cannot collide with a DMARC record the parent already has.
+
+**Return path.** Once a domain is `verified`, create or verify calls `EmailProvider.configureReturnPath` if it has none. If the provider refuses (for example a missing IAM permission), verification still succeeds and the refusal is logged with its reason.
 
 **Status:** `GET` returns what is stored and never calls the provider. `POST /v1/domains/:id/verify` asks the provider and updates `status` to `pending`, `verified` or `failed`; a domain the provider no longer knows becomes `failed`. Only `verified` domains can send.
 
@@ -229,6 +240,7 @@ A sending domain is added with `POST /v1/domains` (`full_access`, a connected pr
 - Easy DKIM with 2048-bit keys: three CNAMEs, `<token>._domainkey.<domain>` → `<token>.<SigningHostedZone>`, with the zone taken from SES rather than hard-coded.
 - `SUCCESS` and verified-for-sending → `verified`; `FAILED` or not found in the connection's region → `failed`; `PENDING`, `TEMPORARY_FAILURE`, `NOT_STARTED` → `pending`.
 - SES checks DNS for 72 hours, then marks the domain failed. Fix the records, remove the domain, and add it again.
+- Custom MAIL FROM is `bounce.<domain>` with `BehaviorOnMxFailure: USE_DEFAULT_VALUE`, so sending continues through amazonses.com until the MX record is found. Publish **exactly one** MX record there (`10 feedback-smtp.<region>.amazonses.com`) and `v=spf1 include:amazonses.com ~all`; do not send from or receive mail on that subdomain. SES checks for 72 hours.
 
 ## Emails
 
@@ -244,6 +256,8 @@ A sending domain is added with `POST /v1/domains` (`full_access`, a connected pr
 6. No recipient may be in the organization's suppression list (`422 ATL_RECIPIENT_SUPPRESSED`).
 
 `scheduledAt` may be up to 30 days ahead; a past time means now. Request bodies are never logged.
+
+`lastError` explains a failure as `CODE` or `CODE: Reason`, where the reason is the provider's error name only (for example `ATL_PROVIDER_REJECTED: MessageRejected`, which in the SES sandbox usually means the recipient is not verified). Provider messages are never stored because they can contain addresses.
 
 **Status** follows the transition table in `packages/core/src/email-status.ts`: `queued → sending → sent → delivered | bounced | complained | failed`, plus `sending → queued` for retries and `queued → canceled`. Final states never change.
 
