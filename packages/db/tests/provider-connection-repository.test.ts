@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { sql } from "drizzle-orm";
 import {
   deleteProviderConnection,
+  findProviderConnectionById,
   findProviderConnectionByOrganization,
+  markProviderEventsConfirmed,
+  saveProviderEvents,
   upsertProviderConnection,
 } from "../src/repositories/provider-connections.ts";
 import { providerConnections } from "../src/schema/index.ts";
@@ -53,6 +56,45 @@ describe("provider connection repositories", { skip: !databaseUrl }, () => {
     );
     await assert.rejects(
       t.db.insert(providerConnections).values({ ...connection(organization.id), settings: sql`'[]'::jsonb` as never }),
+      pgError(CHECK_VIOLATION),
+    );
+  });
+
+  test("events stay confirmed for the same URL and reset for a new URL or a replaced connection", async () => {
+    const organization = await t.newOrganization();
+    const created = await upsertProviderConnection(t.db, connection(organization.id));
+    const settings = { region: "us-east-1", accessKeyId: "AKIAEXAMPLE000000001", eventTopicArn: "arn:topic" };
+    const read = async () => (await findProviderConnectionById(t.db, created.id))!;
+
+    assert.equal(await markProviderEventsConfirmed(t.db, created.id), null);
+    await saveProviderEvents(t.db, created.id, { settings, eventsUrl: "https://a.example.com" });
+    await markProviderEventsConfirmed(t.db, created.id);
+    const confirmed = await read();
+    await saveProviderEvents(t.db, created.id, { settings, eventsUrl: "https://a.example.com" });
+    const sameUrl = await read();
+    await saveProviderEvents(t.db, created.id, { settings, eventsUrl: "https://b.example.com" });
+    const newUrl = await read();
+    await markProviderEventsConfirmed(t.db, created.id);
+    await upsertProviderConnection(t.db, connection(organization.id, "AKIAEXAMPLE000000002"));
+    const replaced = await read();
+
+    assert.ok(confirmed.eventsConfirmedAt);
+    assert.deepEqual(confirmed.settings, settings);
+    assert.equal(sameUrl.eventsConfirmedAt?.getTime(), confirmed.eventsConfirmedAt.getTime());
+    assert.equal(newUrl.eventsUrl, "https://b.example.com");
+    assert.equal(newUrl.eventsConfirmedAt, null);
+    assert.equal(replaced.eventsUrl, null);
+    assert.equal(replaced.eventsConfirmedAt, null);
+  });
+
+  test("cannot be confirmed without an events URL", async () => {
+    const organization = await t.newOrganization();
+    await upsertProviderConnection(t.db, connection(organization.id));
+
+    await assert.rejects(
+      t.db.execute(
+        sql`update provider_connections set events_confirmed_at = now() where organization_id = ${organization.id}`,
+      ),
       pgError(CHECK_VIOLATION),
     );
   });
