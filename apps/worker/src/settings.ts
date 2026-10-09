@@ -27,3 +27,10 @@ export const webhookErrorCodes = {
   connectionFailed: "ATL_WEBHOOK_CONNECTION_FAILED",
   secretUnavailable: "ATL_WEBHOOK_SECRET_UNAVAILABLE",
 } as const;
+
+export const eventPollerConcurrency = 20;
+export const eventPollLeaseSeconds = 120;
+export const eventReceiveWaitSeconds = 10;
+export const eventReceiveBatchSize = 10;
+export const eventStatsIntervalMs = 300_000;
+export const eventPollBackoffSeconds = { first: 30, max: 900 } as const;

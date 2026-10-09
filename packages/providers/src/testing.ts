@@ -87,6 +87,7 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
 const snsSignedFields: Record<string, string[]> = {
   Notification: ["Message", "MessageId", "Subject", "Timestamp", "TopicArn", "Type"],
   SubscriptionConfirmation: ["Message", "MessageId", "SubscribeURL", "Timestamp", "Token", "TopicArn", "Type"],
+  UnsubscribeConfirmation: ["Message", "MessageId", "SubscribeURL", "Timestamp", "Token", "TopicArn", "Type"],
 };
 
 export function createSnsTestSigner(region = "ap-south-1") {

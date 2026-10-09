@@ -12,7 +12,7 @@ import type { ProviderConnection } from "@atlair-mail/db/schema";
 import {
   boundEventDetails,
   readProviderWebhook,
-  type CreateProviderOptions,
+  type EmailProvider,
   type EventDeliveryMode,
   type ProviderEvent,
   type ProviderLogger,
@@ -97,7 +97,7 @@ export interface ProviderMessageContext {
   db: Executor;
   cipher: CredentialsCipher;
   logger: ProviderLogger;
-  providerOptions?: CreateProviderOptions;
+  provider?: EmailProvider;
 }
 
 const otherMode = (mode: EventDeliveryMode): EventDeliveryMode => (mode === "push" ? "pull" : "push");
@@ -115,7 +115,7 @@ export async function handleProviderMessage(
   switch (message.kind) {
     case "confirm": {
       if (connection.eventsMode !== channel) return { outcome: "ignored", organizationId };
-      const provider = await providerFromConnection(cipher, connection, { logger, ...context.providerOptions });
+      const provider = context.provider ?? (await providerFromConnection(cipher, connection, { logger }));
       await provider.confirmEvents(message.token);
       await markProviderEventsConfirmed(db, connection.id);
       const previous = otherMode(channel);
