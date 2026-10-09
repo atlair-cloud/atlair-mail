@@ -1,5 +1,5 @@
 import { check, index, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import { emailEventTypes, type EmailEventType, type ProviderEventPayload } from "../types.ts";
+import { emailEventTypes, type EmailEventType, type EmailEventDetails } from "../types.ts";
 import { createdAt, id, isOneOf, timestamptz } from "./_columns.ts";
 import { emails } from "./emails.ts";
 
@@ -13,7 +13,7 @@ export const emailEvents = pgTable(
     type: text("type").$type<EmailEventType>().notNull(),
     providerEventId: text("provider_event_id").notNull(),
     occurredAt: timestamptz("occurred_at").notNull(),
-    payload: jsonb("payload").$type<ProviderEventPayload>().notNull(),
+    payload: jsonb("payload").$type<EmailEventDetails>().notNull(),
     createdAt: createdAt(),
   },
   (t) => [

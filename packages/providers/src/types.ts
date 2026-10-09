@@ -74,6 +74,43 @@ export interface SendResult {
   providerMessageId: string;
 }
 
+export const emailEventTypes = [
+  "sent",
+  "delivered",
+  "delivery_delayed",
+  "bounced",
+  "complained",
+  "rejected",
+  "opened",
+  "clicked",
+] as const;
+export type EmailEventType = (typeof emailEventTypes)[number];
+
+export const bounceKinds = ["permanent", "transient", "undetermined"] as const;
+export type BounceKind = (typeof bounceKinds)[number];
+
+export interface EventRecipient {
+  address: string;
+  diagnosticCode?: string;
+}
+
+export interface EmailEventDetails {
+  recipients: EventRecipient[];
+  bounce?: { kind: BounceKind; subType: string };
+  complaint?: { feedbackType?: string };
+  smtpResponse?: string;
+  link?: string;
+}
+
+export interface ProviderEvent {
+  eventKey: string;
+  providerMessageId: string;
+  emailId?: string;
+  type: EmailEventType;
+  occurredAt: Date;
+  details: EmailEventDetails;
+}
+
 export interface EmailProvider {
   readonly type: ProviderType;
   verifyAccount(): Promise<ProviderAccount>;
