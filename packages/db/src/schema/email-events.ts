@@ -17,7 +17,7 @@ export const emailEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    uniqueIndex("email_events_provider_event_id_unique").on(t.providerEventId),
+    uniqueIndex("email_events_email_id_provider_event_id_unique").on(t.emailId, t.providerEventId),
     index("email_events_email_id_occurred_at_idx").on(t.emailId, t.occurredAt),
     check("email_events_type_check", isOneOf(t.type, emailEventTypes)),
   ],

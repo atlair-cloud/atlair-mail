@@ -1,0 +1,2 @@
+DROP INDEX "email_events_provider_event_id_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "email_events_email_id_provider_event_id_unique" ON "email_events" USING btree ("email_id","provider_event_id");
