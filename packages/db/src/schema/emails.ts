@@ -47,6 +47,7 @@ export const emails = pgTable(
       .on(t.lockedUntil)
       .where(sql`${t.status} = 'sending'`),
     index("emails_organization_id_created_at_idx").on(t.organizationId, t.createdAt),
+    index("emails_organization_id_id_idx").on(t.organizationId, t.id),
     index("emails_api_key_id_created_at_idx").on(t.apiKeyId, t.createdAt),
     index("emails_domain_id_idx").on(t.domainId),
     uniqueIndex("emails_provider_message_id_unique").on(t.providerMessageId),
