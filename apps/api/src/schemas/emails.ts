@@ -92,8 +92,8 @@ export const EmailSchema = Type.Object({
   }),
   scheduledAt: DateTime(),
   sentAt: Type.Union([DateTime(), Type.Null()]),
-  template: Type.Union([Type.Object({ id: Uuid(), version: Type.Integer() }), Type.Null()], {
-    description: "The template it was sent with, and that template's version at the time.",
+  template: Type.Union([Type.Object({ id: Uuid(), version: Type.Union([Type.Integer(), Type.Null()]) }), Type.Null()], {
+    description: "The template it was sent with, and the published version used. version is null for a test send of the draft.",
   }),
   ...CreatedBySchema,
   updatedAt: DateTime(),

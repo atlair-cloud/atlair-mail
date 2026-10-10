@@ -21,6 +21,6 @@ export * from "./repositories/roles.ts";
 export * from "./repositories/members.ts";
 export * from "./repositories/audit-logs.ts";
 export { organizationSlugPattern } from "./schema/organizations.ts";
-export { templateAliasPattern } from "./schema/templates.ts";
+export { maxVersionNoteLength, templateAliasPattern } from "./schema/templates.ts";
 export * from "./repositories/overview.ts";
 export * from "./repositories/actors.ts";

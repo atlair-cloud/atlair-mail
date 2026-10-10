@@ -57,7 +57,6 @@ export const emails = pgTable(
     index("emails_template_id_idx")
       .on(t.templateId)
       .where(sql`${t.templateId} is not null`),
-    check("emails_template_version_check", sql`${t.templateId} is null or ${t.templateVersion} is not null`),
     index("emails_domain_id_idx").on(t.domainId),
     uniqueIndex("emails_provider_message_id_unique").on(t.providerMessageId),
     uniqueIndex("emails_organization_id_idempotency_key_unique").on(

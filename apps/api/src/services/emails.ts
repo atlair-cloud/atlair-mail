@@ -76,7 +76,7 @@ export interface SendEmailInput {
   bcc?: string[];
   replyTo?: string[];
   subject?: string;
-  template?: { id: string; variables?: Record<string, string | number> };
+  template?: { id: string; variables?: Record<string, string | number>; version?: number | "draft" };
   html?: string;
   text?: string;
   headers?: Record<string, string>;
@@ -131,7 +131,7 @@ export const toPublicEmail = (email: Email) => ({
   lastError: email.lastError,
   scheduledAt: email.sendAt,
   sentAt: email.sentAt,
-  template: email.templateId && email.templateVersion ? { id: email.templateId, version: email.templateVersion } : null,
+  template: email.templateId ? { id: email.templateId, version: email.templateVersion } : null,
   createdAt: email.createdAt,
   updatedAt: email.updatedAt,
 });
@@ -177,7 +177,13 @@ export function createEmailService(db: Database, templates: TemplateService) {
         bcc: bcc.map(formatMailbox),
         replyTo: replyTo.map(formatMailbox),
         subject: input.subject ?? null,
-        template: input.template ? { id: input.template.id, variables: input.template.variables ?? {} } : null,
+        template: input.template
+          ? {
+              id: input.template.id,
+              variables: input.template.variables ?? {},
+              ...(input.template.version === undefined ? {} : { version: input.template.version }),
+            }
+          : null,
         html: input.html ?? null,
         text: input.text ?? null,
         headers,
@@ -195,7 +201,12 @@ export function createEmailService(db: Database, templates: TemplateService) {
       }
 
       const fromTemplate = normalized.template
-        ? await templates.renderForSend(organizationId, normalized.template.id, normalized.template.variables)
+        ? await templates.renderForSend(
+            organizationId,
+            normalized.template.id,
+            normalized.template.variables,
+            normalized.template.version,
+          )
         : null;
 
       const domain = await findDomainByName(db, organizationId, from.domain);
@@ -218,8 +229,8 @@ export function createEmailService(db: Database, templates: TemplateService) {
         ccAddresses: normalized.cc,
         bccAddresses: normalized.bcc,
         replyToAddresses: normalized.replyTo,
-        templateId: fromTemplate?.template.id ?? null,
-        templateVersion: fromTemplate?.template.version ?? null,
+        templateId: fromTemplate?.templateId ?? null,
+        templateVersion: fromTemplate?.version ?? null,
         subject: normalized.subject ?? fromTemplate!.rendered.subject,
         htmlBody: fromTemplate?.rendered.html ?? normalized.html,
         textBody: fromTemplate?.rendered.text ?? normalized.text,

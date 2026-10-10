@@ -9,6 +9,7 @@ import CopyButton from '../../../components/shared/CopyButton.vue'
 import NotFound from '../../../components/shared/NotFound.vue'
 import { ApiError } from '../../../lib/api/client'
 import { describeLoadError } from '../../../lib/api/describe-error'
+import { getTemplate, templateQueryKey } from '../../templates'
 import { formatRelativeTime } from '../../../lib/format/relative-time'
 import { deliveryTrackingQueryKey, emailEventsQueryKey, emailQueryKey, getDeliveryTracking, getEmail, listEmailEvents } from '../api/emails'
 import EmailStatusBadge from '../components/EmailStatusBadge.vue'
@@ -41,6 +42,15 @@ const { data: trackingOn } = useQuery({
   queryFn: () => getDeliveryTracking(organizationId.value),
   staleTime: 60_000,
 })
+
+const templateQuery = useQuery({
+  queryKey: computed(() => templateQueryKey(organizationId.value, email.value?.template?.id ?? '')),
+  queryFn: () => getTemplate(organizationId.value, email.value!.template!.id),
+  enabled: computed(() => Boolean(email.value?.template)),
+  staleTime: 60_000,
+  retry: false,
+})
+const templateName = computed(() => templateQuery.data.value?.name ?? (templateQuery.isError.value ? 'A deleted template' : 'Template'))
 
 const timeline = computed(() => (email.value ? buildTimeline(email.value, eventsQuery.data.value ?? [], trackingOn.value ?? false) : []))
 
@@ -226,6 +236,18 @@ const people = computed(() => {
                 <dt class="text-xs text-slate-500">Last updated</dt>
                 <dd class="m-0 text-slate-800">{{ formatAbsolute(email.updatedAt) }}</dd>
                 <dd class="m-0 mt-0.5 text-xs text-slate-500">Automatic</dd>
+              </div>
+              <div v-if="email.template">
+                <dt class="text-xs text-slate-500">Template</dt>
+                <dd class="m-0 flex min-w-0 items-center gap-2">
+                  <RouterLink
+                    v-if="!templateQuery.isError.value"
+                    :to="{ name: 'template', params: { organizationId, templateId: email.template.id }, query: email.template.version ? { history: email.template.version } : {} }"
+                    class="min-w-0 truncate font-medium text-slate-800 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-700"
+                  >{{ templateName }}</RouterLink>
+                  <span v-else class="min-w-0 truncate text-slate-500">{{ templateName }}</span>
+                  <span class="shrink-0 rounded-sm bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-700">{{ email.template.version ? `v${email.template.version}` : 'Draft test' }}</span>
+                </dd>
               </div>
               <div v-if="email.sentAt">
                 <dt class="text-xs text-slate-500">Sent</dt>

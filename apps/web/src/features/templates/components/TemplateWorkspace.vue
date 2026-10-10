@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { Code, Copy, EditPencil, Eye, MoreHoriz, NavArrowLeft, SendDiagonal, Trash, WarningCircle } from '@iconoir/vue'
+import { ClockRotateRight, Code, Copy, EditPencil, Eye, MoreHoriz, NavArrowLeft, SendDiagonal, Trash, WarningCircle } from '@iconoir/vue'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useToast } from '@nuxt/ui/composables'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { useClipboard, useEventListener } from '@vueuse/core'
 import { NodeSelection } from '@tiptap/pm/state'
 import { computed, ref, watch } from 'vue'
-import { onBeforeRouteLeave, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
 import FramedModal from '../../../components/shared/FramedModal.vue'
 import ModalActions from '../../../components/shared/ModalActions.vue'
@@ -17,6 +17,7 @@ import {
   deleteTemplate,
   getTemplate,
   templatesQueryKey,
+  templateVersionsQueryKey,
   updateTemplate,
   type Template,
   type TemplateDraft,
@@ -31,16 +32,20 @@ import { lintTemplate, previewableContent } from '../lib/lint'
 import { countVariables, undeclaredVariables } from '../lib/variables'
 import ApiUsageModal from './ApiUsageModal.vue'
 import BlockPanel from './BlockPanel.vue'
+import PublishModal from './PublishModal.vue'
+import ReleaseStatus from './ReleaseStatus.vue'
 import SegmentedControl from './SegmentedControl.vue'
 import SendTestModal from './SendTestModal.vue'
 import StylePanel from './StylePanel.vue'
 import TemplateCanvas from './TemplateCanvas.vue'
 import TemplatePreview from './TemplatePreview.vue'
 import VariablesPanel from './VariablesPanel.vue'
+import VersionHistory from './VersionHistory.vue'
 
 const props = defineProps<{ organizationId: string; template: Template | null; initial: TemplateDraft; canManage: boolean }>()
 const emit = defineEmits<{ created: [id: string] }>()
 
+const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const queryClient = useQueryClient()
@@ -132,9 +137,9 @@ const save = useMutation({
   mutationFn: async (options: { overwrite?: boolean } = {}) => {
     const body = payload()
     if (!saved.value) return createTemplate(props.organizationId, body)
-    let version = saved.value.version
-    if (options.overwrite) version = (await getTemplate(props.organizationId, saved.value.id)).version
-    return updateTemplate(props.organizationId, saved.value.id, version, body)
+    let expected = saved.value.revision
+    if (options.overwrite) expected = (await getTemplate(props.organizationId, saved.value.id)).revision
+    return updateTemplate(props.organizationId, saved.value.id, expected, body)
   },
   onSuccess(template) {
     const created = !saved.value
@@ -151,7 +156,7 @@ const save = useMutation({
       return
     }
     if (error.code === 'ATL_TEMPLATE_CHANGED') {
-      conflict.value = Number(/version (\d+)/.exec(error.message)?.[1] ?? 0) || null
+      conflict.value = Number(/revision (\d+)/.exec(error.message)?.[1] ?? 0) || null
       return
     }
     if (error.code === 'ATL_TEMPLATE_TAKEN') {
@@ -193,13 +198,58 @@ function trySave() {
   save.mutate({})
 }
 
+function load(template: Template) {
+  draft.value = toDraft(template)
+  replace(template.content)
+  accept(template)
+}
+
 async function loadTheirs() {
   if (!saved.value) return
-  const latest = await getTemplate(props.organizationId, saved.value.id)
-  draft.value = toDraft(latest)
-  replace(latest.content)
-  accept(latest)
+  load(await getTemplate(props.organizationId, saved.value.id))
 }
+
+const publishing = ref(false)
+const historyOpen = ref(false)
+const historyFocus = ref<number | null>(null)
+const hasSomethingToPublish = computed(() => dirty.value || Boolean(saved.value?.hasUnpublishedChanges))
+
+async function startPublish() {
+  if (readonly.value || !saved.value || save.isPending.value) return
+  if (dirty.value) {
+    saveError.value = null
+    if (issues.value.length > 0) {
+      showIssues.value = true
+      goToIssue(issues.value[0]!.pos)
+      return
+    }
+    try {
+      await save.mutateAsync({})
+    } catch {
+      return
+    }
+  }
+  if (saved.value.hasUnpublishedChanges) publishing.value = true
+}
+
+function onPublished(template: Template) {
+  accept(template)
+  queryClient.invalidateQueries({ queryKey: templateVersionsQueryKey(props.organizationId, template.id) })
+  toast.add({ title: `v${template.publishedVersion} is live`, description: 'Emails sent from now on use this version.', color: 'neutral' })
+}
+
+function onHistoryChanged(template: Template, message: string) {
+  load(template)
+  toast.add({ title: message, color: 'neutral' })
+}
+
+function openHistory(focus: number | null = null) {
+  historyFocus.value = focus
+  historyOpen.value = true
+}
+
+const linkedVersion = Number(route.query.history)
+if (props.template && Number.isInteger(linkedVersion) && linkedVersion > 0) openHistory(linkedVersion)
 
 useEventListener(window, 'keydown', (event: KeyboardEvent) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
@@ -274,6 +324,7 @@ const menu = computed<DropdownMenuItem[][]>(() => {
   if (saved.value) {
     const template = saved.value
     groups.push([
+      { label: 'Version history', icon: ClockRotateRight, onSelect: () => openHistory() },
       { label: 'Send from your code', icon: Code, onSelect: () => (showApi.value = true) },
       {
         label: 'Copy template ID',
@@ -294,7 +345,7 @@ const status = computed(() => {
   if (save.isPending.value) return { tone: 'busy', label: 'Saving…' }
   if (isNew.value) return { tone: 'idle', label: 'Not saved yet' }
   if (dirty.value) return { tone: 'dirty', label: 'Unsaved changes' }
-  return { tone: 'idle', label: `Saved · v${saved.value!.version}` }
+  return { tone: 'idle', label: 'Draft saved' }
 })
 
 const savedAt = computed(() => (saved.value ? `${formatRelativeTime(saved.value.updatedAt)}${saved.value.updatedBy ? ` by ${saved.value.updatedBy.name}` : ''}` : null))
@@ -349,6 +400,17 @@ const nameInputWidth = computed(() => `${Math.min(Math.max(draft.value.name.leng
             :class="{ 'bg-status-attention': status.tone === 'dirty', 'animate-pulse bg-status-active motion-reduce:animate-none': status.tone === 'busy', 'bg-slate-300': status.tone === 'idle' }"
           />{{ status.label }}
         </span>
+        <button
+          v-if="saved"
+          type="button"
+          class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-2 ring-1 ring-slate-200 transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-atlair-950 motion-reduce:transition-none"
+          aria-label="Version history"
+          title="Version history"
+          @click="openHistory()"
+        >
+          <ClockRotateRight aria-hidden="true" class="size-3.5 shrink-0 text-slate-500" />
+          <ReleaseStatus :published-version="saved.publishedVersion" :has-unpublished-changes="saved.hasUnpublishedChanges" compact />
+        </button>
         <SegmentedControl
           v-model="mode"
           label="View"
@@ -360,7 +422,7 @@ const nameInputWidth = computed(() => `${Math.min(Math.max(draft.value.name.leng
             <MoreHoriz aria-hidden="true" class="size-4" />
           </button>
         </UDropdownMenu>
-        <UTooltip :text="isNew ? 'Save the template first' : dirty ? 'Save your changes first' : 'Send this template to yourself'" :content="{ side: 'bottom' }">
+        <UTooltip :text="isNew ? 'Save the template first' : dirty ? 'Save your changes first' : 'Send the saved draft to yourself'" :content="{ side: 'bottom' }">
           <span>
             <UButton
               type="button"
@@ -376,16 +438,40 @@ const nameInputWidth = computed(() => `${Math.min(Math.max(draft.value.name.leng
           </span>
         </UTooltip>
         <UButton
-          v-if="canManage"
+          v-if="canManage && isNew"
           type="button"
           size="md"
           :loading="save.isPending.value"
-          :disabled="!dirty && !isNew"
           class="h-8 rounded-sm bg-atlair-950 px-3.5 text-sm font-medium text-canvas shadow-sm hover:bg-atlair-900 disabled:opacity-40"
           @click="trySave"
         >
-          {{ isNew ? 'Create template' : 'Save' }}<kbd class="ml-1 hidden font-mono text-[10px] opacity-60 sm:inline">⌘S</kbd>
+          Create template<kbd class="ml-1 hidden font-mono text-[10px] opacity-60 sm:inline">⌘S</kbd>
         </UButton>
+        <template v-else-if="canManage">
+          <UButton
+            type="button"
+            color="neutral"
+            variant="outline"
+            size="md"
+            :loading="save.isPending.value && !publishing"
+            :disabled="!dirty"
+            class="h-8 rounded-sm bg-white px-3 text-sm font-medium text-slate-700 ring-slate-200 hover:bg-slate-100 disabled:opacity-50"
+            @click="trySave"
+          >
+            Save<kbd class="ml-1 hidden font-mono text-[10px] opacity-60 sm:inline">⌘S</kbd>
+          </UButton>
+          <UTooltip :text="hasSomethingToPublish ? (dirty ? 'Saves your changes, then publishes' : 'Send emails with this draft') : 'The live version already matches the draft'" :content="{ side: 'bottom' }">
+            <span>
+              <UButton
+                type="button"
+                size="md"
+                :disabled="!hasSomethingToPublish || save.isPending.value"
+                class="h-8 rounded-sm bg-atlair-950 px-3.5 text-sm font-medium text-canvas shadow-sm hover:bg-atlair-900 disabled:opacity-40"
+                @click="startPublish"
+              >Publish</UButton>
+            </span>
+          </UTooltip>
+        </template>
       </div>
     </div>
 
@@ -402,7 +488,7 @@ const nameInputWidth = computed(() => `${Math.min(Math.max(draft.value.name.leng
       </div>
       <div v-if="conflict !== null" role="alert" class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-sm bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
         <WarningCircle aria-hidden="true" class="size-4 shrink-0 text-amber-700" />
-        <p class="m-0 min-w-0 flex-1 text-sm text-amber-900">Someone saved this template while you were editing<template v-if="conflict"> (it’s now version {{ conflict }})</template>. Your changes aren’t saved yet.</p>
+        <p class="m-0 min-w-0 flex-1 text-sm text-amber-900">Someone saved this template while you were editing<template v-if="conflict"> (it’s now revision {{ conflict }})</template>. Your changes aren’t saved yet.</p>
         <div class="flex gap-2">
           <button type="button" class="h-8 rounded-sm px-3 text-sm font-medium text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100" @click="loadTheirs">Load their version</button>
           <button type="button" class="h-8 rounded-sm bg-amber-900 px-3 text-sm font-medium text-white hover:bg-amber-950" @click="save.mutate({ overwrite: true })">Save mine over it</button>
@@ -472,8 +558,20 @@ const nameInputWidth = computed(() => `${Math.min(Math.max(draft.value.name.leng
       </aside>
     </div>
 
+    <PublishModal v-if="saved" v-model:open="publishing" :organization-id="organizationId" :template="saved" :samples="samples" @published="onPublished" />
+    <VersionHistory
+      v-if="saved"
+      v-model:open="historyOpen"
+      :organization-id="organizationId"
+      :template="saved"
+      :can-manage="canManage"
+      :dirty="dirty"
+      :samples="samples"
+      :focus="historyFocus"
+      @changed="onHistoryChanged"
+    />
     <SendTestModal v-if="saved" v-model:open="sending" :organization-id="organizationId" :template-id="saved.id" :variables="saved.variables" :samples="samples" />
-    <ApiUsageModal v-if="saved" v-model:open="showApi" :reference="saved.alias ?? saved.id" :variables="saved.variables" />
+    <ApiUsageModal v-if="saved" v-model:open="showApi" :reference="saved.alias ?? saved.id" :variables="saved.variables" :published-version="saved.publishedVersion" />
 
     <FramedModal v-model:open="editingAlias" title="Alias" description="A readable name to send with, like welcome or password-reset. Your code can use it instead of the id." width="md">
       <form id="alias-form" novalidate @submit.prevent="applyAlias">

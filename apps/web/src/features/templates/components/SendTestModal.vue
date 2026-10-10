@@ -51,7 +51,7 @@ const send = useMutation({
       body: JSON.stringify({
         from: `test@${fromDomain.value}`,
         to: [to.value.trim()],
-        template: { id: props.templateId, variables: sampleValues(props.variables, values.value) },
+        template: { id: props.templateId, variables: sampleValues(props.variables, values.value), version: 'draft' },
         tags: [{ name: 'source', value: 'template_test' }],
       }),
     }),
@@ -70,7 +70,7 @@ const inputClass = 'h-9 w-full rounded-sm bg-white px-2.5 text-sm text-slate-900
 </script>
 
 <template>
-  <FramedModal v-model:open="open" title="Send a test" description="Sends the saved version of this template, with these values." width="xl">
+  <FramedModal v-model:open="open" title="Send a test" description="Sends the saved draft, published or not, with these values." width="xl">
     <p v-if="domains.isSuccess.value && verified.length === 0" class="m-0 rounded-sm bg-amber-50 px-3 py-2.5 text-sm text-amber-900 ring-1 ring-amber-200">
       Verify a sending domain first.
       <RouterLink :to="{ name: 'domains', params: { organizationId } }" class="font-medium underline underline-offset-2">Go to domains</RouterLink>

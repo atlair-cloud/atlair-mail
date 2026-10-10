@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { templateAliasPattern } from "@atlair-mail/db";
+import { maxVersionNoteLength, templateAliasPattern } from "@atlair-mail/db";
 import {
   fontFamilies,
   maxSubjectLength,
@@ -9,7 +9,7 @@ import {
   type TemplateDocument,
 } from "@atlair-mail/templates";
 import { Uuid } from "../lib/schemas.ts";
-import { AuthorshipSchema } from "./authors.ts";
+import { AuthorshipSchema, PublishedBySchema } from "./authors.ts";
 
 export const maxTemplatePageSize = 100;
 
@@ -36,6 +36,26 @@ const Subject = Type.String({
   description: "Can use {{variables}}.",
   examples: ["Welcome to Acme, {{first_name}}"],
 });
+
+const maxInteger = 2_147_483_647;
+
+const Revision = Type.Integer({
+  minimum: 1,
+  maximum: maxInteger,
+  description: "The draft revision you started from. If someone saved since, this fails with 409 ATL_TEMPLATE_CHANGED instead of overwriting their change.",
+});
+
+const Note = Type.String({
+  minLength: 1,
+  maxLength: maxVersionNoteLength,
+  description: "What changed, shown in the version history.",
+  examples: ["Fixed the reset link"],
+});
+
+export const VersionNumber = Type.Integer({ minimum: 1, maximum: maxInteger, description: "The version number.", examples: [3] });
+
+const versionChoice = (description: string) =>
+  Type.Union([Type.Integer({ minimum: 1, maximum: maxInteger }), Type.Literal("draft")], { description, examples: [3, "draft"] });
 
 const Node = Type.Record(Type.String(), Type.Unknown());
 
@@ -97,7 +117,12 @@ export const TemplateSummarySchema = Type.Object({
   alias: Type.Union([Type.String(), Type.Null()]),
   subject: Type.String(),
   variables: Variables,
-  version: Type.Integer({ description: "Goes up by one on every change." }),
+  revision: Type.Integer({ description: "The draft's save counter. Goes up by one on every change to the draft." }),
+  latestVersion: Type.Integer({ description: "The highest version number published so far, 0 if never published." }),
+  publishedVersion: Type.Union([Type.Integer(), Type.Null()], {
+    description: "The version emails are sent with. Null until the template is published.",
+  }),
+  hasUnpublishedChanges: Type.Boolean({ description: "True when the draft differs from the published version." }),
   ...AuthorshipSchema,
 });
 
@@ -121,10 +146,7 @@ export const CreateTemplateSchema = Type.Object(
 
 export const UpdateTemplateSchema = Type.Object(
   {
-    version: Type.Integer({
-      minimum: 1,
-      description: "The version you started from. If someone saved since, the update fails with 409 instead of overwriting their change.",
-    }),
+    revision: Revision,
     name: Type.Optional(Name),
     alias: Type.Optional(Type.Union([Alias, Type.Null()])),
     subject: Type.Optional(Subject),
@@ -144,7 +166,10 @@ export const TemplateListQuerySchema = Type.Object({
 export const TemplateListSchema = Type.Object({ data: Type.Array(TemplateSummarySchema), hasMore: Type.Boolean() });
 
 export const PreviewTemplateSchema = Type.Object(
-  { variables: Type.Optional(VariableValuesSchema) },
+  {
+    variables: Type.Optional(VariableValuesSchema),
+    version: Type.Optional(versionChoice('A published version number, or "draft". Defaults to "draft".')),
+  },
   { additionalProperties: false },
 );
 
@@ -166,6 +191,44 @@ export const RenderedTemplateSchema = Type.Object({
 });
 
 export const EmailTemplateSchema = Type.Object(
-  { id: TemplateIdOrAlias, variables: Type.Optional(VariableValuesSchema) },
+  {
+    id: TemplateIdOrAlias,
+    variables: Type.Optional(VariableValuesSchema),
+    version: Type.Optional(
+      versionChoice('A published version number, or "draft" to send the unpublished draft as a test. Defaults to the published version.'),
+    ),
+  },
   { additionalProperties: false, description: "Send a saved template instead of html and text. subject overrides the template's subject." },
 );
+
+export const PublishTemplateSchema = Type.Object(
+  { revision: Type.Optional(Revision), note: Type.Optional(Note) },
+  { additionalProperties: false },
+);
+
+export const RestoreVersionSchema = Type.Object({ revision: Revision }, { additionalProperties: false });
+
+export const RollbackVersionSchema = Type.Object({ revision: Revision, note: Type.Optional(Note) }, { additionalProperties: false });
+
+export const TemplateVersionListQuerySchema = Type.Object({
+  before: Type.Optional(Type.Integer({ minimum: 1, maximum: maxInteger, description: "Return versions older than this number, the last number of the previous page." })),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: maxTemplatePageSize, default: 50 })),
+});
+
+export const TemplateVersionSummarySchema = Type.Object({
+  id: Uuid(),
+  number: VersionNumber,
+  subject: Type.String(),
+  note: Type.Union([Type.String(), Type.Null()]),
+  isPublished: Type.Boolean({ description: "True for the version emails are sent with." }),
+  ...PublishedBySchema,
+});
+
+export const TemplateVersionListSchema = Type.Object({ data: Type.Array(TemplateVersionSummarySchema), hasMore: Type.Boolean() });
+
+export const TemplateVersionSchema = Type.Object({
+  ...TemplateVersionSummarySchema.properties,
+  content: Content,
+  theme: Theme,
+  variables: Variables,
+});

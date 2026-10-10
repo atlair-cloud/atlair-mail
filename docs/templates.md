@@ -21,8 +21,13 @@ POST /service/web/emails
 - `template.id` is the template's id or its alias.
 - `subject` is optional and replaces the template's subject. `html` and `text` can't be combined
   with a template (`400 ATL_TEMPLATE_WITH_BODY`).
-- The email stores the rendered subject, HTML and text, plus `template: { id, version }`, so later
-  edits never change what was sent. Deleting a template clears the link and keeps the content.
+- Sends use the template's **published** version. `template.version` pins a version number, or
+  `"draft"` sends the unpublished draft (the panel's Send test). A template that was never published
+  fails with `422 ATL_TEMPLATE_NOT_PUBLISHED`; a missing pinned version with
+  `404 ATL_TEMPLATE_VERSION_NOT_FOUND`.
+- The email stores the rendered subject, HTML and text, plus `template: { id, version }` (`version`
+  is `null` for a draft send), so later edits never change what was sent. Deleting a template
+  deletes its versions, clears the link and keeps the content.
 - Idempotency keys work as usual: the fingerprint covers the template id and variables.
 
 ## Variables
@@ -68,11 +73,25 @@ nested 12 deep. Errors name the exact path, for example `content.content[3].attr
 Columns stack on phones (MJML's responsive layout). Rendering runs with `mj-include` disabled and
 no remote fonts.
 
-## Editing safely
+## Draft, publish and history
 
-`PATCH /templates/:id` takes the `version` you loaded. Every save adds one; if someone saved in
-between, the update fails with `409 ATL_TEMPLATE_CHANGED` and names the current version instead of
-overwriting their change. Names and aliases are unique per organization (`409 ATL_TEMPLATE_TAKEN`).
+A template is an editable **draft** plus a list of **versions**. Saving changes the draft only;
+`POST /templates/:id/publish` copies the draft into the next version (`template_versions`, one row
+per version, never updated) and makes it live. Restoring or rolling back never rewrites history: a
+rollback restores an old version into the draft and publishes it as a new version.
+
+- `revision` counts draft saves. `PATCH`, publish, restore and rollback take the `revision` you
+  loaded; if someone saved in between they fail with `409 ATL_TEMPLATE_CHANGED` instead of
+  overwriting their change.
+- `publishedVersion` is the live version (`null` until the first publish), `latestVersion` the
+  highest number used. `hasUnpublishedChanges` is exact: each save compares the draft with the live
+  version in the same `UPDATE` (jsonb equality), so renames or undone edits don't count.
+- Publish validates and renders the draft before taking a row lock (`select ... for update`) on the
+  template, then inserts the version and moves the pointers in one short transaction. Publishing a
+  draft that already matches the live version is a no-op, so retries and concurrent publishes create
+  one version. `unique (template_id, number)` backs this up.
+- `templates` points at the live version by number, not by foreign key, so the two tables don't
+  reference each other. Version lists select metadata only; `content` loads for one version. Names and aliases are unique per organization (`409 ATL_TEMPLATE_TAKEN`).
 
 ## Endpoints and permissions
 
@@ -81,6 +100,11 @@ overwriting their change. Names and aliases are unique per organization (`409 AT
 | `GET /templates`, `GET /templates/:idOrAlias`, `POST /templates/:idOrAlias/preview` | `template:view` | yes |
 | `POST /templates/preview` (unsaved design) | `template:view` | no |
 | `POST /templates`, `PATCH /templates/:id`, `DELETE /templates/:id` | `template:create`, `template:update`, `template:delete` | no |
+| `GET /templates/:idOrAlias/versions`, `GET /templates/:idOrAlias/versions/:number` | `template:view` | yes |
+| `POST /templates/:id/publish` | `template:publish` | no |
+| `POST /templates/:id/versions/:number/restore` | `template:update` | no |
+| `POST /templates/:id/versions/:number/publish` (roll back) | `template:update`, `template:publish` | no |
 
 Every role can view templates; owners and admins manage them. Migration `0019_email_templates`
-grants the new permissions to existing roles.
+grants the new permissions to existing roles; `0020_template_versions` adds `template:publish` for
+owners and admins and backfills each existing template as its published v1.
