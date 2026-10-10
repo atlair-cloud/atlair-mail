@@ -27,7 +27,7 @@ describe("POST /service/web/organizations", { skip: !hasDatabase }, () => {
     deleteOrganizationAfterTest(app, body.id);
 
     assert.equal(res.statusCode, 201);
-    assert.deepEqual(Object.keys(body).sort(), ["apiKey", "createdAt", "id", "name"]);
+    assert.deepEqual(Object.keys(body).sort(), ["apiKey", "createdAt", "id", "name", "slug"]);
     assert.equal(body.name, "Acme");
     assert.deepEqual(Object.keys(body.apiKey).sort(), [
       "createdAt",
@@ -113,7 +113,7 @@ describe("GET /service/web/organizations/:id", { skip: !hasDatabase }, () => {
     });
 
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(Object.keys(res.json()).sort(), ["createdAt", "id", "name"]);
+    assert.deepEqual(Object.keys(res.json()).sort(), ["createdAt", "id", "name", "slug"]);
     assert.equal(res.json().id, organizationId);
   });
 
