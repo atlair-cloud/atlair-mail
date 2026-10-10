@@ -6,6 +6,7 @@ import { createEmailEventService, type EmailEventService } from "../services/ema
 import { createEmailService, type EmailService } from "../services/emails.ts";
 import { createMemberService, type MemberService } from "../services/members.ts";
 import { createOrganizationService, type OrganizationService } from "../services/organizations.ts";
+import { createOverviewService, type OverviewService } from "../services/overview.ts";
 import { createProviderEventService, type ProviderEventService } from "../services/provider-events.ts";
 import { createRoleService, type RoleService } from "../services/roles.ts";
 import { createSuppressionService, type SuppressionService } from "../services/suppressions.ts";
@@ -23,6 +24,7 @@ export interface Services {
   emailEvents: EmailEventService;
   members: MemberService;
   organizations: OrganizationService;
+  overview: OverviewService;
   providerConnections: ProviderConnectionService;
   providerEvents: ProviderEventService;
   roles: RoleService;
@@ -44,14 +46,16 @@ export default fp(
       fastify.log.child({ component: "provider" }),
     );
     const emailEvents = createEmailEventService(fastify.db);
+    const emails = createEmailService(fastify.db);
     fastify.decorate("services", {
       apiKeys: createApiKeyService(fastify.db),
       auditLogs: createAuditLogService(fastify.db),
       domains: createDomainService(fastify.db, providerConnections),
-      emails: createEmailService(fastify.db),
+      emails,
       emailEvents,
       members: createMemberService(fastify.db),
       organizations: createOrganizationService(fastify.db),
+      overview: createOverviewService(fastify.db, emails),
       providerConnections,
       providerEvents: createProviderEventService(
         fastify.db,

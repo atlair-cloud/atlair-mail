@@ -57,5 +57,34 @@ src/
 | `/organizations` | Pick an organization |
 | `/organizations/:organizationId` | Overview |
 
-Next: domains, API keys and provider, emails, webhooks and suppressions, and organization settings
-(members, roles, audit log).
+## Overview
+
+Where people land in an organization. It answers "is my email working, and if not, what next?"
+from one request, `GET /service/panel/organizations/:id/overview` (`services/overview.ts`).
+
+- **Status line** under the name: "Not sending yet", "Sending normally", "Sending, N things to
+  check" or "Needs attention now", from the response's `health`.
+- **Setup** (`health: "setup"`, until SES is connected, a domain is verified and an email was sent):
+  a four-step guide done in place, each step ticked from real data. The open step follows progress.
+  1. Connect Amazon SES: region and access key, with the least-privilege IAM policy to copy. Then
+     "Turn on tracking" sets up delivery events in pull mode (no public address needed).
+  2. Verify a domain: add it, then copy each DNS record (required and recommended), see which ones
+     SES found, and "Check now". Refreshes every 15 seconds while pending.
+  3. Create an API key: name and permission; the token is shown once and filled into step 4.
+  4. Send your first email: a ready `curl`, or a test send to yourself or to Amazon's simulator
+     (works in the SES sandbox). Finishing setup shows a one-time "You're sending" banner.
+  Steps 1–3 need an owner or admin; steps unlock in order (a domain needs SES, sending needs a domain).
+- **Sending**: emails over 7 UTC days, delivered rate, and bounce and complaint rates drawn against
+  Amazon SES's review limits (5% and 0.1%). Rates count only emails SES accepted, and raise attention
+  items only from 50 accepted emails, so one early bounce isn't an alarm (warning at 2% and 0.05%).
+- **Needs attention**: shown only when something is wrong, critical first. Failed or pending domains,
+  delivery events not connected or failing, the two rates, failed emails in 24 hours, and webhook
+  endpoints with failed or retrying deliveries in 24 hours.
+- **Recent emails** (10) and **sending domains**, plus counts of keys, webhooks, suppressions and members.
+- Refreshes every 5 seconds while a recent email is queued, sending or sent; every 15 seconds while a
+  domain waits for DNS; otherwise every minute.
+- Links to pages that don't exist yet are left out (`routeIfExists` in `src/lib/links.ts`), so they
+  appear as the Domains, API keys, Emails and Settings pages land.
+
+Next: section tabs, then domains and provider, API keys, emails, webhooks and suppressions, and
+organization settings (members, roles, audit log).

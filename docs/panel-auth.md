@@ -209,6 +209,7 @@ routes/service/panel/
     members/index.ts                   GET  POST {email, role}  PATCH /:memberId {role}  DELETE /:memberId
     roles/index.ts                     GET
     audit-log/index.ts                 GET (newest first)
+    overview/index.ts                  GET  setup, health, attention, domains, recent emails (see web.md)
 ```
 
 - **Origin check** (`routes/service/panel/autohooks.ts`, `onRequest`): for non-`GET`/`HEAD`, the `Origin`
