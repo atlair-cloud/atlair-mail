@@ -40,6 +40,10 @@ export const organizationRoutes: RouteRecordRaw[] = [
       {
         path: ':organizationId',
         component: () => import('../../layouts/OrganizationLayout.vue'),
+        beforeEnter: async () => {
+          const organizations = await queryClient.fetchQuery({ queryKey: organizationsQueryKey, queryFn: listOrganizations, staleTime: 30_000 })
+          if (organizations.length === 0) return { name: 'onboarding' }
+        },
         children: [
           {
             path: '',

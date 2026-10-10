@@ -2,7 +2,7 @@
 import { NavArrowLeft, WarningCircle } from '@iconoir/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { useNow } from '@vueuse/core'
-import { computed, ref } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ActorName from '../../../components/shared/ActorName.vue'
 import CopyButton from '../../../components/shared/CopyButton.vue'
@@ -22,26 +22,35 @@ const organizationId = computed(() => String(route.params.organizationId))
 const emailId = computed(() => String(route.params.emailId))
 
 const awaitingOutcome = (status: string | undefined) => !!status && (isInFlight(status as never) || status === 'sent')
+const emailStatus = shallowRef<string>()
+
+const { data: tracking } = useQuery({
+  queryKey: computed(() => deliveryTrackingQueryKey(organizationId.value)),
+  queryFn: () => getDeliveryTracking(organizationId.value),
+  staleTime: 30_000,
+  refetchInterval: (query) => (emailStatus.value === 'sent' && query.state.data?.nextCheckAt ? 30_000 : false),
+})
+
+const refreshEvery = (status: string | undefined) => {
+  if (!awaitingOutcome(status)) return false
+  return status === 'sent' && tracking.value?.nextCheckAt ? 30_000 : 4_000
+}
 
 const emailQuery = useQuery({
   queryKey: computed(() => emailQueryKey(organizationId.value, emailId.value)),
   queryFn: () => getEmail(organizationId.value, emailId.value),
-  refetchInterval: (query) => (awaitingOutcome(query.state.data?.status) ? 4_000 : false),
+  refetchInterval: (query) => refreshEvery(query.state.data?.status),
 })
 const email = computed(() => emailQuery.data.value)
+watch(() => email.value?.status, (status) => (emailStatus.value = status), { immediate: true })
 
 const eventsQuery = useQuery({
   queryKey: computed(() => emailEventsQueryKey(organizationId.value, emailId.value)),
   queryFn: () => listEmailEvents(organizationId.value, emailId.value),
   enabled: computed(() => !!email.value),
-  refetchInterval: () => (awaitingOutcome(email.value?.status) ? 4_000 : false),
+  refetchInterval: () => refreshEvery(email.value?.status),
 })
 
-const { data: trackingOn } = useQuery({
-  queryKey: computed(() => deliveryTrackingQueryKey(organizationId.value)),
-  queryFn: () => getDeliveryTracking(organizationId.value),
-  staleTime: 60_000,
-})
 
 const templateQuery = useQuery({
   queryKey: computed(() => templateQueryKey(organizationId.value, email.value?.template?.id ?? '')),
@@ -52,7 +61,7 @@ const templateQuery = useQuery({
 })
 const templateName = computed(() => templateQuery.data.value?.name ?? (templateQuery.isError.value ? 'A deleted template' : 'Template'))
 
-const timeline = computed(() => (email.value ? buildTimeline(email.value, eventsQuery.data.value ?? [], trackingOn.value ?? false) : []))
+const timeline = computed(() => (email.value ? buildTimeline(email.value, eventsQuery.data.value ?? [], tracking.value ?? { on: false, nextCheckAt: null }, now.value.getTime()) : []))
 
 const notFound = computed(() => emailQuery.error.value instanceof ApiError && emailQuery.error.value.status === 404)
 const loadError = computed(() => (emailQuery.isError.value && !notFound.value ? describeLoadError(emailQuery.error.value, 'this email') : null))

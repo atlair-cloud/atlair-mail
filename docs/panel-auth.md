@@ -134,9 +134,28 @@ org). Check `cardinality(permissions) > 0`. Seeded per org with `owner`, `admin`
 
 ### `audit_logs`
 
-`id`, `organization_id` (nullable, `set null`), `actor_user_id` (nullable, `set null`), `action`,
-`entity_type`, `entity_id`, `changes jsonb`, `created_at`. `index(organization_id, id)` for
-pagination (newest first, `before=<id>`, as elsewhere in this API), `index(entity_type, entity_id)`. Append-only: no `updated_at`.
+`id`, `organization_id` (nullable, `set null`), `actor_user_id` (nullable, `set null`),
+`actor_api_key_id` (nullable, `set null`, migration 0022), `action`, `entity_type`, `entity_id`,
+`changes jsonb`, `created_at`. `index(organization_id, id)` for pagination (newest first,
+`before=<id>`, as elsewhere in this API), `index(entity_type, entity_id)`. Append-only: no `updated_at`.
+
+Services write entries with `recordAudit(tx, { organizationId, actor, action, entityType, entityId, changes })`
+inside the same transaction as the change, so an entry exists exactly when the change committed.
+A request made with an API key fills `actor_api_key_id`; one from the panel fills `actor_user_id`.
+`changes` keeps the names a reader needs (template name, domain, webhook URL, address), so entries
+for deleted things stay readable. It never holds secrets.
+
+| Area | Actions |
+| --- | --- |
+| Organization, members | `organization.created/updated/deactivated`, `member.added/role_updated/removed` |
+| API keys | `api_key.created`, `api_key.revoked` |
+| Domains | `domain.added`, `domain.verified`, `domain.verification_lost`, `domain.removed` |
+| Templates | `template.created`, `template.renamed` (name or alias; draft edits are not recorded), `template.published`, `template.restored`, `template.rolled_back`, `template.deleted` |
+| Webhooks | `webhook.created/updated/enabled/disabled/secret_rotated/deleted` |
+| Suppressions | `suppression.added`, `suppression.removed` (manual changes; bounces and complaints are on the email) |
+| Provider | `provider.connected`, `provider.credentials_replaced`, `provider.disconnected`, `provider.events_enabled`, `provider.events_changed`, `provider.events_redriven` |
+
+Sent emails are not audited: the emails table is their record.
 
 Repositories follow the existing shape: functions taking an `Executor` first, one query each, in
 `packages/db/src/repositories/{users,roles,members,audit-logs}.ts`; `organizations.ts` gains

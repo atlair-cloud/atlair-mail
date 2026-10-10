@@ -19,9 +19,10 @@ pnpm --filter @atlair-mail/worker dev
 | `CREDENTIALS_ENCRYPTION_KEYS` | required | Same keys as the API, to decrypt provider credentials |
 | `LOG_LEVEL` | `info` | pino level |
 | `WORKER_CONCURRENCY` | `10` | Emails sent at the same time by one process (1–100) |
+| `EVENT_POLL_INTERVAL_SECONDS` | `600` | In pull mode, how long to wait after reading an empty queue (0–86400). After events it reads again right away. `0` reads continuously |
 | `PORT` | `8081` | Port for `GET /health`. The Dockerfile sets `8080`, and Cloud Run sets its own |
 
-Everything else is a constant in `src/settings.ts`: idle waits between 1s and 5m, 120s lease, lease sweep 1s after the earliest lease ends,
+Everything else is a constant in `src/settings.ts`: idle waits between 1s and 10m, 120s lease, lease sweep 1s after the earliest lease ends,
 6 attempts, backoff 30s → 2m → 10m → 30m → 1h with ±20% jitter, 25s shutdown grace. Webhooks: 10
 in flight, 60s lease, 15s request timeout, 8 attempts (see [webhooks.md](webhooks.md)).
 
@@ -38,7 +39,7 @@ claim: UPDATE emails SET status='sending', locked_until=now()+120s, attempt_coun
        THROTTLED / UNAVAILABLE  → queued again with backoff; failed after attempt 6
        ATL_PROVIDER_TIMEOUT     → failed (outcome unknown, never resent)
 sweeper: status='sending' AND locked_until < now() → failed (ATL_WORKER_LEASE_EXPIRED), one guarded update per email
-         runs 1s after the earliest lease ends, and at least every 5m
+         runs 1s after the earliest lease ends, and at least every 10m
 every failed → same transaction: failed event + email.failed webhook deliveries (src/email-failures.ts)
 ```
 
@@ -86,16 +87,17 @@ claim: UPDATE provider_connections SET events_poll_after = now()+120s
        WHERE id IN (SELECT id … events_poll_after <= now() ORDER BY events_poll_after FOR UPDATE SKIP LOCKED)
   └─ receive up to 10 (10s long poll, aborted on shutdown)
   └─ each message: handleProviderMessage (checks + record in one transaction) → delete only the handled ones
-  └─ every 5 minutes: queue backlog and dead-letter counts
+  └─ every 5 minutes at most: queue backlog and dead-letter counts
   └─ save the result only if events_poll_after still equals this lease
-       ok → poll again now · error → back off 30s … 15m · draining after a switch to push and empty → stop
+       events received → poll again now · empty → wait EVENT_POLL_INTERVAL_SECONDS (10m)
+       error → back off 30s … 15m · shutdown → due again now · draining after a switch to push and empty → stop
 ```
 
 At most 20 connections are polled at once per worker. See [provider-events.md](provider-events.md).
 
 ## Waking up
 
-The worker doesn't poll on a fixed interval. An idle system runs about one query per loop every 5 minutes.
+The worker doesn't poll on a fixed interval. An idle system runs about one query per loop every 10 minutes, so a serverless database (Neon suspends after 5 idle minutes) can sleep between checks.
 
 ```
 API inserts a queued email ─┐
@@ -104,7 +106,7 @@ worker queues a retry ──────┼─ trigger (migration 0021) → pg_n
                             │       worker LISTEN connection ◄──┘ (DATABASE_LISTEN_URL)
                             │                 └─ wake the email loop → claim now
 loop finds nothing due ─────┴─ SELECT min(send_at) - now() … status='queued' (partial index)
-                                  └─ sleep that long: at least 1s if overdue, at most 5m
+                                  └─ sleep that long: at least 1s if overdue, at most 10m
 ```
 
 | Trigger | Fires on | Payload |
@@ -118,7 +120,7 @@ loop finds nothing due ─────┴─ SELECT min(send_at) - now() … sta
 - **Finishing a job wakes its loop.** That's how webhook retries and the next event poll get picked up: the worker
   that wrote them claims again, then sleeps until the next due time.
 - **Notifications are a shortcut, not the source of truth.** If the listener is down, the loops still claim at least
-  every 5 minutes and at each item's due time. After each (re)connect, `onListen` wakes every loop, so work that
+  every 10 minutes and at each item's due time. After each (re)connect, `onListen` wakes every loop, so work that
   arrived while disconnected is claimed straight away. A failed first connection is retried every 30s.
 - **Scheduled emails** wake on time: the insert notifies, and the loop sleeps until `send_at`.
 

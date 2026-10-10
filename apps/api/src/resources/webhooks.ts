@@ -130,7 +130,7 @@ export const webhookRoutes =
         },
       },
       async (request, reply) => {
-        const removed = await fastify.services.webhooks.remove(scope.organizationId(request), request.params.id);
+        const removed = await fastify.services.webhooks.remove(scope.organizationId(request), request.params.id, scope.actor(request));
         if (!removed) notFound();
         return reply.code(204).send(null);
       },

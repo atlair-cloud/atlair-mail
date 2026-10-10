@@ -58,6 +58,6 @@ export async function updateDomainVerification(
 }
 
 export async function deleteDomain(db: Executor, key: DomainKey) {
-  const [domain] = await db.delete(domains).where(inOrganization(key)).returning({ id: domains.id });
+  const [domain] = await db.delete(domains).where(inOrganization(key)).returning({ id: domains.id, name: domains.name });
   return domain ?? null;
 }

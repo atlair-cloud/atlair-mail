@@ -1,4 +1,4 @@
-export const idleWaitMs = { minMs: 1_000, maxMs: 300_000 } as const;
+export const idleWaitMs = { minMs: 1_000, maxMs: 600_000 } as const;
 export const leaseSeconds = 120;
 export const leaseSweepSlackMs = 1_000;
 export const listenRetryMs = 30_000;
@@ -33,6 +33,7 @@ export const webhookErrorCodes = {
 export const eventPollerConcurrency = 20;
 export const eventPollLeaseSeconds = 120;
 export const eventReceiveWaitSeconds = 10;
+export const emptyEventPollDelaySeconds = 600;
 export const eventReceiveBatchSize = 10;
 export const eventStatsIntervalMs = 300_000;
 export const eventPollBackoffSeconds = { first: 30, max: 900 } as const;

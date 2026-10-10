@@ -9,6 +9,7 @@ import {
   findWebhookEndpoint,
   listWebhookDeliveries,
   listWebhookEndpoints,
+  recordAudit,
   rotateWebhookSigningSecret,
   updateWebhookEndpoint,
   type Actor,
@@ -109,14 +110,18 @@ export function createWebhookService(db: Database, cipher: CredentialsCipher) {
       }
       const signingSecret = generateSigningSecret();
       const { ciphertext, keyVersion } = await cipher.encrypt(signingSecret, organizationId);
-      const endpoint = await createWebhookEndpoint(db, {
-        organizationId,
-        url,
-        eventTypes: toEmailEventTypes(input.eventTypes),
-        signingSecretEncrypted: ciphertext,
-        encryptionKeyVersion: keyVersion,
-        ...creatorColumns(actor),
-        ...editorColumns(actor),
+      const endpoint = await db.transaction(async (tx) => {
+        const created = await createWebhookEndpoint(tx, {
+          organizationId,
+          url,
+          eventTypes: toEmailEventTypes(input.eventTypes),
+          signingSecretEncrypted: ciphertext,
+          encryptionKeyVersion: keyVersion,
+          ...creatorColumns(actor),
+          ...editorColumns(actor),
+        });
+        await recordAudit(tx, { organizationId, actor, action: "webhook.created", entityType: "webhook", entityId: created.id, changes: { url } });
+        return created;
       });
       return { ...(await withEndpointAuthors(endpoint)), signingSecret };
     },
@@ -138,10 +143,33 @@ export function createWebhookService(db: Database, cipher: CredentialsCipher) {
         ...(input.eventTypes !== undefined && { eventTypes: toEmailEventTypes(input.eventTypes) }),
         ...(input.enabled !== undefined && { disabledAt: input.enabled ? null : new Date() }),
       };
-      const endpoint =
-        Object.keys(changes).length === 0
-          ? await findWebhookEndpoint(db, organizationId, id)
-          : await updateWebhookEndpoint(db, organizationId, id, changes, actor);
+      if (Object.keys(changes).length === 0) {
+        const endpoint = await findWebhookEndpoint(db, organizationId, id);
+        return endpoint && withEndpointAuthors(endpoint);
+      }
+      const endpoint = await db.transaction(async (tx) => {
+        const before = await findWebhookEndpoint(tx, organizationId, id);
+        if (!before) return null;
+        const after = await updateWebhookEndpoint(tx, organizationId, id, changes, actor);
+        if (after) {
+          const wasEnabled = before.disabledAt === null;
+          const isEnabled = after.disabledAt === null;
+          const action = wasEnabled === isEnabled ? "webhook.updated" : isEnabled ? "webhook.enabled" : "webhook.disabled";
+          await recordAudit(tx, {
+            organizationId,
+            actor,
+            action,
+            entityType: "webhook",
+            entityId: id,
+            changes: {
+              url: after.url,
+              before: { url: before.url, eventTypes: before.eventTypes },
+              after: { url: after.url, eventTypes: after.eventTypes },
+            },
+          });
+        }
+        return after;
+      });
       return endpoint && withEndpointAuthors(endpoint);
     },
 
@@ -149,17 +177,31 @@ export function createWebhookService(db: Database, cipher: CredentialsCipher) {
       const signingSecret = generateSigningSecret();
       const { ciphertext, keyVersion } = await cipher.encrypt(signingSecret, organizationId);
       const overlapSeconds = (rotation.overlapHours ?? defaultSecretOverlapHours) * 3_600;
-      const endpoint = await rotateWebhookSigningSecret(
-        db,
-        organizationId,
-        id,
-        { ciphertext, keyVersion, overlapSeconds },
-        actor,
-      );
+      const endpoint = await db.transaction(async (tx) => {
+        const rotated = await rotateWebhookSigningSecret(tx, organizationId, id, { ciphertext, keyVersion, overlapSeconds }, actor);
+        if (rotated) {
+          await recordAudit(tx, {
+            organizationId,
+            actor,
+            action: "webhook.secret_rotated",
+            entityType: "webhook",
+            entityId: id,
+            changes: { url: rotated.url, overlapHours: overlapSeconds / 3_600 },
+          });
+        }
+        return rotated;
+      });
       return endpoint && { ...(await withEndpointAuthors(endpoint)), signingSecret };
     },
 
-    remove: (organizationId: string, id: string) => deleteWebhookEndpoint(db, organizationId, id),
+    remove: (organizationId: string, id: string, actor: Actor) =>
+      db.transaction(async (tx) => {
+        const removed = await deleteWebhookEndpoint(tx, organizationId, id);
+        if (removed) {
+          await recordAudit(tx, { organizationId, actor, action: "webhook.deleted", entityType: "webhook", entityId: id, changes: { url: removed.url } });
+        }
+        return removed;
+      }),
 
     async deliveries(organizationId: string, id: string, query: DeliveryQuery) {
       if (!(await findWebhookEndpoint(db, organizationId, id))) return null;
