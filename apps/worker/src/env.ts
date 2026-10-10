@@ -8,7 +8,7 @@ const schema = Type.Object({
     ["trace", "debug", "info", "warn", "error", "fatal", "silent"].map((level) => Type.Literal(level)),
     { default: "info" },
   ),
-  PORT: Type.Number({ default: 8080 }),
+  PORT: Type.Number({ default: 8081 }),
   HOST: Type.String({ default: "0.0.0.0" }),
   WORKER_CONCURRENCY: Type.Integer({ minimum: 1, maximum: 100, default: 10 }),
 });
