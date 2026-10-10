@@ -31,6 +31,7 @@ atlair-mail/
 ├── apps/
 │   ├── api/              Fastify HTTP API (organizations, API keys, provider, domains)
 │   ├── web/              panel UI (Vue, Nuxt UI), a static build
+│   ├── site/             marketing landing page (React Router, prerendered to static HTML)
 │   └── worker/           sends queued emails through each organization's provider
 ├── packages/
 │   ├── core/             credentials cipher (AWS Encryption SDK)

@@ -1,0 +1,284 @@
+@import "tailwindcss";
+@import "@fontsource-variable/familjen-grotesk";
+@import "@fontsource-variable/recursive/mono.css";
+@import "@fontsource/instrument-serif/latin-400.css";
+@import "@fontsource/instrument-serif/latin-400-italic.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@font-face {
+  font-family: "Spline Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./fonts/SplineSans-latin.woff2") format("woff2");
+}
+
+@theme {
+  --font-sans: "Familjen Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Recursive Variable", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-panel: "Spline Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: #faf8f2;
+  --color-card: #ffffff;
+  --color-surface: #f3f0e7;
+  --color-line: #e6e1d3;
+  --color-line-strong: #d6cfbc;
+
+  --color-ink: #14243a;
+  --color-ink-soft: #4c5b70;
+  --color-ink-faint: #8792a2;
+
+  --color-night: #14243a;
+  --color-night-soft: #1d3150;
+  --color-night-line: #2c4466;
+  --color-night-fg: #c9d6e6;
+
+  --color-sky: #5eb7e6;
+  --color-sky-deep: #1f7fb5;
+  --color-sky-soft: #e3f1fa;
+  --color-pink: #f08eb6;
+  --color-pink-deep: #d9658f;
+  --color-pink-soft: #fbe6ee;
+  --color-live: #58b98a;
+  --color-live-deep: #237a52;
+  --color-live-soft: #e8f5ee;
+  --color-attention: #f4c96b;
+  --color-fail: #c2413c;
+  --color-fail-soft: #fbeeee;
+  --color-stamp: #c2413c;
+
+  --color-airmail-red: #d9658f;
+  --color-airmail-blue: #1f7fb5;
+
+  --color-app-frame: #e7e4df;
+  --color-app-edge: #d6d2cc;
+  --color-app-canvas: #ffffff;
+  --color-app-line: #e2e8f0;
+  --color-app-subtle: #f1f5f9;
+  --color-app-text: #0f172a;
+  --color-app-muted: #56657a;
+  --color-app-faint: #7d8a9c;
+  --color-app-ink: #243041;
+
+  --color-frame: #14243a;
+  --color-frame-fg: #c3d2e4;
+  --color-frame-fg-strong: #faf8f2;
+  --color-frame-divider: #2c4466;
+  --color-frame-cta: #faf8f2;
+  --color-frame-cta-fg: #14243a;
+  --color-frame-grid: #7fb6d9;
+  --color-canvas-edge: #0e1a2b;
+
+  --color-background: var(--color-card);
+  --color-foreground: var(--color-ink);
+  --color-border: var(--color-line);
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --color-frame: #18191c;
+  --color-frame-fg: #9aa3ad;
+  --color-frame-fg-strong: #f8f9fa;
+  --color-frame-divider: #2e3237;
+  --color-frame-cta: #eef0f2;
+  --color-frame-cta-fg: #111315;
+  --color-frame-grid: #737c87;
+  --color-canvas-edge: #2a2d31;
+
+  --color-paper: #101214;
+  --color-card: #171a1d;
+  --color-surface: #1c2024;
+  --color-line: #2a2f35;
+  --color-line-strong: #3a4048;
+
+  --color-ink: #f1f3f5;
+  --color-ink-soft: #b3bac2;
+  --color-ink-faint: #8a939e;
+
+  --color-night: #0b1524;
+  --color-night-soft: #13223a;
+  --color-night-line: #22375a;
+
+  --color-sky-deep: #7cc4ec;
+  --color-sky-soft: #14283a;
+  --color-pink-deep: #f08eb6;
+  --color-pink-soft: #3a1d2a;
+  --color-live-deep: #7ddcb2;
+  --color-live-soft: #13291e;
+  --color-fail: #f07a7a;
+  --color-fail-soft: #2a1515;
+  --color-stamp: #f07a7a;
+
+  --color-app-frame: #18191c;
+  --color-app-edge: #2a2d31;
+  --color-app-canvas: #111315;
+  --color-app-line: #26292e;
+  --color-app-subtle: #1d2024;
+  --color-app-text: #f1f3f5;
+  --color-app-muted: #a3acb7;
+  --color-app-faint: #7b8590;
+  --color-app-ink: #eef0f2;
+}
+
+@layer base {
+  html {
+    color: var(--color-ink);
+    background: var(--color-frame);
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-sky) 30%, var(--color-paper));
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-sky-deep);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@utility font-mono {
+  font-family: var(--font-mono);
+  font-variation-settings: "MONO" 1, "CASL" 0;
+}
+
+.app-frame {
+  background-color: var(--color-app-frame);
+  background-image: radial-gradient(rgb(28 25 23 / 0.16) 1px, transparent 1.2px);
+  background-size: 8px 8px;
+}
+html.dark .app-frame {
+  background-image: radial-gradient(rgb(255 255 255 / 0.09) 1px, transparent 1.2px);
+}
+
+.airmail {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-airmail-red) 0 10px,
+    transparent 10px 16px,
+    var(--color-airmail-blue) 16px 26px,
+    transparent 26px 32px
+  );
+}
+
+
+.faq {
+  interpolate-size: allow-keywords;
+}
+.faq details::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition:
+    block-size 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    content-visibility 0.35s allow-discrete;
+}
+.faq details[open]::details-content {
+  block-size: auto;
+}
+
+html.js [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+html.js [data-reveal][data-in] {
+  opacity: 1;
+  transform: none;
+}
+html.js img[data-art] {
+  opacity: 0;
+  transition: opacity 0.7s ease-out;
+}
+html.js img[data-art][data-loaded] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.js [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .faq details::details-content {
+    transition: none;
+  }
+}
+
+.canvas-cap {
+  position: absolute;
+  top: 100%;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  --cap-edge: var(--color-canvas-edge);
+}
+.canvas-cap--left {
+  left: 8px;
+  background: radial-gradient(circle at 100% 100%, transparent 15px, var(--cap-edge) 15px, var(--cap-edge) 16px, var(--color-frame) 16.5px);
+}
+.canvas-cap--right {
+  right: 8px;
+  background: radial-gradient(circle at 0 100%, transparent 15px, var(--cap-edge) 15px, var(--cap-edge) 16px, var(--color-frame) 16.5px);
+}
+@media (min-width: 40rem) {
+  .canvas-cap--left { left: 12px; }
+  .canvas-cap--right { right: 12px; }
+}
+
+.canvas-shadow {
+  box-shadow:
+    0 1px 2px rgb(20 36 58 / 0.06),
+    0 4px 12px -2px rgb(20 36 58 / 0.06),
+    0 24px 48px -12px rgb(20 36 58 / 0.12);
+}
+html.dark .canvas-shadow {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.04),
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 24px 56px -24px rgb(0 0 0 / 0.7);
+}
+
+.stamp {
+  --perf: 6px;
+  --hole: 3px;
+  mask:
+    radial-gradient(circle var(--hole), #0000 96%, #000 100%) calc(var(--perf) * -1) calc(var(--perf) * -1) / calc(var(--perf) * 2) calc(var(--perf) * 2) round,
+    linear-gradient(#000 0 0) var(--perf) var(--perf) / calc(100% - var(--perf) * 2) calc(100% - var(--perf) * 2) no-repeat;
+}
+.stamp-shadow {
+  filter: drop-shadow(0 1px 1px rgb(20 36 58 / 0.2)) drop-shadow(0 8px 12px rgb(20 36 58 / 0.18));
+}
+html.dark .stamp-shadow {
+  filter: drop-shadow(0 8px 12px rgb(0 0 0 / 0.55));
+}
+
+.postcard {
+  background-color: #fdfbf5;
+  background-image: radial-gradient(rgb(20 36 58 / 0.035) 1px, transparent 1.2px);
+  background-size: 6px 6px;
+  box-shadow:
+    0 1px 2px rgb(20 36 58 / 0.08),
+    0 18px 40px -18px rgb(20 36 58 / 0.35);
+}
+html.dark .postcard {
+  background-color: #1e2226;
+  background-image: radial-gradient(rgb(255 255 255 / 0.03) 1px, transparent 1.2px);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.05),
+    0 24px 48px -20px rgb(0 0 0 / 0.8);
+}
