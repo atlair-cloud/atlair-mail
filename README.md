@@ -20,7 +20,7 @@ Then try:
 
 ```bash
 curl localhost:8080/health
-curl -H "Authorization: Bearer am_test_change_me" localhost:8080/v1/api-keys/current
+curl -H "Authorization: Bearer am_test_change_me" localhost:8080/service/web/api-keys/current
 open http://localhost:8080/docs/        # API reference
 ```
 
@@ -49,7 +49,9 @@ env.ts         environment variables, validated at startup
 config.ts      exposes env as fastify.config
 plugins/       app-wide plugins, loaded automatically (api keys, docs, health, errors)
 routes/        HTTP routes, loaded automatically; folders become URL prefixes
-  v1/          authenticated API; autohooks.ts adds API-key auth and rate limiting
+  service/     versioned APIs; autohooks.ts reads the Api-Version header
+    web/       public API; autohooks.ts adds API-key auth and rate limiting
+    panel/     API for signed-in people; autohooks.ts adds session auth and the origin check
 ```
 
 ## Docs
@@ -58,6 +60,7 @@ routes/        HTTP routes, loaded automatically; folders become URL prefixes
 - [docs/fastify-plugins.md](docs/fastify-plugins.md): each Fastify plugin we use and how to use it.
 - [docs/design-patterns.md](docs/design-patterns.md): the design patterns this codebase uses and where.
 - [docs/webhooks.md](docs/webhooks.md): customer webhooks, payloads, signature verification and retries.
+- [docs/panel-auth.md](docs/panel-auth.md): panel sign-in, organizations, members, roles, and API versioning.
 - [AGENTS.md](AGENTS.md): conventions for AI coding agents.
 
 ## License
