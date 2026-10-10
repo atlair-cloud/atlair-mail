@@ -1,10 +1,11 @@
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { check, index, integer, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { emailStatuses, type EmailHeaders, type EmailStatus, type EmailTag } from "../types.ts";
 import { apiKeys } from "./api-keys.ts";
 import { userId } from "./auth.ts";
 import { attemptCount, id, isOneOf, timestamps, timestamptz } from "./_columns.ts";
 import { domains } from "./domains.ts";
+import { templates } from "./templates.ts";
 import { organizationId } from "./organizations.ts";
 
 const addressList = (name: string) =>
@@ -17,6 +18,8 @@ export const emails = pgTable(
     organizationId: organizationId(),
     apiKeyId: uuid("api_key_id").references(() => apiKeys.id, { onDelete: "set null" }),
     createdBy: userId("created_by"),
+    templateId: uuid("template_id").references(() => templates.id, { onDelete: "set null" }),
+    templateVersion: integer("template_version"),
     domainId: uuid("domain_id")
       .notNull()
       .references(() => domains.id, { onDelete: "restrict" }),
@@ -51,6 +54,10 @@ export const emails = pgTable(
     index("emails_organization_id_created_at_idx").on(t.organizationId, t.createdAt),
     index("emails_organization_id_id_idx").on(t.organizationId, t.id),
     index("emails_api_key_id_created_at_idx").on(t.apiKeyId, t.createdAt),
+    index("emails_template_id_idx")
+      .on(t.templateId)
+      .where(sql`${t.templateId} is not null`),
+    check("emails_template_version_check", sql`${t.templateId} is null or ${t.templateVersion} is not null`),
     index("emails_domain_id_idx").on(t.domainId),
     uniqueIndex("emails_provider_message_id_unique").on(t.providerMessageId),
     uniqueIndex("emails_organization_id_idempotency_key_unique").on(

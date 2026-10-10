@@ -4,7 +4,7 @@ withDefaults(
     title: string
     description?: string
     dismissible?: boolean
-    width?: 'md' | 'xl'
+    width?: 'md' | 'xl' | '2xl'
   }>(),
   { description: undefined, dismissible: true, width: 'md' },
 )
@@ -18,7 +18,7 @@ const open = defineModel<boolean>('open', { required: true })
     :description="description"
     :close="false"
     :dismissible="dismissible"
-    :ui="{ content: `${width === 'xl' ? 'max-w-xl' : 'max-w-md'} rounded-lg bg-slate-100 p-1.5 ring-1 ring-slate-200 shadow-xl divide-y-0` }"
+    :ui="{ content: `${width === '2xl' ? 'max-w-2xl' : width === 'xl' ? 'max-w-xl' : 'max-w-md'} rounded-lg bg-slate-100 p-1.5 ring-1 ring-slate-200 shadow-xl divide-y-0` }"
   >
     <template #content>
       <div class="rounded-md bg-white px-5 pb-5 pt-4 ring-1 ring-slate-200/80">

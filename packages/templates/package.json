@@ -1,0 +1,22 @@
+{
+  "name": "@atlair-mail/templates",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./document": "./src/document.ts"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/mjml": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "mjml": "^5.4.1"
+  }
+}

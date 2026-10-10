@@ -4,6 +4,7 @@ export * from "./members.ts";
 export * from "./api-keys.ts";
 export * from "./provider-connections.ts";
 export * from "./domains.ts";
+export * from "./templates.ts";
 export * from "./emails.ts";
 export * from "./email-events.ts";
 export * from "./suppressed-addresses.ts";

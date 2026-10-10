@@ -53,6 +53,7 @@ export function deleteOrganizationAfterTest(app: TestApp, organizationId: string
     await app.db.delete(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.organizationId, organizationId));
     await app.db.delete(schema.suppressedAddresses).where(eq(schema.suppressedAddresses.organizationId, organizationId));
     await app.db.delete(schema.emails).where(eq(schema.emails.organizationId, organizationId));
+    await app.db.delete(schema.templates).where(eq(schema.templates.organizationId, organizationId));
     await app.db.delete(schema.domains).where(eq(schema.domains.organizationId, organizationId));
     await app.db.delete(schema.providerConnections).where(eq(schema.providerConnections.organizationId, organizationId));
     await app.db.delete(schema.apiKeys).where(eq(schema.apiKeys.organizationId, organizationId));

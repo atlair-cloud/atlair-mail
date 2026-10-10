@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BellNotification, Book, CloudSync, Computer, Globe, Group, HalfMoon, Home, Journal, Key, Mail, Prohibition, Search, Send, Settings, SunLight } from '@iconoir/vue'
+import { BellNotification, Book, CloudSync, Computer, Globe, Group, HalfMoon, Home, Journal, Key, Mail, Page, Prohibition, Search, Send, Settings, SunLight } from '@iconoir/vue'
 import type { CommandPaletteGroup, CommandPaletteItem } from '@nuxt/ui'
 import { onKeyStroke } from '@vueuse/core'
 import { computed, ref } from 'vue'
@@ -41,6 +41,8 @@ const groups = computed<CommandPaletteGroup<CommandPaletteItem>[]>(() => {
         { id: 'emails', label: 'Emails', kind: 'icon', glyph: Mail, onSelect: () => go({ name: 'emails', params: org }) },
         { id: 'emails-failed', label: 'Failed emails', kind: 'icon', glyph: Mail, onSelect: () => go({ name: 'emails', params: org, query: { status: 'failed' } }) },
         { id: 'emails-bounced', label: 'Bounced emails', kind: 'icon', glyph: Mail, onSelect: () => go({ name: 'emails', params: org, query: { status: 'bounced' } }) },
+        { id: 'templates', label: 'Templates', kind: 'icon', glyph: Page, onSelect: () => go({ name: 'templates', params: org }) },
+        { id: 'template-new', label: 'New template', kind: 'icon', glyph: Page, onSelect: () => go({ name: 'template', params: { ...org, templateId: 'new' } }) },
         { id: 'domains', label: 'Domains', kind: 'icon', glyph: Globe, onSelect: () => go({ name: 'domains', params: org }) },
         { id: 'api-keys', label: 'API keys', kind: 'icon', glyph: Key, onSelect: () => go({ name: 'api-keys', params: org }) },
         { id: 'webhooks', label: 'Webhooks', kind: 'icon', glyph: BellNotification, onSelect: () => go({ name: 'webhooks', params: org }) },

@@ -60,6 +60,18 @@ export const organizationRoutes: RouteRecordRaw[] = [
             meta: { title: 'Email', depth: 4, section: 'emails' },
           },
           {
+            path: 'templates',
+            name: 'templates',
+            component: () => import('../../features/templates/pages/TemplatesPage.vue'),
+            meta: { title: 'Templates', depth: 3, section: 'templates' },
+          },
+          {
+            path: 'templates/:templateId',
+            name: 'template',
+            component: () => import('../../features/templates/pages/TemplateEditorPage.vue'),
+            meta: { title: 'Template', depth: 4, section: 'templates', wide: true },
+          },
+          {
             path: 'domains',
             name: 'domains',
             component: () => import('../../features/domains/pages/DomainsPage.vue'),

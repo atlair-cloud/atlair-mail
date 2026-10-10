@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@atlair-mail/providers": "workspace:*",
+    "@atlair-mail/templates": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.0",
     "uuid": "^14.0.2"

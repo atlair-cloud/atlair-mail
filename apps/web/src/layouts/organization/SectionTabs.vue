@@ -12,6 +12,7 @@ const { organizationId } = useCurrentOrganization()
 const sections = [
   { key: 'overview', label: 'Overview', name: 'organization' },
   { key: 'emails', label: 'Emails', name: 'emails' },
+  { key: 'templates', label: 'Templates', name: 'templates' },
   { key: 'domains', label: 'Domains', name: 'domains' },
   { key: 'api-keys', label: 'API keys', name: 'api-keys' },
   { key: 'webhooks', label: 'Webhooks', name: 'webhooks' },
