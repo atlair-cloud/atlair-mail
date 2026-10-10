@@ -10,6 +10,7 @@ import PageHeader from '../../../components/shared/PageHeader.vue'
 import { useCurrentOrganization } from '../../organizations'
 import { listTemplates, templatePageSize, templatesQueryKey, type TemplateSummary } from '../api/templates'
 import NewTemplateModal from '../components/NewTemplateModal.vue'
+import ReleaseStatus from '../components/ReleaseStatus.vue'
 import StarterGallery from '../components/StarterGallery.vue'
 
 const route = useRoute()
@@ -38,6 +39,7 @@ const empty = computed(() => query.isSuccess.value && templates.value.length ===
 
 const columns: TableColumn[] = [
   { key: 'name', label: 'Template' },
+  { key: 'status', label: 'Status', width: 'w-44' },
   { key: 'subject', label: 'Subject', hideBelow: 'md' },
   { key: 'variables', label: 'Variables', width: 'w-40', hideBelow: 'lg' },
   { key: 'updated', label: 'Updated', width: 'w-44', hideBelow: 'sm' },
@@ -94,8 +96,9 @@ function startFrom(starter: string) {
           <span class="truncate font-medium text-slate-900">{{ row.name }}</span>
           <code v-if="row.alias" class="shrink-0 rounded-sm bg-slate-100 px-1.5 font-mono text-[11px] text-slate-600">{{ row.alias }}</code>
         </span>
-        <span class="block truncate font-mono text-[11px] text-slate-500">v{{ row.version }}<span class="md:hidden"> · {{ row.subject }}</span></span>
+        <span class="block truncate text-xs text-slate-500 md:hidden">{{ row.subject }}</span>
       </template>
+      <template #cell-status="{ row }"><ReleaseStatus :published-version="row.publishedVersion" :has-unpublished-changes="row.hasUnpublishedChanges" compact /></template>
       <template #cell-subject="{ row }"><span class="block truncate text-slate-600" :title="row.subject">{{ row.subject }}</span></template>
       <template #cell-variables="{ row }">
         <span v-if="row.variables.length" class="flex min-w-0 items-center gap-1 overflow-hidden" :title="row.variables.map((variable) => variable.key).join(', ')">

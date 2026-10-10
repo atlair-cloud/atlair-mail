@@ -26,3 +26,8 @@ export const AuthorshipSchema = {
   ),
   updatedBy: actor("Who last changed it. Null when Atlair Mail made the change, or the member or key no longer exists."),
 };
+
+export const PublishedBySchema = {
+  publishedAt: DateTime(),
+  publishedBy: actor("Who published it. Null when the member or key no longer exists."),
+};

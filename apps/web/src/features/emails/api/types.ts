@@ -26,6 +26,7 @@ export type Email = EmailSummary & {
   headers: Record<string, string>
   tags: { name: string; value: string }[]
   providerMessageId: string | null
+  template: { id: string; version: number | null } | null
   updatedAt: string
 }
 

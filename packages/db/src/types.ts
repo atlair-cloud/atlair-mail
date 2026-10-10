@@ -89,6 +89,7 @@ export const permissions = [
   "template:view",
   "template:create",
   "template:update",
+  "template:publish",
   "template:delete",
 ] as const;
 export type Permission = (typeof permissions)[number];

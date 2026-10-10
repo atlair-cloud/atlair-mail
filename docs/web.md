@@ -155,7 +155,13 @@ server's (`packages/templates`), so anything you can build can be saved; see
   desktop or phone. Unfinished blocks (a button without a link, an image without an address) are
   stand-ins in preview, and saving lists them in plain words instead of sending a request that would
   fail.
-- **Saving** sends the loaded `version`; a 409 shows "Load their version" or "Save mine over it".
+- **Saving** sends the loaded `revision`; a 409 shows "Load their version" or "Save mine over it".
+- **Publishing**: Save writes the draft; Publish (saving first if needed) opens `PublishModal`, which
+  lists what changed since the live version and toggles a live/new preview. The status chip
+  (`ReleaseStatus`) opens `VersionHistory`, a slideover to preview, restore or roll back versions;
+  `?history=<n>` opens it on version n (the email page links there). Send test sends the draft.
+- `EmailFrame` renders sent or previewed HTML in a sandboxed iframe, scaled down only when the frame
+  is narrower than 640px.
   Leaving with unsaved changes asks first. Members get a read-only editor.
 
 ## Patterns
