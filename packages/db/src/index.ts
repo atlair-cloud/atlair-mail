@@ -20,3 +20,4 @@ export * from "./repositories/roles.ts";
 export * from "./repositories/members.ts";
 export * from "./repositories/audit-logs.ts";
 export { organizationSlugPattern } from "./schema/organizations.ts";
+export * from "./repositories/overview.ts";
