@@ -5,9 +5,11 @@ import {
   findDomainByName,
   findEmailByIdempotencyKey,
   findEmailInOrganization,
+  listEmails,
   findSuppressedAddresses,
   insertEmail,
   type Database,
+  type EmailStatus,
 } from "@atlair-mail/db";
 import type { Email } from "@atlair-mail/db/schema";
 import { formatMailbox, parseMailbox, type Mailbox } from "@atlair-mail/core";
@@ -74,7 +76,7 @@ export interface SendEmailInput {
 
 export interface SendEmailContext {
   organizationId: string;
-  apiKeyId: string;
+  apiKeyId: string | null;
   idempotencyKey?: string;
 }
 
@@ -205,6 +207,20 @@ export function createEmailService(db: Database) {
     },
 
     get: (organizationId: string, id: string) => findEmailInOrganization(db, { id, organizationId }),
+
+    list: async (organizationId: string, query: { status?: EmailStatus; before?: string; limit?: number }) => {
+      const rows = await listEmails(db, { organizationId, ...query, limit: query.limit ?? 50 });
+      return rows.map((email) => ({
+        id: email.id,
+        status: email.status,
+        from: email.fromAddress,
+        to: email.toAddresses,
+        subject: email.subject,
+        scheduledAt: email.sendAt,
+        sentAt: email.sentAt,
+        createdAt: email.createdAt,
+      }));
+    },
   };
 }
 

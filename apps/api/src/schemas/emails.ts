@@ -101,3 +101,24 @@ export const EmailEventSchema = Type.Object({
     Type.String({ description: "On failed events: why atlair-mail gave up, for example ATL_RECIPIENT_SUPPRESSED." }),
   ),
 });
+
+export const maxEmailPageSize = 100;
+
+export const EmailListQuerySchema = Type.Object({
+  status: Type.Optional(Type.Enum(emailStatuses)),
+  before: Type.Optional(
+    Type.String({ format: "uuid", description: "Return emails older than this id, the last id of the previous page." }),
+  ),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: maxEmailPageSize, default: 50 })),
+});
+
+export const EmailSummarySchema = Type.Object({
+  id: Uuid(),
+  status: Type.Enum(emailStatuses),
+  from: Type.String(),
+  to: Type.Array(Type.String()),
+  subject: Type.String(),
+  scheduledAt: DateTime(),
+  sentAt: Type.Union([DateTime(), Type.Null()]),
+  createdAt: DateTime(),
+});
