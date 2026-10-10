@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "react-router dev",
-    "build": "react-router build",
+    "build": "react-router build && cp build/client/__spa-fallback.html build/client/404.html",
     "preview": "vite preview --outDir build/client",
-    "typecheck": "react-router typegen && tsc -p tsconfig.json"
+    "typecheck": "react-router typegen && tsc -p tsconfig.json",
+    "deploy": "pnpm run build && wrangler deploy",
+    "check": "pnpm run typecheck && pnpm run build && wrangler deploy --dry-run"
   },
   "dependencies": {
     "@fontsource-variable/familjen-grotesk": "^5.3.0",
@@ -34,6 +36,7 @@
     "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1"
+    "vite": "^8.3.1",
+    "wrangler": "^4.149.0"
   }
 }
