@@ -2,6 +2,7 @@ import { Type } from "typebox";
 import { emailEventTypes, emailStatuses } from "@atlair-mail/db";
 import { bounceKinds } from "@atlair-mail/providers/types";
 import { DateTime, Uuid } from "../lib/schemas.ts";
+import { CreatedBySchema } from "./authors.ts";
 import { maxRecipients } from "../services/emails.ts";
 
 const noControlCharacters = "^[^\\u0000-\\u001f\\u007f]*$";
@@ -82,7 +83,7 @@ export const EmailSchema = Type.Object({
   }),
   scheduledAt: DateTime(),
   sentAt: Type.Union([DateTime(), Type.Null()]),
-  createdAt: DateTime(),
+  ...CreatedBySchema,
   updatedAt: DateTime(),
 });
 
@@ -109,6 +110,10 @@ export const EmailListQuerySchema = Type.Object({
   before: Type.Optional(
     Type.String({ format: "uuid", description: "Return emails older than this id, the last id of the previous page." }),
   ),
+  search: Type.Optional(
+    Type.String({ minLength: 1, maxLength: 200, description: "Match the subject or a recipient, ignoring case." }),
+  ),
+  since: Type.Optional(Type.String({ format: "date-time", description: "Only emails created at or after this time." })),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: maxEmailPageSize, default: 50 })),
 });
 
@@ -121,5 +126,5 @@ export const EmailSummarySchema = Type.Object({
   scheduledAt: DateTime(),
   sentAt: Type.Union([DateTime(), Type.Null()]),
   lastError: Type.Union([Type.String(), Type.Null()], { description: "Why it failed, for failed emails." }),
-  createdAt: DateTime(),
+  ...CreatedBySchema,
 });

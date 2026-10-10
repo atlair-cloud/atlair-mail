@@ -163,6 +163,7 @@ describe("panel overview", { skip: !hasDatabase }, () => {
     }
     await app.db.update(schema.emails).set({ lastError: "ATL_RECIPIENT_SUPPRESSED" }).where(eq(schema.emails.id, suppressed[0]!.id));
     app.services.providerConnections.account = async () => ({
+      accountId: "123456789012",
       sendingEnabled: true,
       sandbox: true,
       dailyQuota: 200,

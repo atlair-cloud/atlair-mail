@@ -120,8 +120,9 @@ detail pages (for example Emails / subject), and ⌘K jumps to sections and comm
 
 ## Emails
 
-- The list polls every 5 seconds while the newest page has an email queued, sending or sent, and
-  every 30 seconds otherwise. "Load older emails" pages with `before`.
+- The list is a `DataTable`: search (subject or recipient), status and date filters live in the URL
+  (`?search=&status=&range=`), and pages step with `before`. The first page polls every 5 seconds
+  while it has an email queued, sending or sent, and every 30 seconds otherwise; later pages don't.
 - The detail page builds "What happened" from the email and its events: queued, scheduled, accepted
   by SES, then delivered, delayed, bounced (soft or permanent, with each recipient's diagnostic),
   complained, opened, clicked, or failed with the worker's error code explained. While waiting it
@@ -137,6 +138,11 @@ Every panel endpoint has a page. They share a few patterns so moving between the
   something to manage; the empty state carries it instead.
 - **States**: skeleton while loading, `LoadErrorCard` with "Try again" on failure, `EmptyState`
   that says what will appear and how to start, `NotFound` for unknown IDs.
+- **Tables** (`components/data-table`): `DataTable` takes `columns` and `rows` and renders each
+  cell from a `#cell-<key>` slot, with the toolbar, skeleton rows, empty state and footer inside one
+  frame. `rowTo` makes the whole row a link. `TableSearch` debounces into the URL, `TableFilter` is
+  a dropdown with an "any" choice and status dots, and `TablePagination` with `useCursorPages`
+  steps through cursor pages (`before`/`hasMore`), resetting when a filter changes.
 - **Modals** put the content on the white card and the choices on the frame below: Cancel on the left,
   the action on the right (`ModalActions`). Forms used in a modal take `in-modal` and a `form-id`, and
   the footer button submits them with `form=`.
@@ -151,9 +157,13 @@ Every panel endpoint has a page. They share a few patterns so moving between the
   a confirmation.
 - **Feedback**: small changes show a Nuxt UI toast; after a mutation every query under
   `['organizations', id]` is invalidated, so the overview, tabs and lists agree.
-- **Who and when**: lists show who added each item (`ActorName`: a member's initials, or a key icon
-  and the API key's name). Detail pages show created and updated, each with its author, in a
-  `FactsRow` built with `authorshipFacts()`. Hover a relative time for the exact one.
+- **Who and when**: every list shows when each item was created and by whom with `AuditStamp`
+  (the member's initials or a key icon and the API key's name, over a relative time; hover for the
+  exact one), plus an Updated column for things that change (domains, webhooks). Detail pages show
+  created and updated, each with its author, in a `FactsRow` built with `authorshipFacts()`. Emails
+  show who sent them (a member from the panel or an API key); their later changes are automatic.
+  Members show who added them and who last changed their role; General settings shows who created
+  and last renamed the organization. No author means Atlair Mail did it, or the member or key is gone.
 - **Roles**: owners and admins see write actions; members get read-only pages with a note saying
   who can act. Only owners see "Deactivate"; the audit log is for owners and admins.
 - Onboarding reuses the same components (`ConnectSesForm`, `DeliveryTrackingCard`, `AddDomainForm`,

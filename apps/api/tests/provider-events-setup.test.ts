@@ -1,7 +1,9 @@
+import { randomInt } from "node:crypto";
 import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { mockClient } from "aws-sdk-client-mock";
+import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import {
   CreateConfigurationSetCommand,
   CreateConfigurationSetEventDestinationCommand,
@@ -49,6 +51,8 @@ const disabledEvents = {
 };
 
 const ses = mockClient(SESv2Client);
+const sts = mockClient(STSClient);
+const awsAccountId = () => String(randomInt(100_000_000_000, 1_000_000_000_000));
 const sns = mockClient(SNSClient);
 const sqs = mockClient(SQSClient);
 const sign = createSnsTestSigner();
@@ -57,6 +61,8 @@ type TestApp = Awaited<ReturnType<typeof buildTestApp>>;
 
 beforeEach(() => {
   ses.reset();
+  sts.reset();
+  sts.on(GetCallerIdentityCommand).resolves({ Account: awsAccountId() });
   sns.reset();
   ses.on(GetAccountCommand).resolves({ SendingEnabled: true, ProductionAccessEnabled: true });
   ses.on(CreateConfigurationSetCommand).resolves({});

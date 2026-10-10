@@ -59,7 +59,7 @@ describe("POST /service/web/emails", { skip: !hasDatabase }, () => {
     assert.equal(got.statusCode, 200);
     assert.equal(got.json().subject, "Welcome");
     assert.deepEqual(Object.keys(got.json()).sort(), [
-      "bcc", "cc", "createdAt", "from", "headers", "html", "id", "lastError", "providerMessageId", "replyTo",
+      "bcc", "cc", "createdAt", "createdBy", "from", "headers", "html", "id", "lastError", "providerMessageId", "replyTo",
       "scheduledAt", "sentAt", "status", "subject", "tags", "text", "to", "updatedAt",
     ]);
   });

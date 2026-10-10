@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useToast } from '@nuxt/ui/composables'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import ActorName from '../../../components/shared/ActorName.vue'
 import AvatarFace from '../../../components/shared/AvatarFace.vue'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
 import LoadErrorCard from '../../../components/shared/LoadErrorCard.vue'
@@ -121,7 +122,15 @@ function submit() {
             <p class="m-0 truncate text-sm font-medium text-slate-900">
               {{ member.name }}<span v-if="member.userId === me?.id" class="ml-2 rounded-sm bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">You</span>
             </p>
-            <p class="m-0 truncate text-xs text-slate-500">{{ member.email }} · joined {{ formatRelativeTime(member.createdAt) }}</p>
+            <p class="m-0 truncate text-xs text-slate-500">{{ member.email }}</p>
+            <p class="m-0 mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-slate-500">
+              <span>Added <time :datetime="member.createdAt" :title="new Date(member.createdAt).toLocaleString()">{{ formatRelativeTime(member.createdAt) }}</time></span>
+              <template v-if="member.createdBy && member.createdBy.id !== member.userId"><span>by</span><ActorName :actor="member.createdBy" class="text-slate-700" /></template>
+              <template v-if="member.updatedBy">
+                <span aria-hidden="true">·</span>
+                <span>role changed <time :datetime="member.updatedAt" :title="new Date(member.updatedAt).toLocaleString()">{{ formatRelativeTime(member.updatedAt) }}</time> by</span><ActorName :actor="member.updatedBy" class="text-slate-700" />
+              </template>
+            </p>
           </div>
           <USelect
             v-if="canManage && member.role !== 'owner' && member.userId !== me?.id"

@@ -1,6 +1,7 @@
+import type { Authorship } from '../../../lib/api/actors'
 import { apiFetch } from '../../../lib/api/client'
 
-export type OrganizationDetails = { id: string; name: string; slug: string; createdAt: string; role: string }
+export type OrganizationDetails = Authorship & { id: string; name: string; slug: string; role: string }
 
 export const organizationQueryKey = (organizationId: string) => ['organizations', organizationId, 'details'] as const
 

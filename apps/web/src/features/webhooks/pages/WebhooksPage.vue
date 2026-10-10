@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { BellNotification, NavArrowRight, Plus } from '@iconoir/vue'
+import { BellNotification, Plus } from '@iconoir/vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
-import ActorName from '../../../components/shared/ActorName.vue'
+import { DataTable, type TableColumn } from '../../../components/data-table'
+import AuditStamp from '../../../components/shared/AuditStamp.vue'
 import EmptyState from '../../../components/shared/EmptyState.vue'
 import FramedModal from '../../../components/shared/FramedModal.vue'
 import LoadErrorCard from '../../../components/shared/LoadErrorCard.vue'
 import ModalActions from '../../../components/shared/ModalActions.vue'
 import PageHeader from '../../../components/shared/PageHeader.vue'
 import SecretReveal from '../../../components/shared/SecretReveal.vue'
-import { formatRelativeTime } from '../../../lib/format/relative-time'
 import { useCurrentOrganization } from '../../organizations'
 import { createWebhook, listWebhooks, webhooksQueryKey, type WebhookEventType, type WebhookWithSecret } from '../api/webhooks'
 import VerifyGuide from '../components/VerifyGuide.vue'
@@ -51,6 +51,13 @@ function finish() {
   if (id) router.push({ name: 'webhook', params: { organizationId: organizationId.value, webhookId: id } })
 }
 
+const columns: TableColumn[] = [
+  { key: 'url', label: 'Endpoint' },
+  { key: 'enabled', label: 'Status', width: 'w-28' },
+  { key: 'created', label: 'Created', width: 'w-44', hideBelow: 'md' },
+  { key: 'updated', label: 'Updated', width: 'w-44', hideBelow: 'lg' },
+]
+
 function summary(eventTypes: WebhookEventType[]) {
   const labels = eventTypes.map(eventLabel)
   return labels.length > 3 ? `${labels.slice(0, 3).join(', ')} +${labels.length - 3}` : labels.join(', ')
@@ -81,26 +88,28 @@ function summary(eventTypes: WebhookEventType[]) {
       <p v-else class="m-0 text-xs text-slate-500">An owner or admin can add endpoints.</p>
     </EmptyState>
 
-    <ul v-else class="m-0 mt-8 grid list-none gap-3 p-0">
-      <li v-for="webhook in webhooks" :key="webhook.id" class="relative">
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md bg-white px-5 py-4 ring-1 ring-slate-200 transition-shadow hover:ring-slate-300 motion-reduce:transition-none">
-          <div class="min-w-0 flex-1">
-            <RouterLink
-              :to="{ name: 'webhook', params: { organizationId, webhookId: webhook.id } }"
-              class="block truncate font-mono text-sm font-medium text-slate-900 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:after:outline-2 focus-visible:after:outline-atlair-950"
-            >{{ webhook.url }}</RouterLink>
-            <p class="m-0 mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500">
-              <span class="truncate">{{ summary(webhook.eventTypes) }} · added {{ formatRelativeTime(webhook.createdAt) }}</span>
-              <template v-if="webhook.createdBy"><span class="shrink-0">by</span><ActorName :actor="webhook.createdBy" class="text-slate-700" /></template>
-            </p>
-          </div>
-          <span class="inline-flex items-center gap-1.5 text-sm text-slate-700">
-            <span aria-hidden="true" class="size-2 rounded-full" :class="webhook.enabled ? 'bg-status-live' : 'bg-slate-300'" />{{ webhook.enabled ? 'Enabled' : 'Disabled' }}
-          </span>
-          <NavArrowRight aria-hidden="true" class="size-4 text-slate-400" />
-        </div>
-      </li>
-    </ul>
+    <DataTable
+      v-else
+      class="mt-8"
+      label="Webhook endpoints"
+      :columns="columns"
+      :rows="webhooks"
+      :row-key="(webhook) => webhook.id"
+      :row-to="(webhook) => ({ name: 'webhook', params: { organizationId, webhookId: webhook.id } })"
+      :row-label="(webhook) => webhook.url"
+    >
+      <template #cell-url="{ row }">
+        <span class="block truncate font-mono text-sm font-medium text-slate-900">{{ row.url }}</span>
+        <span class="block truncate text-xs text-slate-500">{{ summary(row.eventTypes) }}</span>
+      </template>
+      <template #cell-enabled="{ row }">
+        <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700">
+          <span aria-hidden="true" class="size-2 rounded-full" :class="row.enabled ? 'bg-status-live' : 'bg-slate-300'" />{{ row.enabled ? 'Enabled' : 'Disabled' }}
+        </span>
+      </template>
+      <template #cell-created="{ row }"><AuditStamp :at="row.createdAt" :by="row.createdBy" /></template>
+      <template #cell-updated="{ row }"><AuditStamp :at="row.updatedAt" :by="row.updatedBy" /></template>
+    </DataTable>
 
     <section v-if="!query.isPending.value && !query.isError.value" class="mt-10 rounded-md bg-slate-50 px-5 py-4 ring-1 ring-slate-200">
       <h2 class="m-0 mb-2 text-sm font-semibold text-slate-900">Receiving events</h2>

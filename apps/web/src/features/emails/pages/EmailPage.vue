@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { useNow } from '@vueuse/core'
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import ActorName from '../../../components/shared/ActorName.vue'
 import CopyButton from '../../../components/shared/CopyButton.vue'
 import NotFound from '../../../components/shared/NotFound.vue'
 import { ApiError } from '../../../lib/api/client'
@@ -119,6 +120,7 @@ const people = computed(() => {
         <p class="mb-0 mt-2 text-sm text-slate-600">
           From <span class="font-medium text-slate-800">{{ email.from }}</span> to
           <span class="font-medium text-slate-800">{{ email.to.join(', ') }}</span>
+          <template v-if="email.createdBy"> · sent by <ActorName :actor="email.createdBy" class="font-medium text-slate-800" /></template>
           · <time :datetime="email.createdAt" :title="formatAbsolute(email.createdAt)">{{ formatRelativeTime(email.createdAt, now.getTime()) }}</time>
         </p>
       </header>
@@ -218,6 +220,12 @@ const people = computed(() => {
               <div>
                 <dt class="text-xs text-slate-500">Created</dt>
                 <dd class="m-0 text-slate-800">{{ formatAbsolute(email.createdAt) }}</dd>
+                <dd class="m-0 mt-0.5 text-xs text-slate-600"><span class="sr-only">by </span><ActorName :actor="email.createdBy" fallback="Unknown sender" /></dd>
+              </div>
+              <div>
+                <dt class="text-xs text-slate-500">Last updated</dt>
+                <dd class="m-0 text-slate-800">{{ formatAbsolute(email.updatedAt) }}</dd>
+                <dd class="m-0 mt-0.5 text-xs text-slate-500">Automatic</dd>
               </div>
               <div v-if="email.sentAt">
                 <dt class="text-xs text-slate-500">Sent</dt>

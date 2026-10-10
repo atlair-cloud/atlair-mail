@@ -15,6 +15,7 @@ import {
   type Database,
   type Executor,
 } from "@atlair-mail/db";
+import { withMemberAuthors } from "../lib/authors.ts";
 import { createApiKey } from "./api-keys.ts";
 
 export const SlugTakenError = createError("ATL_SLUG_TAKEN", "Slug %s is already taken", 409);
@@ -87,7 +88,10 @@ export function createOrganizationService(db: Database) {
       );
     },
 
-    get: (id: string) => findOrganizationById(db, id),
+    get: async (id: string) => {
+      const organization = await findOrganizationById(db, id);
+      return organization && withMemberAuthors(db, organization);
+    },
 
     listForUser: (userId: string, page: { before?: string; limit: number }) =>
       listOrganizationsForUser(db, { userId, ...page }),
@@ -115,7 +119,7 @@ export function createOrganizationService(db: Database) {
               after: { name: updated!.name, slug: updated!.slug },
             },
           });
-          return updated;
+          return updated && withMemberAuthors(tx, updated);
         }),
       ),
 

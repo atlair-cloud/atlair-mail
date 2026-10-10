@@ -47,6 +47,9 @@ const memberColumns = {
   image: users.image,
   role: roles.name,
   createdAt: members.createdAt,
+  createdBy: members.createdBy,
+  updatedAt: members.updatedAt,
+  updatedBy: members.updatedBy,
 };
 
 export interface MemberPage {

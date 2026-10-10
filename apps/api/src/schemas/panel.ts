@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import { organizationSlugPattern, roleNames } from "@atlair-mail/db";
 import { DateTime, Uuid } from "../lib/schemas.ts";
+import { AuthorshipSchema } from "./authors.ts";
 
 export const maxPanelPageSize = 100;
 
@@ -20,6 +21,11 @@ export const OrganizationSchema = Type.Object({
   name: Type.String(),
   slug: Type.String(),
   createdAt: DateTime(),
+});
+
+export const OrganizationDetailSchema = Type.Object({
+  ...OrganizationSchema.properties,
+  ...AuthorshipSchema,
 });
 
 export const UserOrganizationSchema = Type.Object({
@@ -43,7 +49,7 @@ export const MemberSchema = Type.Object({
   email: Type.String(),
   image: Type.Union([Type.String(), Type.Null()]),
   role: Type.String(),
-  createdAt: DateTime(),
+  ...AuthorshipSchema,
 });
 
 export const RoleSchema = Type.Object({

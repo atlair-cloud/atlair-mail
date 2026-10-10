@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { check, index, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { emailStatuses, type EmailHeaders, type EmailStatus, type EmailTag } from "../types.ts";
 import { apiKeys } from "./api-keys.ts";
+import { userId } from "./auth.ts";
 import { attemptCount, id, isOneOf, timestamps, timestamptz } from "./_columns.ts";
 import { domains } from "./domains.ts";
 import { organizationId } from "./organizations.ts";
@@ -15,6 +16,7 @@ export const emails = pgTable(
     id: id(),
     organizationId: organizationId(),
     apiKeyId: uuid("api_key_id").references(() => apiKeys.id, { onDelete: "set null" }),
+    createdBy: userId("created_by"),
     domainId: uuid("domain_id")
       .notNull()
       .references(() => domains.id, { onDelete: "restrict" }),

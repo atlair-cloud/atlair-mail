@@ -6,7 +6,9 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
 import CopyButton from '../../../components/shared/CopyButton.vue'
+import FactsRow from '../../../components/shared/FactsRow.vue'
 import SettingsCard from '../../../components/shared/SettingsCard.vue'
+import { authorshipFacts } from '../../../lib/format/authorship'
 import { listOrganizations, organizationsQueryKey, useCurrentOrganization, useOrganizationStore } from '../../organizations'
 import { deactivateOrganization, getOrganization, isSlugAvailable, organizationQueryKey, updateOrganization } from '../api/organization'
 
@@ -20,7 +22,7 @@ const details = useQuery({
   queryKey: computed(() => organizationQueryKey(organizationId.value)),
   queryFn: () => getOrganization(organizationId.value),
 })
-const createdOn = computed(() => (details.data.value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(new Date(details.data.value.createdAt)) : null))
+const facts = computed(() => (details.data.value ? authorshipFacts(details.data.value) : null))
 
 const name = ref(organization.value?.name ?? '')
 const slug = ref(organization.value?.slug ?? '')
@@ -110,7 +112,7 @@ const deactivate = useMutation({
         <code class="min-w-0 flex-1 truncate font-mono text-sm text-slate-800">{{ organization.id }}</code>
         <CopyButton :value="organization.id" />
       </div>
-      <p v-if="createdOn" class="m-0 mt-2 text-xs text-slate-500">Created {{ createdOn }}</p>
+      <FactsRow v-if="facts" class="mt-4" :facts="facts" />
     </SettingsCard>
 
     <SettingsCard tone="danger" title="Deactivate organization" :description="`${organization.name} disappears for everyone, and its API keys stop working. Contact the operator if you need it back.`">

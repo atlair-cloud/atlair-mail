@@ -45,6 +45,7 @@ export interface DomainVerification {
 }
 
 export interface ProviderAccount {
+  accountId: string;
   sendingEnabled: boolean;
   sandbox: boolean;
   dailyQuota: number;

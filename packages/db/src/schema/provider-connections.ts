@@ -18,6 +18,7 @@ export const providerConnections = pgTable(
     organizationId: organizationId(),
     provider: text("provider").$type<ProviderType>().notNull(),
     settings: jsonb("settings").$type<ProviderSettings>().notNull(),
+    accountId: text("account_id"),
     credentialsEncrypted: text("credentials_encrypted").notNull(),
     encryptionKeyVersion: encryptionKeyVersion(),
     eventsMode: text("events_mode").$type<EventDeliveryMode>(),
@@ -36,6 +37,7 @@ export const providerConnections = pgTable(
   },
   (t) => [
     uniqueIndex("provider_connections_organization_id_unique").on(t.organizationId),
+    uniqueIndex("provider_connections_provider_account_id_unique").on(t.provider, t.accountId),
     check("provider_connections_provider_check", isOneOf(t.provider, providerTypes)),
     check("provider_connections_settings_check", sql`jsonb_typeof(${t.settings}) = 'object'`),
     check(

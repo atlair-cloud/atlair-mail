@@ -4,6 +4,8 @@ import {
   deleteProviderConnection,
   editorColumns,
   findProviderConnectionByOrganization,
+  hasPgErrorCode,
+  pgErrorCodes,
   saveProviderEvents,
   upsertProviderConnection,
   type Actor,
@@ -28,6 +30,12 @@ import { withAuthors } from "../lib/authors.ts";
 export const ProviderNotConnectedError = createError(
   "ATL_PROVIDER_NOT_CONNECTED",
   "Connect an email provider with PUT /service/web/provider first",
+  409,
+);
+
+export const ProviderAccountInUseError = createError(
+  "ATL_PROVIDER_ACCOUNT_IN_USE",
+  "This provider account is already used by another organization",
   409,
 );
 
@@ -124,10 +132,14 @@ export function createProviderConnectionService(db: Database, cipher: Credential
         organizationId,
         provider: config.type,
         settings: config.settings,
+        accountId: account.accountId,
         credentialsEncrypted: ciphertext,
         encryptionKeyVersion: keyVersion,
         ...creatorColumns(actor),
         ...editorColumns(actor),
+      }).catch((error: unknown) => {
+        if (hasPgErrorCode(error, pgErrorCodes.uniqueViolation)) throw new ProviderAccountInUseError();
+        throw error;
       });
       accounts.set(organizationId, { checkedAt: Date.now(), account });
       return { ...(await withConnectionAuthors(connection)), account };

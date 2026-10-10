@@ -149,7 +149,7 @@ export function createOverviewService(db: Database, emails: EmailService, provid
           findProviderSummary(db, organizationId),
           countOrganizationResources(db, organizationId),
           listFailingWebhookEndpoints(db, organizationId, since24h),
-          emails.list(organizationId, { limit: 10 }),
+          emails.list(organizationId, { limit: 10 }).then((page) => page.data),
           countFailuresByError(db, organizationId, since24h),
           providerConnections.account(organizationId),
         ]);

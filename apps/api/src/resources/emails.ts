@@ -11,7 +11,7 @@ import {
   SendEmailSchema,
 } from "../schemas/emails.ts";
 import { toPublicEmailEvent } from "../services/email-events.ts";
-import { toPublicEmail, toQueuedEmail } from "../services/emails.ts";
+import { toQueuedEmail } from "../services/emails.ts";
 import type { ResourceScope } from "./scope.ts";
 
 const tags = ["Emails"];
@@ -39,7 +39,7 @@ export const emailRoutes =
       async (request, reply) => {
         const { email, replayed } = await fastify.services.emails.send(request.body, {
           organizationId: scope.organizationId(request),
-          apiKeyId: scope.apiKeyId(request),
+          actor: scope.actor(request),
           idempotencyKey: request.headers["idempotency-key"],
         });
         if (replayed) reply.header("idempotent-replayed", "true");
@@ -54,15 +54,15 @@ export const emailRoutes =
         schema: {
           summary: "List emails",
           description:
-            "Newest first, without bodies; pass the last id as before to get the next page, and status to filter.",
+            "Newest first, without bodies. Filter with status, search and since; while hasMore is true, pass the last id as before to get the next page.",
           tags,
           ...scope.security,
           params: scope.params(),
           querystring: EmailListQuerySchema,
-          response: { 200: Type.Object({ data: Type.Array(EmailSummarySchema) }) },
+          response: { 200: Type.Object({ data: Type.Array(EmailSummarySchema), hasMore: Type.Boolean() }) },
         },
       },
-      async (request) => ({ data: await fastify.services.emails.list(scope.organizationId(request), request.query) }),
+      async (request) => fastify.services.emails.list(scope.organizationId(request), request.query),
     );
 
     fastify.get(
@@ -80,7 +80,7 @@ export const emailRoutes =
       async (request) => {
         const email = await fastify.services.emails.get(scope.organizationId(request), request.params.id);
         if (!email) throw fastify.httpErrors.notFound("Email not found");
-        return toPublicEmail(email);
+        return fastify.services.emails.toPublic(email);
       },
     );
 

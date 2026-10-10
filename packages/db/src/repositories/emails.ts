@@ -1,4 +1,4 @@
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lt, or, sql } from "drizzle-orm";
 import type { Executor } from "../client.ts";
 import { emails, type NewEmail } from "../schema/index.ts";
 import type { EmailStatus } from "../types.ts";
@@ -34,7 +34,19 @@ export interface EmailPage {
   organizationId: string;
   status?: EmailStatus;
   before?: string;
+  search?: string;
+  since?: Date;
   limit: number;
+}
+
+const likePattern = (value: string) => `%${value.replace(/[\\%_]/g, "\\$&")}%`;
+
+function matchesSearch(search: string) {
+  const pattern = likePattern(search);
+  return or(
+    ilike(emails.subject, pattern),
+    sql`exists (select 1 from unnest(${emails.toAddresses}) as recipient where recipient ilike ${pattern})`,
+  );
 }
 
 export async function listEmails(db: Executor, page: EmailPage) {
@@ -48,6 +60,8 @@ export async function listEmails(db: Executor, page: EmailPage) {
       sendAt: emails.sendAt,
       sentAt: emails.sentAt,
       lastError: emails.lastError,
+      apiKeyId: emails.apiKeyId,
+      createdBy: emails.createdBy,
       createdAt: emails.createdAt,
     })
     .from(emails)
@@ -56,6 +70,8 @@ export async function listEmails(db: Executor, page: EmailPage) {
         eq(emails.organizationId, page.organizationId),
         page.status === undefined ? undefined : eq(emails.status, page.status),
         page.before === undefined ? undefined : lt(emails.id, page.before),
+        page.search === undefined ? undefined : matchesSearch(page.search),
+        page.since === undefined ? undefined : gte(emails.createdAt, page.since),
       ),
     )
     .orderBy(desc(emails.id))

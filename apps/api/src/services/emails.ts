@@ -8,11 +8,13 @@ import {
   listEmails,
   findSuppressedAddresses,
   insertEmail,
+  type Actor,
   type Database,
   type EmailStatus,
 } from "@atlair-mail/db";
 import type { Email } from "@atlair-mail/db/schema";
 import { formatMailbox, parseMailbox, type Mailbox } from "@atlair-mail/core";
+import { loadCreators } from "../lib/authors.ts";
 import { findInvalidHeaderNames, findReservedHeaders } from "../lib/email-headers.ts";
 
 export const InvalidAddressError = createError(
@@ -76,7 +78,7 @@ export interface SendEmailInput {
 
 export interface SendEmailContext {
   organizationId: string;
-  apiKeyId: string | null;
+  actor: Actor;
   idempotencyKey?: string;
 }
 
@@ -123,6 +125,11 @@ export const toPublicEmail = (email: Email) => ({
   sentAt: email.sentAt,
   createdAt: email.createdAt,
   updatedAt: email.updatedAt,
+});
+
+const creatorColumnsOf = (email: { createdBy: string | null; apiKeyId: string | null }) => ({
+  createdBy: email.createdBy,
+  createdByApiKeyId: email.apiKeyId,
 });
 
 export function createEmailService(db: Database) {
@@ -184,7 +191,8 @@ export function createEmailService(db: Database) {
 
       const email = await insertEmail(db, {
         organizationId,
-        apiKeyId: context.apiKeyId,
+        apiKeyId: context.actor.apiKeyId,
+        createdBy: context.actor.userId,
         domainId: domain.id,
         fromAddress: normalized.from,
         toAddresses: normalized.to,
@@ -208,9 +216,27 @@ export function createEmailService(db: Database) {
 
     get: (organizationId: string, id: string) => findEmailInOrganization(db, { id, organizationId }),
 
-    list: async (organizationId: string, query: { status?: EmailStatus; before?: string; limit?: number }) => {
-      const rows = await listEmails(db, { organizationId, ...query, limit: query.limit ?? 50 });
-      return rows.map((email) => ({
+    async toPublic(email: Email) {
+      const creators = await loadCreators(db, [creatorColumnsOf(email)]);
+      return { ...toPublicEmail(email), ...creators(creatorColumnsOf(email)) };
+    },
+
+    list: async (
+      organizationId: string,
+      query: { status?: EmailStatus; before?: string; search?: string; since?: string; limit?: number },
+    ) => {
+      const limit = query.limit ?? 50;
+      const rows = await listEmails(db, {
+        organizationId,
+        status: query.status,
+        before: query.before,
+        search: query.search?.trim() || undefined,
+        since: query.since === undefined ? undefined : new Date(query.since),
+        limit: limit + 1,
+      });
+      const page = rows.slice(0, limit);
+      const creators = await loadCreators(db, page.map(creatorColumnsOf));
+      const data = page.map((email) => ({
         id: email.id,
         status: email.status,
         from: email.fromAddress,
@@ -220,7 +246,9 @@ export function createEmailService(db: Database) {
         sentAt: email.sentAt,
         lastError: email.status === "failed" ? email.lastError : null,
         createdAt: email.createdAt,
+        ...creators(creatorColumnsOf(email)),
       }));
+      return { data, hasMore: rows.length > limit };
     },
   };
 }

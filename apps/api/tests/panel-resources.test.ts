@@ -162,6 +162,7 @@ describe("email list", { skip: !hasDatabase }, () => {
     assert.deepEqual(all.json().data.map((email: { id: string }) => email.id), [third!.id, second!.id, first!.id]);
     assert.deepEqual(Object.keys(all.json().data[0]).sort(), [
       "createdAt",
+      "createdBy",
       "from",
       "id",
       "lastError",
@@ -171,9 +172,40 @@ describe("email list", { skip: !hasDatabase }, () => {
       "subject",
       "to",
     ]);
+    assert.equal(all.json().hasMore, false);
     assert.deepEqual(page.json().data.map((email: { id: string }) => email.id), [first!.id]);
+    assert.equal(page.json().hasMore, false);
     assert.deepEqual(delivered.json().data.map((email: { id: string }) => email.id), [third!.id, first!.id]);
     assert.equal(invalid.statusCode, 400);
+  });
+
+  it("searches the subject and recipients, filters by date, and says when there is more", async () => {
+    const app = await buildPanelTestApp();
+    const { owner, organizationId } = await panelOrganizationWithKey(app);
+    const [old, , recent] = await insertEmails(app, organizationId, ["delivered", "bounced", "failed"]);
+    await app.db
+      .update(schema.emails)
+      .set({ createdAt: new Date("2026-01-01T00:00:00Z"), subject: "100% off_sale" })
+      .where(eq(schema.emails.id, old!.id));
+    await app.db.update(schema.emails).set({ toAddresses: ["grace@example.net"] }).where(eq(schema.emails.id, recent!.id));
+    const list = async (query: string) =>
+      (await app.inject({ method: "GET", url: panel(organizationId, `/emails?${query}`), headers: owner.headers })).json();
+
+    const bySubject = await list("search=EMAIL%20BOUNCED");
+    const byRecipient = await list("search=grace@");
+    const literal = await list("search=0%25%20off_");
+    const wildcard = await list("search=%25");
+    const since = await list("since=2026-02-01T00:00:00Z");
+    const firstPage = await list("limit=2");
+
+    assert.deepEqual(bySubject.data.map((email: { subject: string }) => email.subject), ["Email bounced"]);
+    assert.deepEqual(byRecipient.data.map((email: { id: string }) => email.id), [recent!.id]);
+    assert.deepEqual(literal.data.map((email: { id: string }) => email.id), [old!.id]);
+    assert.deepEqual(wildcard.data.map((email: { id: string }) => email.id), [old!.id]);
+    assert.equal(since.data.length, 2);
+    assert.ok(!since.data.some((email: { id: string }) => email.id === old!.id));
+    assert.equal(firstPage.data.length, 2);
+    assert.equal(firstPage.hasMore, true);
   });
 
   it("only lists the organization's own emails, and a sending_access key can read it", async () => {
