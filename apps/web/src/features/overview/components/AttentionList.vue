@@ -1,43 +1,46 @@
 <script setup lang="ts">
-import { NavArrowRight, WarningCircle, WarningTriangle } from '@iconoir/vue'
+import { NavArrowRight, OpenNewWindow, WarningCircle, WarningTriangle } from '@iconoir/vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { routeIfExists } from '../../../lib/links'
 import type { AttentionItem } from '../api/get-overview'
 
-const props = defineProps<{ items: AttentionItem[]; organizationId: string }>()
+const props = defineProps<{ items: AttentionItem[]; organizationId: string; region: string | null }>()
 
 const router = useRouter()
 
-function fixFor(item: AttentionItem): { to: RouteLocationRaw; label: string } | null {
+type Action = { label: string; to: RouteLocationRaw } | { label: string; href: string }
+
+function actionsFor(item: AttentionItem): Action[] {
   const organizationId = props.organizationId
-  const to = (() => {
-    switch (item.kind) {
-      case 'domain_failed':
-      case 'domain_pending':
-        return item.targetId ? routeIfExists(router, 'domain', { organizationId, domainId: item.targetId }) : null
-      case 'events_not_connected':
-      case 'events_error':
-        return routeIfExists(router, 'organization-settings-provider', { organizationId })
-      case 'bounce_rate':
-      case 'complaint_rate':
-        return routeIfExists(router, 'suppressions', { organizationId })
-      case 'emails_failed':
-        return routeIfExists(router, 'emails', { organizationId }, { status: 'failed' })
-      case 'webhook_failing':
-        return item.targetId ? routeIfExists(router, 'webhook', { organizationId, webhookId: item.targetId }) : null
-    }
-  })()
-  const labels: Record<AttentionItem['kind'], string> = {
-    domain_failed: 'Check DNS records',
-    domain_pending: 'View DNS records',
-    events_not_connected: 'Connect events',
-    events_error: 'Open provider',
-    bounce_rate: 'Review suppressions',
-    complaint_rate: 'Review suppressions',
-    emails_failed: 'See failed emails',
-    webhook_failing: 'Open webhook',
+  const sesConsole = props.region ? `https://${props.region}.console.aws.amazon.com/ses/home?region=${props.region}#/account` : null
+  const route = (label: string, to: RouteLocationRaw | null): Action[] => (to ? [{ label, to }] : [])
+  const external = (label: string): Action[] => (sesConsole ? [{ label, href: sesConsole }] : [])
+  const failedEmails = () => route('See failed emails', routeIfExists(router, 'emails', { organizationId }, { status: 'failed' }))
+  switch (item.kind) {
+    case 'domain_failed':
+      return route('Check DNS records', item.targetId ? routeIfExists(router, 'domain', { organizationId, domainId: item.targetId }) : null)
+    case 'domain_pending':
+      return route('View DNS records', item.targetId ? routeIfExists(router, 'domain', { organizationId, domainId: item.targetId }) : null)
+    case 'events_not_connected':
+      return route('Turn on tracking', routeIfExists(router, 'organization-settings-provider', { organizationId }))
+    case 'events_error':
+      return route('Open provider', routeIfExists(router, 'organization-settings-provider', { organizationId }))
+    case 'bounce_rate':
+    case 'complaint_rate':
+      return route('Review suppressions', routeIfExists(router, 'suppressions', { organizationId }))
+    case 'emails_sandbox':
+      return [...external('Request production access'), ...failedEmails()]
+    case 'emails_suppressed':
+      return [...route('Review suppressions', routeIfExists(router, 'suppressions', { organizationId })), ...failedEmails()]
+    case 'emails_failed':
+      return failedEmails()
+    case 'sending_paused':
+      return external('Open the SES console')
+    case 'quota_near':
+      return external('Request a higher quota')
+    case 'webhook_failing':
+      return route('Open webhook', item.targetId ? routeIfExists(router, 'webhook', { organizationId, webhookId: item.targetId }) : null)
   }
-  return to ? { to, label: labels[item.kind] } : null
 }
 </script>
 
@@ -63,11 +66,23 @@ function fixFor(item: AttentionItem): { to: RouteLocationRaw; label: string } | 
           </p>
           <p class="m-0 mt-0.5 text-sm leading-relaxed text-slate-600">{{ item.detail }}</p>
         </div>
-        <RouterLink
-          v-if="fixFor(item)"
-          :to="fixFor(item)!.to"
-          class="inline-flex shrink-0 items-center gap-1 self-center rounded-sm px-2 py-1 text-sm font-medium text-slate-800 hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-atlair-950"
-        >{{ fixFor(item)!.label }}<NavArrowRight aria-hidden="true" class="size-3.5" /></RouterLink>
+        <div v-if="actionsFor(item).length" class="flex min-w-0 flex-wrap items-center gap-1 self-center max-sm:basis-full max-sm:pl-6 sm:shrink-0">
+          <template v-for="(action, index) in actionsFor(item)" :key="action.label">
+            <a
+              v-if="'href' in action"
+              :href="action.href"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-sm font-medium focus-visible:outline-2 focus-visible:outline-atlair-950"
+              :class="index === 0 ? 'bg-atlair-950 text-canvas hover:bg-atlair-900' : 'text-slate-800 hover:bg-white/70'"
+            >{{ action.label }}<OpenNewWindow aria-hidden="true" class="size-3.5" /><span class="sr-only"> (opens AWS)</span></a>
+            <RouterLink
+              v-else
+              :to="action.to"
+              class="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-sm font-medium text-slate-800 hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-atlair-950"
+            >{{ action.label }}<NavArrowRight aria-hidden="true" class="size-3.5" /></RouterLink>
+          </template>
+        </div>
       </li>
     </ul>
   </section>

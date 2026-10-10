@@ -31,6 +31,11 @@ export type SuppressionReason = (typeof suppressionReasons)[number];
 export const webhookDeliveryStatuses = ["pending", "delivered", "failed"] as const;
 export type WebhookDeliveryStatus = (typeof webhookDeliveryStatuses)[number];
 
+export interface Actor {
+  userId: string | null;
+  apiKeyId: string | null;
+}
+
 export type EmailHeaders = Record<string, string>;
 
 export interface EmailTag {

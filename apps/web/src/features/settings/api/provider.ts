@@ -1,10 +1,11 @@
+import type { Authorship } from '../../../lib/api/actors'
 import { ApiError, apiFetch } from '../../../lib/api/client'
 
-export type ProviderAccount = { sendingEnabled: boolean; sandbox: boolean; dailyQuota: number; maxSendRate: number }
+export type ProviderAccount = { sendingEnabled: boolean; sandbox: boolean; dailyQuota: number; maxSendRate: number; sentLast24h: number }
 
 export type EventsStatus = 'disabled' | 'pending_confirmation' | 'confirmed' | 'failing'
 
-export type ProviderConnection = {
+export type ProviderConnection = Authorship & {
   id: string
   type: 'ses'
   region: string
@@ -19,8 +20,6 @@ export type ProviderConnection = {
     backlog: number | null
     deadLetters: number | null
   }
-  createdAt: string
-  updatedAt: string
   account?: ProviderAccount
 }
 

@@ -4,6 +4,7 @@ import { suppressionReasons, type SuppressionReason } from "../types.ts";
 import { createdAt, id, isOneOf } from "./_columns.ts";
 import { emails } from "./emails.ts";
 import { organizationId } from "./organizations.ts";
+import { createdByColumns } from "./_authorship.ts";
 
 export const suppressedAddresses = pgTable(
   "suppressed_addresses",
@@ -13,6 +14,7 @@ export const suppressedAddresses = pgTable(
     address: text("address").notNull(),
     reason: text("reason").$type<SuppressionReason>().notNull(),
     sourceEmailId: uuid("source_email_id").references(() => emails.id, { onDelete: "set null" }),
+    ...createdByColumns(),
     createdAt: createdAt(),
   },
   (t) => [

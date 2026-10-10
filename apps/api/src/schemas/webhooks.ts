@@ -2,6 +2,7 @@ import { Type } from "typebox";
 import { webhookDeliveryStatuses, webhookEventTypes } from "@atlair-mail/db";
 import { maxPublicUrlLength } from "@atlair-mail/core";
 import { DateTime, Uuid } from "../lib/schemas.ts";
+import { AuthorshipSchema } from "./authors.ts";
 import { defaultSecretOverlapHours, maxDeliveryPageSize, maxSecretOverlapHours } from "../services/webhooks.ts";
 
 const Url = Type.String({
@@ -26,8 +27,7 @@ export const WebhookSchema = Type.Object({
   previousSecretExpiresAt: Type.Union([DateTime(), Type.Null()], {
     description: "While set, requests are also signed with the previous secret, until this time.",
   }),
-  createdAt: DateTime(),
-  updatedAt: DateTime(),
+  ...AuthorshipSchema,
 });
 
 export const CreatedWebhookSchema = Type.Object({

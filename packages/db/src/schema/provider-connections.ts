@@ -9,6 +9,7 @@ import {
 } from "@atlair-mail/providers/types";
 import { encryptionKeyVersion, id, isOneOf, timestamps, timestamptz } from "./_columns.ts";
 import { organizationId } from "./organizations.ts";
+import { authorship } from "./_authorship.ts";
 
 export const providerConnections = pgTable(
   "provider_connections",
@@ -30,6 +31,7 @@ export const providerConnections = pgTable(
     eventsBacklog: integer("events_backlog"),
     eventsDeadLetters: integer("events_dead_letters"),
     eventsStatsAt: timestamptz("events_stats_at"),
+    ...authorship(),
     ...timestamps,
   },
   (t) => [

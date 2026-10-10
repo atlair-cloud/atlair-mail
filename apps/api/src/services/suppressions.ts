@@ -4,10 +4,12 @@ import {
   findSuppression,
   listSuppressions,
   suppressAddresses,
+  type Actor,
   type Database,
 } from "@atlair-mail/db";
 import type { SuppressedAddress } from "@atlair-mail/db/schema";
 import { parseMailbox } from "@atlair-mail/core";
+import { loadCreators } from "../lib/authors.ts";
 
 export const InvalidSuppressionAddressError = createError(
   "ATL_INVALID_ADDRESS",
@@ -39,6 +41,11 @@ const normalizeAddress = (input: string) => {
 };
 
 export function createSuppressionService(db: Database) {
+  const withCreators = async (rows: SuppressedAddress[]) => {
+    const creators = await loadCreators(db, rows);
+    return rows.map((row) => ({ ...toPublicSuppression(row), ...creators(row) }));
+  };
+
   return {
     async list(organizationId: string, query: SuppressionQuery) {
       const limit = query.limit ?? defaultSuppressionPageSize;
@@ -47,15 +54,15 @@ export function createSuppressionService(db: Database) {
         after: query.after,
         limit: limit + 1,
       });
-      return { data: rows.slice(0, limit).map(toPublicSuppression), hasMore: rows.length > limit };
+      return { data: await withCreators(rows.slice(0, limit)), hasMore: rows.length > limit };
     },
 
-    async add(organizationId: string, input: string) {
+    async add(organizationId: string, input: string, actor: Actor) {
       const address = normalizeAddress(input);
-      const [created] = await suppressAddresses(db, organizationId, [{ address, reason: "manual" }], null);
-      if (created) return { suppression: toPublicSuppression(created), created: true };
-      const existing = await findSuppression(db, organizationId, address);
-      return { suppression: toPublicSuppression(existing!), created: false };
+      const [created] = await suppressAddresses(db, organizationId, [{ address, reason: "manual" }], null, actor);
+      const row = created ?? (await findSuppression(db, organizationId, address))!;
+      const [suppression] = await withCreators([row]);
+      return { suppression: suppression!, created: created !== undefined };
     },
 
     remove: (organizationId: string, id: string) => deleteSuppression(db, organizationId, id),

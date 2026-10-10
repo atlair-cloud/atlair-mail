@@ -2,7 +2,8 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import type { Executor } from "../client.ts";
 import { domains, type NewDomain } from "../schema/index.ts";
 import type { DnsRecord } from "@atlair-mail/providers/types";
-import type { DomainStatus } from "../types.ts";
+import type { Actor, DomainStatus } from "../types.ts";
+import { editorColumns } from "./actors.ts";
 
 type DomainKey = { id: string; organizationId: string };
 
@@ -40,11 +41,13 @@ export async function updateDomainVerification(
   db: Executor,
   key: DomainKey,
   values: { status: DomainStatus; dnsRecords?: DnsRecord[] },
+  actor: Actor,
 ) {
   const [domain] = await db
     .update(domains)
     .set({
       ...values,
+      ...editorColumns(actor),
       lastCheckedAt: sql`now()`,
       verifiedAt:
         values.status === "verified" ? sql`coalesce(${domains.verifiedAt}, now())` : null,

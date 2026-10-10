@@ -218,6 +218,7 @@ export function createEmailService(db: Database) {
         subject: email.subject,
         scheduledAt: email.sendAt,
         sentAt: email.sentAt,
+        lastError: email.status === "failed" ? email.lastError : null,
         createdAt: email.createdAt,
       }));
     },

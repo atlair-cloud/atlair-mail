@@ -45,7 +45,7 @@ describe("/service/web/provider", { skip: !hasDatabase }, () => {
     assert.equal(res.statusCode, 200);
     assert.ok(!res.body.includes(secretAccessKey));
     assert.equal(res.json().type, "ses");
-    assert.deepEqual(res.json().account, { sendingEnabled: true, sandbox: true, dailyQuota: 200, maxSendRate: 1 });
+    assert.deepEqual(res.json().account, { sendingEnabled: true, sandbox: true, dailyQuota: 200, maxSendRate: 1, sentLast24h: 0 });
     assert.ok(row);
     assert.equal(row.provider, "ses");
     assert.deepEqual(row.settings, { region: "us-east-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE" });
@@ -72,11 +72,13 @@ describe("/service/web/provider", { skip: !hasDatabase }, () => {
     assert.deepEqual(Object.keys(got.json()).sort(), [
       "accessKeyId",
       "createdAt",
+      "createdBy",
       "events",
       "id",
       "region",
       "type",
       "updatedAt",
+      "updatedBy",
     ]);
     assert.ok(!got.body.includes(secretAccessKey));
     assert.equal(removed.statusCode, 204);

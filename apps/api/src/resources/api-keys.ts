@@ -27,7 +27,7 @@ export const apiKeyRoutes =
         },
       },
       async (request, reply) => {
-        const key = await fastify.services.apiKeys.create(scope.organizationId(request), request.body);
+        const key = await fastify.services.apiKeys.create(scope.organizationId(request), request.body, scope.actor(request));
         return reply.code(201).send(key);
       },
     );
@@ -62,7 +62,7 @@ export const apiKeyRoutes =
         },
       },
       async (request) => {
-        const key = await fastify.services.apiKeys.revoke(scope.organizationId(request), request.params.id);
+        const key = await fastify.services.apiKeys.revoke(scope.organizationId(request), request.params.id, scope.actor(request));
         if (!key) throw fastify.httpErrors.notFound("API key not found");
         return key;
       },

@@ -357,6 +357,7 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
           sandbox: account.ProductionAccessEnabled !== true,
           dailyQuota: account.SendQuota?.Max24HourSend ?? 0,
           maxSendRate: account.SendQuota?.MaxSendRate ?? 0,
+          sentLast24h: account.SendQuota?.SentLast24Hours ?? 0,
         };
       }),
 

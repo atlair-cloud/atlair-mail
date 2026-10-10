@@ -3,6 +3,7 @@ import { check, index, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 import { apiKeyPermissions, type ApiKeyPermission } from "../types.ts";
 import { id, isOneOf, timestamps, timestamptz } from "./_columns.ts";
 import { organizationId } from "./organizations.ts";
+import { authorship } from "./_authorship.ts";
 
 export const apiKeys = pgTable(
   "api_keys",
@@ -15,6 +16,7 @@ export const apiKeys = pgTable(
     tokenPrefix: text("token_prefix").notNull(),
     lastUsedAt: timestamptz("last_used_at"),
     revokedAt: timestamptz("revoked_at"),
+    ...authorship(),
     ...timestamps,
   },
   (t) => [

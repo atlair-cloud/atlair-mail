@@ -164,6 +164,7 @@ describe("email list", { skip: !hasDatabase }, () => {
       "createdAt",
       "from",
       "id",
+      "lastError",
       "scheduledAt",
       "sentAt",
       "status",

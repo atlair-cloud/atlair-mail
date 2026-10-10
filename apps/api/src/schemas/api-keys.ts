@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import { apiKeyPermissions } from "@atlair-mail/db";
 import { DateTime, Uuid } from "../lib/schemas.ts";
+import { AuthorshipSchema } from "./authors.ts";
 
 export const ApiKeyPermissionSchema = Type.Enum(apiKeyPermissions);
 
@@ -11,7 +12,7 @@ export const ApiKeySchema = Type.Object({
   tokenPrefix: Type.String(),
   lastUsedAt: Type.Union([DateTime(), Type.Null()]),
   revokedAt: Type.Union([DateTime(), Type.Null()]),
-  createdAt: DateTime(),
+  ...AuthorshipSchema,
 });
 
 export const CreatedApiKeySchema = Type.Object({
@@ -20,7 +21,7 @@ export const CreatedApiKeySchema = Type.Object({
   permission: ApiKeyPermissionSchema,
   token: Type.String({ description: "Shown only once. Store it now; it cannot be retrieved later." }),
   tokenPrefix: Type.String(),
-  createdAt: DateTime(),
+  ...AuthorshipSchema,
 });
 
 export const CurrentApiKeySchema = Type.Object({

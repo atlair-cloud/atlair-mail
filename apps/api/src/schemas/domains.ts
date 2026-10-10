@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import { domainStatuses } from "@atlair-mail/db";
 import { DateTime, Uuid } from "../lib/schemas.ts";
+import { AuthorshipSchema } from "./authors.ts";
 
 export const DnsRecordSchema = Type.Object({
   record: Type.Enum(["DKIM", "MAIL_FROM", "SPF", "DMARC"]),
@@ -25,7 +26,7 @@ export const DomainSchema = Type.Object({
   records: Type.Array(DnsRecordSchema),
   lastCheckedAt: Type.Union([DateTime(), Type.Null()]),
   verifiedAt: Type.Union([DateTime(), Type.Null()]),
-  createdAt: DateTime(),
+  ...AuthorshipSchema,
 });
 
 export const CreateDomainSchema = Type.Object({

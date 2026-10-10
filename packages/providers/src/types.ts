@@ -49,6 +49,7 @@ export interface ProviderAccount {
   sandbox: boolean;
   dailyQuota: number;
   maxSendRate: number;
+  sentLast24h: number;
 }
 
 export interface EmailTag {

@@ -32,6 +32,7 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
       sandbox: false,
       dailyQuota: 50_000,
       maxSendRate: 14,
+      sentLast24h: 0,
     }),
     createDomain: pendingDomain,
     getDomain: pendingDomain,

@@ -7,6 +7,7 @@ import { computed, ref, useTemplateRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChoiceCards from '../../../components/shared/ChoiceCards.vue'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
+import FactsRow from '../../../components/shared/FactsRow.vue'
 import FramedModal from '../../../components/shared/FramedModal.vue'
 import LoadErrorCard from '../../../components/shared/LoadErrorCard.vue'
 import ModalActions from '../../../components/shared/ModalActions.vue'
@@ -15,6 +16,7 @@ import PageHeader from '../../../components/shared/PageHeader.vue'
 import SecretReveal from '../../../components/shared/SecretReveal.vue'
 import SettingsCard from '../../../components/shared/SettingsCard.vue'
 import { ApiError } from '../../../lib/api/client'
+import { authorshipFacts } from '../../../lib/format/authorship'
 import { formatRelativeTime } from '../../../lib/format/relative-time'
 import { useCurrentOrganization } from '../../organizations'
 import {
@@ -164,6 +166,8 @@ function deliveryDetail(delivery: WebhookDelivery) {
           <UButton v-else type="button" size="md" :loading="update.isPending.value" class="h-9 rounded-sm bg-atlair-950 px-3.5 text-sm font-medium text-canvas hover:bg-atlair-900" @click="update.mutate({ enabled: true })">Enable</UButton>
         </template>
       </PageHeader>
+
+      <FactsRow class="mt-6" :facts="authorshipFacts(webhook)" />
 
       <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section aria-labelledby="deliveries-heading" class="min-w-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200">

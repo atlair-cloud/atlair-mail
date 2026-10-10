@@ -6,6 +6,7 @@ import { v7 as uuidv7 } from "uuid";
 import { createDb, type Database, type Db } from "../src/client.ts";
 import { hasPgErrorCode, pgErrorCodes } from "../src/errors.ts";
 import { migrate } from "../src/migrate.ts";
+import type { Actor } from "../src/types.ts";
 import {
   apiKeys,
   auditLogs,
@@ -22,6 +23,8 @@ import {
 } from "../src/schema/index.ts";
 
 export const databaseUrl = process.env.DATABASE_URL;
+
+export const system: Actor = { userId: null, apiKeyId: null };
 
 export const UNIQUE_VIOLATION = pgErrorCodes.uniqueViolation;
 export const FOREIGN_KEY_VIOLATION = pgErrorCodes.foreignKeyViolation;

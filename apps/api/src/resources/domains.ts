@@ -26,7 +26,7 @@ export const domainRoutes =
         },
       },
       async (request, reply) => {
-        const domain = await fastify.services.domains.create(scope.organizationId(request), request.body);
+        const domain = await fastify.services.domains.create(scope.organizationId(request), request.body, scope.actor(request));
         return reply.code(201).send(domain);
       },
     );
@@ -79,7 +79,7 @@ export const domainRoutes =
         },
       },
       async (request) => {
-        const domain = await fastify.services.domains.verify(scope.organizationId(request), request.params.id);
+        const domain = await fastify.services.domains.verify(scope.organizationId(request), request.params.id, scope.actor(request));
         if (!domain) throw fastify.httpErrors.notFound("Domain not found");
         return domain;
       },

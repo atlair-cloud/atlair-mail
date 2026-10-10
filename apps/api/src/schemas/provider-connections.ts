@@ -1,5 +1,6 @@
 import { Type } from "typebox";
 import { DateTime, Uuid } from "../lib/schemas.ts";
+import { AuthorshipSchema } from "./authors.ts";
 
 const SesInputSchema = Type.Object(
   {
@@ -72,8 +73,7 @@ const SesConnectionSchema = Type.Object(
     region: Type.String(),
     accessKeyId: Type.String(),
     events: ProviderEventsSchema,
-    createdAt: DateTime(),
-    updatedAt: DateTime(),
+    ...AuthorshipSchema,
   },
   { title: "Amazon SES" },
 );
@@ -87,6 +87,7 @@ export const ProviderAccountSchema = Type.Object({
   }),
   dailyQuota: Type.Number(),
   maxSendRate: Type.Number({ description: "Messages per second." }),
+  sentLast24h: Type.Number({ description: "Emails the provider sent in the last 24 hours, counted against dailyQuota." }),
 });
 
 export const SavedProviderConnectionSchema = Type.Union([

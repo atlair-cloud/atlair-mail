@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    ActorName: typeof import('./src/components/shared/ActorName.vue')['default']
     AtlairSwitch: typeof import('./src/components/shared/AtlairSwitch.vue')['default']
     AvatarFace: typeof import('./src/components/shared/AvatarFace.vue')['default']
     ChoiceCards: typeof import('./src/components/shared/ChoiceCards.vue')['default']
@@ -19,6 +20,7 @@ declare module 'vue' {
     CrashScreen: typeof import('./src/components/shared/CrashScreen.vue')['default']
     EmptyState: typeof import('./src/components/shared/EmptyState.vue')['default']
     ErrorBoundary: typeof import('./src/components/shared/ErrorBoundary.vue')['default']
+    FactsRow: typeof import('./src/components/shared/FactsRow.vue')['default']
     FlickeringGrid: typeof import('./src/components/shared/FlickeringGrid.vue')['default']
     FramedModal: typeof import('./src/components/shared/FramedModal.vue')['default']
     GridBackdrop: typeof import('./src/components/shared/GridBackdrop.vue')['default']
@@ -43,6 +45,7 @@ declare module 'vue' {
     UModal: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Modal.vue')['default']
     USelect: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Select.vue')['default']
     USwitch: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Switch.vue')['default']
+    UTextarea: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
     UTooltip: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
   }
 }

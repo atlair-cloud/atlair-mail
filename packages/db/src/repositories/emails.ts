@@ -47,6 +47,7 @@ export async function listEmails(db: Executor, page: EmailPage) {
       subject: emails.subject,
       sendAt: emails.sendAt,
       sentAt: emails.sentAt,
+      lastError: emails.lastError,
       createdAt: emails.createdAt,
     })
     .from(emails)

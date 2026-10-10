@@ -11,7 +11,7 @@ const url = "/service/web/api-keys";
 describe("/service/web/api-keys lifecycle", { skip: !hasDatabase }, () => {
   it("shows the token once at creation and stores only its hash", async () => {
     const app = await buildTestApp();
-    const { token } = await createTestKey(app);
+    const { token, keyId } = await createTestKey(app);
 
     const created = await app.inject({
       method: "POST",
@@ -25,6 +25,8 @@ describe("/service/web/api-keys lifecycle", { skip: !hasDatabase }, () => {
 
     assert.equal(created.statusCode, 201);
     assert.equal(body.permission, "sending_access");
+    assert.deepEqual(body.createdBy, { type: "api_key", id: keyId, name: "Test" });
+    assert.deepEqual(body.updatedBy, body.createdBy);
     assert.ok(body.token.startsWith(body.tokenPrefix));
     assert.equal(row?.tokenHash, hashApiKeyToken(body.token));
     assert.ok(!Object.values(row!).includes(body.token));
@@ -32,12 +34,15 @@ describe("/service/web/api-keys lifecycle", { skip: !hasDatabase }, () => {
     for (const key of listed.json().data) {
       assert.deepEqual(Object.keys(key).sort(), [
         "createdAt",
+        "createdBy",
         "id",
         "lastUsedAt",
         "name",
         "permission",
         "revokedAt",
         "tokenPrefix",
+        "updatedAt",
+        "updatedBy",
       ]);
     }
   });

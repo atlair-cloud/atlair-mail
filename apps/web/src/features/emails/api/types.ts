@@ -10,6 +10,7 @@ export type EmailSummary = {
   subject: string
   scheduledAt: string
   sentAt: string | null
+  lastError: string | null
   createdAt: string
 }
 
@@ -22,7 +23,6 @@ export type Email = EmailSummary & {
   headers: Record<string, string>
   tags: { name: string; value: string }[]
   providerMessageId: string | null
-  lastError: string | null
   updatedAt: string
 }
 

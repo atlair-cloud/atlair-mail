@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { BellNotification, Computer, Globe, Group, HalfMoon, Home, Journal, Key, Mail, Prohibition, Search, Settings, SunLight, CloudSync } from '@iconoir/vue'
+import { BellNotification, Book, CloudSync, Computer, Globe, Group, HalfMoon, Home, Journal, Key, Mail, Prohibition, Search, Send, Settings, SunLight } from '@iconoir/vue'
 import type { CommandPaletteGroup, CommandPaletteItem } from '@nuxt/ui'
 import { onKeyStroke } from '@vueuse/core'
 import { computed, ref } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { setThemePreference } from '../../app/panel-theme'
 import { useCurrentOrganization } from '../../features/organizations'
+import { API_DOCS_URL } from '../../lib/links'
 
 const router = useRouter()
 const { organizationId, organization, organizations } = useCurrentOrganization()
@@ -44,6 +45,8 @@ const groups = computed<CommandPaletteGroup<CommandPaletteItem>[]>(() => {
         { id: 'api-keys', label: 'API keys', kind: 'icon', glyph: Key, onSelect: () => go({ name: 'api-keys', params: org }) },
         { id: 'webhooks', label: 'Webhooks', kind: 'icon', glyph: BellNotification, onSelect: () => go({ name: 'webhooks', params: org }) },
         { id: 'suppressions', label: 'Suppressions', kind: 'icon', glyph: Prohibition, onSelect: () => go({ name: 'suppressions', params: org }) },
+        { id: 'playground', label: 'Playground: send a test email', kind: 'icon', glyph: Send, onSelect: () => go({ name: 'playground', params: org }) },
+        { id: 'api-docs', label: 'API docs (opens the docs site)', kind: 'icon', glyph: Book, onSelect: () => run(() => window.open(API_DOCS_URL, '_blank', 'noopener')) },
         { id: 'settings', label: 'Settings', kind: 'icon', glyph: Settings, onSelect: () => go({ name: 'organization-settings', params: org }) },
         { id: 'provider', label: 'Provider (Amazon SES)', kind: 'icon', glyph: CloudSync, onSelect: () => go({ name: 'organization-settings-provider', params: org }) },
         { id: 'members', label: 'Members', kind: 'icon', glyph: Group, onSelect: () => go({ name: 'organization-settings-members', params: org }) },

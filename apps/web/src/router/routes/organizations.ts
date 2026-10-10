@@ -96,6 +96,12 @@ export const organizationRoutes: RouteRecordRaw[] = [
             meta: { title: 'Suppressions', depth: 3, section: 'suppressions' },
           },
           {
+            path: 'playground',
+            name: 'playground',
+            component: () => import('../../features/developers/pages/PlaygroundPage.vue'),
+            meta: { title: 'Playground', depth: 3, section: 'playground' },
+          },
+          {
             path: 'settings',
             component: () => import('../../features/settings/pages/SettingsLayout.vue'),
             meta: { depth: 3, section: 'settings' },

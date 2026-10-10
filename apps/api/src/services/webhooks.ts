@@ -3,12 +3,15 @@ import createError from "@fastify/error";
 import {
   countWebhookEndpoints,
   createWebhookEndpoint,
+  creatorColumns,
   deleteWebhookEndpoint,
+  editorColumns,
   findWebhookEndpoint,
   listWebhookDeliveries,
   listWebhookEndpoints,
   rotateWebhookSigningSecret,
   updateWebhookEndpoint,
+  type Actor,
   type Database,
   type EmailEventType,
   type WebhookEndpointChanges,
@@ -16,6 +19,7 @@ import {
 } from "@atlair-mail/db";
 import type { WebhookEndpoint } from "@atlair-mail/db/schema";
 import { normalizeWebhookUrl, type CredentialsCipher } from "@atlair-mail/core";
+import { loadAuthors, withAuthors } from "../lib/authors.ts";
 
 export const InvalidWebhookUrlError = createError(
   "ATL_INVALID_WEBHOOK_URL",
@@ -92,8 +96,13 @@ const toPublicDelivery = (delivery: DeliveryRow) => ({
 });
 
 export function createWebhookService(db: Database, cipher: CredentialsCipher) {
+  const withEndpointAuthors = async (endpoint: WebhookEndpoint) => ({
+    ...toPublicEndpoint(endpoint),
+    ...(await withAuthors(db, endpoint)),
+  });
+
   return {
-    async create(organizationId: string, input: WebhookInput) {
+    async create(organizationId: string, input: WebhookInput, actor: Actor) {
       const url = validUrl(input.url);
       if ((await countWebhookEndpoints(db, organizationId)) >= maxWebhookEndpoints) {
         throw new WebhookLimitError(maxWebhookEndpoints);
@@ -106,20 +115,24 @@ export function createWebhookService(db: Database, cipher: CredentialsCipher) {
         eventTypes: toEmailEventTypes(input.eventTypes),
         signingSecretEncrypted: ciphertext,
         encryptionKeyVersion: keyVersion,
+        ...creatorColumns(actor),
+        ...editorColumns(actor),
       });
-      return { ...toPublicEndpoint(endpoint), signingSecret };
+      return { ...(await withEndpointAuthors(endpoint)), signingSecret };
     },
 
     async list(organizationId: string) {
-      return { data: (await listWebhookEndpoints(db, organizationId)).map(toPublicEndpoint) };
+      const endpoints = await listWebhookEndpoints(db, organizationId);
+      const authors = await loadAuthors(db, endpoints);
+      return { data: endpoints.map((endpoint) => ({ ...toPublicEndpoint(endpoint), ...authors(endpoint) })) };
     },
 
     async get(organizationId: string, id: string) {
       const endpoint = await findWebhookEndpoint(db, organizationId, id);
-      return endpoint && toPublicEndpoint(endpoint);
+      return endpoint && withEndpointAuthors(endpoint);
     },
 
-    async update(organizationId: string, id: string, input: WebhookUpdate) {
+    async update(organizationId: string, id: string, input: WebhookUpdate, actor: Actor) {
       const changes: WebhookEndpointChanges = {
         ...(input.url !== undefined && { url: validUrl(input.url) }),
         ...(input.eventTypes !== undefined && { eventTypes: toEmailEventTypes(input.eventTypes) }),
@@ -128,19 +141,22 @@ export function createWebhookService(db: Database, cipher: CredentialsCipher) {
       const endpoint =
         Object.keys(changes).length === 0
           ? await findWebhookEndpoint(db, organizationId, id)
-          : await updateWebhookEndpoint(db, organizationId, id, changes);
-      return endpoint && toPublicEndpoint(endpoint);
+          : await updateWebhookEndpoint(db, organizationId, id, changes, actor);
+      return endpoint && withEndpointAuthors(endpoint);
     },
 
-    async rotateSecret(organizationId: string, id: string, rotation: SecretRotation) {
+    async rotateSecret(organizationId: string, id: string, rotation: SecretRotation, actor: Actor) {
       const signingSecret = generateSigningSecret();
       const { ciphertext, keyVersion } = await cipher.encrypt(signingSecret, organizationId);
-      const endpoint = await rotateWebhookSigningSecret(db, organizationId, id, {
-        ciphertext,
-        keyVersion,
-        overlapSeconds: (rotation.overlapHours ?? defaultSecretOverlapHours) * 3_600,
-      });
-      return endpoint && { ...toPublicEndpoint(endpoint), signingSecret };
+      const overlapSeconds = (rotation.overlapHours ?? defaultSecretOverlapHours) * 3_600;
+      const endpoint = await rotateWebhookSigningSecret(
+        db,
+        organizationId,
+        id,
+        { ciphertext, keyVersion, overlapSeconds },
+        actor,
+      );
+      return endpoint && { ...(await withEndpointAuthors(endpoint)), signingSecret };
     },
 
     remove: (organizationId: string, id: string) => deleteWebhookEndpoint(db, organizationId, id),

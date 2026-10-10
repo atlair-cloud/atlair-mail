@@ -29,7 +29,7 @@ export const providerRoutes =
           response: { 200: SavedProviderConnectionSchema },
         },
       },
-      async (request) => fastify.services.providerConnections.save(scope.organizationId(request), request.body),
+      async (request) => fastify.services.providerConnections.save(scope.organizationId(request), request.body, scope.actor(request)),
     );
 
     fastify.post(
@@ -47,7 +47,7 @@ export const providerRoutes =
           response: { 200: ProviderConnectionSchema },
         },
       },
-      async (request) => fastify.services.providerConnections.setUpEvents(scope.organizationId(request), request.body),
+      async (request) => fastify.services.providerConnections.setUpEvents(scope.organizationId(request), request.body, scope.actor(request)),
     );
 
     fastify.post(
