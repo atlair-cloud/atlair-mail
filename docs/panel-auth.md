@@ -2,8 +2,9 @@
 
 Status: implemented (ATL-100).
 
-atlair-mail is self-hosted, so the panel needs its own login: a self-hoster must be able to sign in
-with nothing else running. People sign in with Better Auth; apps keep using API keys; the operator
+atlair-mail is self-hosted, so the panel has its own login rather than depending on another Atlair
+service. People sign in with GitHub or Google through Better Auth (a self-hoster registers their own
+OAuth app); there is no email and password sign-in. Apps keep using API keys; the operator
 keeps `ROOT_API_KEY`. The organization, member, and role model copies `atlair-platform`
 (`identity.organization/role/member/audit_log`, `seed.ts` `ROLE_PERMISSIONS`, `resolveMembership` +
 `requirePermission`), written in this repo's conventions.
@@ -23,7 +24,7 @@ credential, so `/service/web` needs no CSRF handling.
 |---|---|---|
 | `/service/web` | Public API: apps, servers, the SDK | API key, or `ROOT_API_KEY` on root routes |
 | `/service/panel` | Protected API: signed-in people using the panel | Better Auth session cookie |
-| `/api/auth` | Better Auth (sign-up, sign-in, sessions, OAuth callbacks) | none / session |
+| `/api/auth` | Better Auth (GitHub and Google sign-in, sessions, OAuth callbacks) | none / session |
 | `/webhooks/provider-events/:connectionId`, `/health`, `/docs` | unchanged | |
 
 `/service/web` replaces `/v1`. Nothing published depends on `/v1` yet (`packages/sdk` is still
@@ -88,8 +89,8 @@ not registered and atlair-mail stays API-only, as today.
 | `BETTER_AUTH_SECRET` | empty (off) | 32+ chars, `openssl rand -base64 32`. Rejected if shorter. |
 | `BETTER_AUTH_URL` | required when on | Public API origin, `https://` in production. |
 | `PANEL_ORIGINS` | required when on | Comma-separated origins, e.g. `https://mail.example.com`. Feeds CORS, Better Auth `trustedOrigins`, and the panel origin check. |
-| `AUTH_SIGNUP` | `open` | `open` or `disabled`. `disabled` blocks email sign-up and implicit OAuth sign-up. |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | empty | Provider is offered only when both are set. |
+| `AUTH_SIGNUP` | `open` | `open` or `disabled`. `disabled` stops a provider sign-in from creating a new account. |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | empty | Provider is offered only when both are set. At least one of GitHub or Google is required when the panel is on. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | empty | Same. |
 
 The panel UI is a separate static deploy, so it must be same-site with the API (for example
@@ -182,13 +183,13 @@ Better Auth config:
 
 | Setting | Value | Why |
 |---|---|---|
-| `emailAndPassword` | `enabled`, `minPasswordLength: 12`, `disableSignUp` from `AUTH_SIGNUP` | Works with no external services. |
+| `emailAndPassword` | `enabled: false` | Sign-in is GitHub or Google only; no passwords to store, reset or rate limit. |
 | `requireEmailVerification` | `false` | No auth email channel yet; see "Later". |
-| `socialProviders` | GitHub / Google when configured, `disableImplicitSignUp` from `AUTH_SIGNUP` | |
+| `socialProviders` | GitHub / Google when configured, `disableSignUp` from `AUTH_SIGNUP` | The OAuth app's callback URL is `${BETTER_AUTH_URL}/api/auth/callback/<provider>`. |
 | `trustedOrigins` | `PANEL_ORIGINS` | Validates `origin`, `callbackURL`, `errorCallbackURL`. |
 | `session` | `expiresIn` 7d, `updateAge` 1d, `freshAge` 1h, no `cookieCache` | Revocation and membership changes apply on the next request. |
-| `rateLimit` | `enabled: true`, `storage: "database"`, `/sign-in/email` 5/60s, `/sign-up/email` 3/60s | Shared across API instances. |
-| `account` | `encryptOAuthTokens: true` | Tokens are not used, but never stored in plain text. |
+| `rateLimit` | `enabled: true`, `storage: "database"`, `/sign-in/social` 10/60s | Shared across API instances. |
+| `account` | `encryptOAuthTokens: true`, `accountLinking` with `trustedProviders: ["github", "google"]` | Tokens are not used, but never stored in plain text. GitHub and Google sign-ins with the same verified email land on one user. |
 | `advanced` | `cookiePrefix: "atlair-mail"`, `useSecureCookies` when `BETTER_AUTH_URL` is https, `ipAddress.ipAddressHeaders: ["x-atlair-mail-client-ip"]` (set from Fastify's `request.ip`; client values are overwritten), `generateId: uuidv7` | CSRF and origin checks stay on (defaults). |
 | `databaseHooks` | `user.create.after` → `user.signed_up`, `session.create.after` → `session.created`, `account.create.after` → `account.linked` | Written to `audit_logs` with `organization_id` null. |
 
@@ -251,12 +252,14 @@ operator can hand an org to its owner. `role: "owner"` is accepted only while th
 
 ## Tests
 
-`buildTestApp({ BETTER_AUTH_SECRET, BETTER_AUTH_URL, PANEL_ORIGINS })`, `app.inject()`, sign-up
-through `/api/auth/sign-up/email`, cookie carried between requests.
+`buildPanelTestApp()` (panel env with a fake GitHub app), `app.inject()`. `signUp()` creates users and
+sessions through a test-only Better Auth instance with the `testUtils` plugin (same options, database
+and secret); the app itself never loads that plugin.
 
 - Auth off when `BETTER_AUTH_SECRET` is empty: `/api/auth/*` and `/service/panel/*` are 404.
-- `AUTH_SIGNUP=disabled` rejects sign-up.
-- Sign-in rate limit returns 429 after 5 attempts.
+- Email and password endpoints are off; GitHub sign-in starts with the right redirect URL.
+- `AUTH_SIGNUP=disabled` sets `disableSignUp` on providers.
+- Social sign-in rate limit returns 429 after 10 attempts.
 - Unauthenticated `/service/panel` is 401; a session cookie on `/service/web` is 401.
 - Cross-tenant: a user of org A gets 404 on every org B route.
 - Permissions: `member` gets 403 on writes; `admin` can't delete the org; owner protections hold.
@@ -293,6 +296,6 @@ resource route" in `fastify-plugins.md`.
 
 ## Out of scope
 
-- The panel UI (`apps/panel`).
-- Later: auth emails (verification, password reset, invitations) through atlair-mail's own sending;
+- The panel UI: it lives in `apps/web`, see [web.md](web.md).
+- Later: auth emails (invitations) through atlair-mail's own sending;
   generic OIDC for "Sign in with Atlair" and other identity providers; 2FA.

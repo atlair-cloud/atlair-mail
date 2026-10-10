@@ -30,11 +30,26 @@ describe("panel auth disabled", { skip: !hasDatabase }, () => {
     await assert.rejects(buildTestApp({ ...panelEnv, BETTER_AUTH_URL: "" }), /BETTER_AUTH_URL is required/);
     await assert.rejects(buildTestApp({ ...panelEnv, PANEL_ORIGINS: "" }), /PANEL_ORIGINS is required/);
     await assert.rejects(buildTestApp({ ...panelEnv, PANEL_ORIGINS: "https://panel.example.test/app" }), /must be an origin/);
+    await assert.rejects(buildTestApp({ ...panelEnv, GITHUB_CLIENT_ID: "", GITHUB_CLIENT_SECRET: "" }), /GITHUB_CLIENT_ID/);
   });
 });
 
+function socialSignIn(
+  app: Awaited<ReturnType<typeof buildPanelTestApp>>,
+  provider: string,
+  opts: { remoteAddress?: string; headers?: Record<string, string>; callbackURL?: string } = {},
+) {
+  return app.inject({
+    method: "POST",
+    url: "/api/auth/sign-in/social",
+    remoteAddress: opts.remoteAddress ?? randomIp(),
+    headers: { origin: PANEL_ORIGIN, ...opts.headers },
+    payload: { provider, callbackURL: opts.callbackURL ?? `${PANEL_ORIGIN}/auth/callback` },
+  });
+}
+
 describe("panel auth", { skip: !hasDatabase }, () => {
-  it("signs a user up and returns them from /service/panel/me", async () => {
+  it("returns the signed-in user from /service/panel/me", async () => {
     const app = await buildPanelTestApp();
     const user = await signUp(app, "Ada");
 
@@ -46,22 +61,13 @@ describe("panel auth", { skip: !hasDatabase }, () => {
     assert.equal(res.headers["api-version"], "1");
   });
 
-  it("sets an httpOnly, SameSite=Lax session cookie", async () => {
+  it("uses an httpOnly, SameSite=Lax session cookie", async () => {
     const app = await buildPanelTestApp();
+    const { authCookies } = await app.auth!.$context;
 
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/auth/sign-up/email",
-      remoteAddress: randomIp(),
-      headers: { origin: PANEL_ORIGIN },
-      payload: { name: "Cookie", email: `cookie-${Date.now()}@example.test`, password: "correct horse battery staple" },
-    });
-    const session = res.cookies.find((cookie) => cookie.name === "atlair-mail.session_token");
-    await app.db.delete(schema.users).where(eq(schema.users.id, res.json().user.id));
-
-    assert.ok(session);
-    assert.equal(session.httpOnly, true);
-    assert.equal(session.sameSite, "Lax");
+    assert.equal(authCookies.sessionToken.name, "atlair-mail.session_token");
+    assert.equal(authCookies.sessionToken.attributes.httpOnly, true);
+    assert.equal(authCookies.sessionToken.attributes.sameSite, "lax");
   });
 
   it("records the sign-up in the audit log", async () => {
@@ -76,18 +82,49 @@ describe("panel auth", { skip: !hasDatabase }, () => {
     assert.equal(rows.length, 1);
   });
 
-  it("rejects short passwords", async () => {
+  it("does not offer email and password sign-in", async () => {
     const app = await buildPanelTestApp();
+    const email = `password-${Date.now()}@example.test`;
 
-    const res = await app.inject({
+    const signUpRes = await app.inject({
       method: "POST",
       url: "/api/auth/sign-up/email",
       remoteAddress: randomIp(),
       headers: { origin: PANEL_ORIGIN },
-      payload: { name: "Short", email: `short-${Date.now()}@example.test`, password: "short" },
+      payload: { name: "Password", email, password: "correct horse battery staple" },
     });
+    const signInRes = await app.inject({
+      method: "POST",
+      url: "/api/auth/sign-in/email",
+      remoteAddress: randomIp(),
+      headers: { origin: PANEL_ORIGIN },
+      payload: { email, password: "correct horse battery staple" },
+    });
+    const users = await app.db.select().from(schema.users).where(eq(schema.users.email, email));
 
-    assert.equal(res.statusCode, 400);
+    assert.ok(signUpRes.statusCode >= 400);
+    assert.ok(signInRes.statusCode >= 400);
+    assert.equal(users.length, 0);
+  });
+
+  it("starts GitHub sign-in and returns to the panel", async () => {
+    const app = await buildPanelTestApp();
+
+    const res = await socialSignIn(app, "github");
+
+    assert.equal(res.statusCode, 200);
+    const url = new URL(res.json().url);
+    assert.equal(url.origin + url.pathname, "https://github.com/login/oauth/authorize");
+    assert.equal(url.searchParams.get("client_id"), "github-test-client");
+    assert.equal(url.searchParams.get("redirect_uri"), "http://localhost/api/auth/callback/github");
+  });
+
+  it("does not offer a provider without credentials", async () => {
+    const app = await buildPanelTestApp();
+
+    const res = await socialSignIn(app, "google");
+
+    assert.ok(res.statusCode >= 400);
   });
 
   it("answers 401 on panel routes without a session", async () => {
@@ -116,77 +153,36 @@ describe("panel auth", { skip: !hasDatabase }, () => {
     assert.equal(res.statusCode, 401);
   });
 
-  it("blocks sign-up when AUTH_SIGNUP is disabled", async () => {
-    const app = await buildPanelTestApp({ AUTH_SIGNUP: "disabled" });
-    const email = `closed-${Date.now()}@example.test`;
+  it("blocks new accounts from providers when AUTH_SIGNUP is disabled", async () => {
+    const open = await buildPanelTestApp();
+    const closed = await buildPanelTestApp({ AUTH_SIGNUP: "disabled" });
 
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/auth/sign-up/email",
-      remoteAddress: randomIp(),
-      headers: { origin: PANEL_ORIGIN },
-      payload: { name: "Closed", email, password: "correct horse battery staple" },
-    });
-    const users = await app.db.select().from(schema.users).where(eq(schema.users.email, email));
-
-    assert.ok(res.statusCode >= 400);
-    assert.equal(users.length, 0);
+    assert.equal(open.auth!.options.socialProviders.github?.disableSignUp, false);
+    assert.equal(closed.auth!.options.socialProviders.github?.disableSignUp, true);
   });
 
-  it("rate limits sign-in to 5 attempts a minute per client", async () => {
+  it("rate limits social sign-in to 10 attempts a minute per client", async () => {
     const app = await buildPanelTestApp();
-    const user = await signUp(app);
     const remoteAddress = randomIp();
 
-    const attempt = () =>
-      app.inject({
-        method: "POST",
-        url: "/api/auth/sign-in/email",
-        remoteAddress,
-        headers: { origin: PANEL_ORIGIN },
-        payload: { email: user.email, password: "wrong password entirely" },
-      });
     const statuses = [];
-    for (let i = 0; i < 6; i++) statuses.push((await attempt()).statusCode);
+    for (let i = 0; i < 11; i++) statuses.push((await socialSignIn(app, "github", { remoteAddress })).statusCode);
 
-    assert.deepEqual(statuses.slice(0, 5), [401, 401, 401, 401, 401]);
-    assert.equal(statuses[5], 429);
+    assert.deepEqual(statuses.slice(0, 10), Array(10).fill(200));
+    assert.equal(statuses[10], 429);
   });
 
   it("keys the rate limit on the connection, not a client-supplied header", async () => {
     const app = await buildPanelTestApp();
-    const user = await signUp(app);
     const remoteAddress = randomIp();
 
     const statuses = [];
-    for (let i = 0; i < 6; i++) {
-      const res = await app.inject({
-        method: "POST",
-        url: "/api/auth/sign-in/email",
-        remoteAddress,
-        headers: { origin: PANEL_ORIGIN, "x-atlair-mail-client-ip": randomIp() },
-        payload: { email: user.email, password: "wrong password entirely" },
-      });
+    for (let i = 0; i < 11; i++) {
+      const res = await socialSignIn(app, "github", { remoteAddress, headers: { "x-atlair-mail-client-ip": randomIp() } });
       statuses.push(res.statusCode);
     }
 
-    assert.equal(statuses[5], 429);
-  });
-
-  it("signs in with the right password", async () => {
-    const app = await buildPanelTestApp();
-    const user = await signUp(app);
-
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/auth/sign-in/email",
-      remoteAddress: randomIp(),
-      headers: { origin: PANEL_ORIGIN },
-      payload: { email: user.email, password: user.password },
-    });
-
-    assert.equal(res.statusCode, 200);
-    assert.ok(res.cookies.some((cookie) => cookie.name === "atlair-mail.session_token"));
+    assert.equal(statuses[10], 429);
   });
 
   it("ends panel access on sign-out", async () => {
@@ -203,15 +199,12 @@ describe("panel auth", { skip: !hasDatabase }, () => {
   it("rejects auth requests from an untrusted origin", async () => {
     const app = await buildPanelTestApp();
 
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/auth/sign-up/email",
-      remoteAddress: randomIp(),
-      headers: { origin: "https://evil.example" },
-      payload: { name: "Evil", email: `evil-${Date.now()}@example.test`, password: "correct horse battery staple" },
-    });
+    const user = await signUp(app);
+    const fromEvil = await socialSignIn(app, "github", { headers: { cookie: user.headers.cookie, origin: "https://evil.example" } });
+    const toEvil = await socialSignIn(app, "github", { callbackURL: "https://evil.example/auth/callback" });
 
-    assert.equal(res.statusCode, 403);
+    assert.equal(fromEvil.statusCode, 403);
+    assert.equal(toEvil.statusCode, 403);
   });
 
   it("answers CORS preflights only for the panel origin", async () => {
