@@ -37,7 +37,7 @@ const stepButton =
   <nav aria-label="Pagination" class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs text-slate-500">
     <span class="font-mono tabular-nums" aria-live="polite">{{ range }}</span>
     <div class="flex items-center gap-5">
-      <label class="hidden items-center gap-2 sm:flex">
+      <label v-if="pageSizes.length > 1" class="hidden items-center gap-2 sm:flex">
         Rows per page
         <USelect
           v-model="pageSizeModel"

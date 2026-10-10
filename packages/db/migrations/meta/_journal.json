@@ -134,6 +134,13 @@
       "when": 1791625755343,
       "tag": "0018_email_creator",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791627176296,
+      "tag": "0019_email_templates",
+      "breakpoints": true
     }
   ]
 }

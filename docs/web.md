@@ -58,6 +58,9 @@ src/
 | `/organizations/:organizationId` | Overview |
 | `/organizations/:organizationId/emails` | Emails: status filter (`?status=`), newest first, "Load older emails" |
 | `/organizations/:organizationId/emails/:emailId` | One email: what happened, content, addresses, IDs |
+| `/organizations/:organizationId/templates` | Templates table (search, pages); "New template" opens a starter gallery |
+| `/organizations/:organizationId/templates/new?starter=` | Editor with a starter (blank, welcome, password-reset, receipt); nothing is saved until "Create template" |
+| `/organizations/:organizationId/templates/:templateId` | Template editor (see below) |
 | `/organizations/:organizationId/domains` | Table of domains with status, region and when each was added; add a domain |
 | `/organizations/:organizationId/domains/:domainId` | Status, added/region/last checked, DNS records grouped as DKIM, SPF and DMARC, "Check now", remove |
 | `/organizations/:organizationId/api-keys` | Active and revoked keys; create (shown once) and revoke |
@@ -128,6 +131,32 @@ detail pages (for example Emails / subject), and ⌘K jumps to sections and comm
   complained, opened, clicked, or failed with the worker's error code explained. While waiting it
   shows the next step and polls every 4 seconds.
 - HTML bodies render in an `<iframe sandbox="">` with `srcdoc`, so scripts and forms never run.
+
+## Template editor
+
+`features/templates` is a Notion-style editor on TipTap (`@tiptap/vue-3`, MIT). Its schema mirrors the
+server's (`packages/templates`), so anything you can build can be saved; see
+[templates.md](templates.md) for the document format.
+
+- **Writing**: `/` opens the block menu (`editor/menus/suggestions.ts`, filtered to blocks allowed at
+  the cursor), `{{` inserts or creates a variable, selecting text shows the formatting bubble (⌘B, ⌘I,
+  ⌘U, ⌘K for links, alignment). ⌘D duplicates a block, ⌘S saves.
+- **Blocks**: button, image, spacer and the variable chip are Vue node views (`editor/nodes`); columns
+  and sections are plain nodes. The ⋮⋮ handle (`BlockHandle.vue`) is ours, not TipTap's drag-handle
+  extension, which pulls in the Yjs collaboration packages: it drags with ProseMirror's own
+  `view.dragging`, and clicking it opens Turn into, Duplicate and Delete.
+- **What you see is the email**: the canvas uses the template's own colors, font and width with fixed
+  hex values, so it doesn't change with the panel's dark mode. Desktop/Phone switches the canvas to
+  375px and stacks columns; the same choice carries into Preview.
+- **Sidebar**: Block (settings for the selected block, or its section and columns), Style (theme) and
+  Variables (type, fallback, sample value, usage count; undeclared ones are declared as required text
+  on save).
+- **Preview** renders through `POST /templates/preview` in a sandboxed iframe, with HTML or text and
+  desktop or phone. Unfinished blocks (a button without a link, an image without an address) are
+  stand-ins in preview, and saving lists them in plain words instead of sending a request that would
+  fail.
+- **Saving** sends the loaded `version`; a 409 shows "Load their version" or "Save mine over it".
+  Leaving with unsaved changes asks first. Members get a read-only editor.
 
 ## Patterns
 

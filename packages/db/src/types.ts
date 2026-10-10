@@ -86,6 +86,10 @@ export const permissions = [
   "suppression:view",
   "suppression:create",
   "suppression:delete",
+  "template:view",
+  "template:create",
+  "template:update",
+  "template:delete",
 ] as const;
 export type Permission = (typeof permissions)[number];
 

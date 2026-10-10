@@ -36,6 +36,7 @@ atlair-mail/
 │   ├── core/             credentials cipher (AWS Encryption SDK)
 │   ├── db/               Drizzle schema, migrations, repositories
 │   ├── providers/        EmailProvider interface, createProvider, SES adapter
+│   ├── templates/        email template documents rendered to HTML and text (MJML)
 │   └── sdk/              (planned) npm client: mail.emails.send({...})
 ├── infra/terraform/      (planned) SES identities, configuration sets, SNS, IAM
 └── docs/                 design notes
@@ -61,6 +62,7 @@ routes/        HTTP routes, loaded automatically; folders become URL prefixes
 - [docs/fastify-plugins.md](docs/fastify-plugins.md): each Fastify plugin we use and how to use it.
 - [docs/design-patterns.md](docs/design-patterns.md): the design patterns this codebase uses and where.
 - [docs/webhooks.md](docs/webhooks.md): customer webhooks, payloads, signature verification and retries.
+- [docs/templates.md](docs/templates.md): email templates, variables, blocks, and sending by template.
 - [docs/panel-auth.md](docs/panel-auth.md): panel sign-in, organizations, members, roles, and API versioning.
 - [docs/web.md](docs/web.md): the panel UI in `apps/web`.
 - [AGENTS.md](AGENTS.md): conventions for AI coding agents.

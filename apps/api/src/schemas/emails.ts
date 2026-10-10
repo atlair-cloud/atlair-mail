@@ -3,6 +3,7 @@ import { emailEventTypes, emailStatuses } from "@atlair-mail/db";
 import { bounceKinds } from "@atlair-mail/providers/types";
 import { DateTime, Uuid } from "../lib/schemas.ts";
 import { CreatedBySchema } from "./authors.ts";
+import { EmailTemplateSchema } from "./templates.ts";
 import { maxRecipients } from "../services/emails.ts";
 
 const noControlCharacters = "^[^\\u0000-\\u001f\\u007f]*$";
@@ -24,7 +25,15 @@ export const SendEmailSchema = Type.Object({
   cc: Type.Optional(AddressList(maxRecipients)),
   bcc: Type.Optional(AddressList(maxRecipients)),
   replyTo: Type.Optional(AddressList(10)),
-  subject: Type.String({ minLength: 1, maxLength: 998, pattern: noControlCharacters }),
+  subject: Type.Optional(
+    Type.String({
+      minLength: 1,
+      maxLength: 998,
+      pattern: noControlCharacters,
+      description: "Required unless you send a template; with one, it replaces the template's subject.",
+    }),
+  ),
+  template: Type.Optional(EmailTemplateSchema),
   html: Type.Optional(Type.String({ minLength: 1, maxLength: 4_000_000 })),
   text: Type.Optional(Type.String({ minLength: 1, maxLength: 1_000_000 })),
   headers: Type.Optional(
@@ -83,6 +92,9 @@ export const EmailSchema = Type.Object({
   }),
   scheduledAt: DateTime(),
   sentAt: Type.Union([DateTime(), Type.Null()]),
+  template: Type.Union([Type.Object({ id: Uuid(), version: Type.Integer() }), Type.Null()], {
+    description: "The template it was sent with, and that template's version at the time.",
+  }),
   ...CreatedBySchema,
   updatedAt: DateTime(),
 });

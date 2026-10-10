@@ -15,6 +15,7 @@ import {
 import type { Email } from "@atlair-mail/db/schema";
 import { formatMailbox, parseMailbox, type Mailbox } from "@atlair-mail/core";
 import { loadCreators } from "../lib/authors.ts";
+import type { TemplateService } from "./templates.ts";
 import { findInvalidHeaderNames, findReservedHeaders } from "../lib/email-headers.ts";
 
 export const InvalidAddressError = createError(
@@ -27,7 +28,13 @@ export const TooManyRecipientsError = createError(
   "An email can have at most %d recipients across to, cc and bcc",
   400,
 );
-export const BodyRequiredError = createError("ATL_BODY_REQUIRED", "Provide html, text, or both", 400);
+export const BodyRequiredError = createError("ATL_BODY_REQUIRED", "Provide html, text, or both, or a template", 400);
+export const SubjectRequiredError = createError("ATL_SUBJECT_REQUIRED", "Provide a subject, or a template", 400);
+export const TemplateWithBodyError = createError(
+  "ATL_TEMPLATE_WITH_BODY",
+  "Send either a template or html and text, not both",
+  400,
+);
 export const ReservedHeaderError = createError(
   "ATL_RESERVED_HEADER",
   "These headers are set by atlair-mail and cannot be overridden: %s",
@@ -68,7 +75,8 @@ export interface SendEmailInput {
   cc?: string[];
   bcc?: string[];
   replyTo?: string[];
-  subject: string;
+  subject?: string;
+  template?: { id: string; variables?: Record<string, string | number> };
   html?: string;
   text?: string;
   headers?: Record<string, string>;
@@ -123,6 +131,7 @@ export const toPublicEmail = (email: Email) => ({
   lastError: email.lastError,
   scheduledAt: email.sendAt,
   sentAt: email.sentAt,
+  template: email.templateId && email.templateVersion ? { id: email.templateId, version: email.templateVersion } : null,
   createdAt: email.createdAt,
   updatedAt: email.updatedAt,
 });
@@ -132,7 +141,7 @@ const creatorColumnsOf = (email: { createdBy: string | null; apiKeyId: string | 
   createdByApiKeyId: email.apiKeyId,
 });
 
-export function createEmailService(db: Database) {
+export function createEmailService(db: Database, templates: TemplateService) {
   async function replay(organizationId: string, idempotencyKey: string, fingerprint: string) {
     const existing = await findEmailByIdempotencyKey(db, organizationId, idempotencyKey);
     if (!existing) return null;
@@ -149,7 +158,12 @@ export function createEmailService(db: Database) {
       const replyTo = parseList("replyTo", input.replyTo);
       const recipients: Mailbox[] = [...to, ...cc, ...bcc];
       if (recipients.length > maxRecipients) throw new TooManyRecipientsError(maxRecipients);
-      if (input.html === undefined && input.text === undefined) throw new BodyRequiredError();
+      if (input.template) {
+        if (input.html !== undefined || input.text !== undefined) throw new TemplateWithBodyError();
+      } else {
+        if (input.subject === undefined) throw new SubjectRequiredError();
+        if (input.html === undefined && input.text === undefined) throw new BodyRequiredError();
+      }
       const headers = input.headers ?? {};
       if (findInvalidHeaderNames(headers).length > 0) throw new InvalidHeaderNameError();
       const reserved = findReservedHeaders(headers);
@@ -162,7 +176,8 @@ export function createEmailService(db: Database) {
         cc: cc.map(formatMailbox),
         bcc: bcc.map(formatMailbox),
         replyTo: replyTo.map(formatMailbox),
-        subject: input.subject,
+        subject: input.subject ?? null,
+        template: input.template ? { id: input.template.id, variables: input.template.variables ?? {} } : null,
         html: input.html ?? null,
         text: input.text ?? null,
         headers,
@@ -178,6 +193,10 @@ export function createEmailService(db: Database) {
         const existing = await replay(organizationId, idempotencyKey, fingerprint);
         if (existing) return { email: existing, replayed: true };
       }
+
+      const fromTemplate = normalized.template
+        ? await templates.renderForSend(organizationId, normalized.template.id, normalized.template.variables)
+        : null;
 
       const domain = await findDomainByName(db, organizationId, from.domain);
       if (!domain || domain.status !== "verified") throw new DomainNotVerifiedError(from.domain);
@@ -199,9 +218,11 @@ export function createEmailService(db: Database) {
         ccAddresses: normalized.cc,
         bccAddresses: normalized.bcc,
         replyToAddresses: normalized.replyTo,
-        subject: normalized.subject,
-        htmlBody: normalized.html,
-        textBody: normalized.text,
+        templateId: fromTemplate?.template.id ?? null,
+        templateVersion: fromTemplate?.template.version ?? null,
+        subject: normalized.subject ?? fromTemplate!.rendered.subject,
+        htmlBody: fromTemplate?.rendered.html ?? normalized.html,
+        textBody: fromTemplate?.rendered.text ?? normalized.text,
         headers: normalized.headers,
         tags: normalized.tags,
         sendAt,
