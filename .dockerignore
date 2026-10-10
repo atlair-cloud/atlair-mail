@@ -1,0 +1,13 @@
+**/node_modules
+**/.turbo
+**/build
+**/.env
+**/.env.*
+.git
+.gitignore
+.dockerignore
+**/.DS_Store
+docs
+infra
+**/*.md
+.github
