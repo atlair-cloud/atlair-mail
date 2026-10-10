@@ -1,0 +1,130 @@
+
+@keyframes vt-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes vt-shift-out-forward {
+  to { transform: translateX(-8px); }
+}
+
+@keyframes vt-shift-in-forward {
+  from { transform: translateX(8px); }
+}
+
+@keyframes vt-shift-out-back {
+  to { transform: translateX(8px); }
+}
+
+@keyframes vt-shift-in-back {
+  from { transform: translateX(-8px); }
+}
+
+::view-transition-group(*) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+::view-transition-old(root) {
+  animation:
+    120ms cubic-bezier(0.4, 0, 1, 1) both vt-fade-out,
+    280ms cubic-bezier(0.2, 0, 0, 1) both vt-shift-out-forward;
+}
+
+::view-transition-new(root) {
+  animation:
+    200ms cubic-bezier(0, 0, 0.2, 1) 80ms both vt-fade-in,
+    280ms cubic-bezier(0.2, 0, 0, 1) both vt-shift-in-forward;
+}
+
+html[data-nav-direction='back']::view-transition-old(root) {
+  animation-name: vt-fade-out, vt-shift-out-back;
+}
+
+html[data-nav-direction='back']::view-transition-new(root) {
+  animation-name: vt-fade-in, vt-shift-in-back;
+}
+
+::view-transition-group(page-backdrop),
+::view-transition-old(page-backdrop),
+::view-transition-new(page-backdrop),
+::view-transition-group(app-shell),
+::view-transition-old(app-shell),
+::view-transition-new(app-shell),
+::view-transition-group(app-panel),
+::view-transition-group(app-topbar),
+::view-transition-old(app-topbar),
+::view-transition-new(app-topbar),
+::view-transition-group(settings-header),
+::view-transition-old(settings-header),
+::view-transition-new(settings-header) {
+  animation: none;
+}
+
+::view-transition-old(page-backdrop),
+::view-transition-old(app-shell),
+::view-transition-old(app-topbar),
+::view-transition-old(settings-header) {
+  display: none;
+}
+
+::view-transition-old(app-panel) {
+  animation: 180ms linear both vt-fade-out;
+}
+
+::view-transition-new(app-panel) {
+  animation: 180ms linear both vt-fade-in;
+}
+
+::view-transition-new(app-shell):only-child {
+  animation: 200ms cubic-bezier(0, 0, 0.2, 1) 80ms both vt-fade-in;
+}
+
+::view-transition-old(app-shell):only-child {
+  display: block;
+  animation: 120ms cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
+}
+
+::view-transition-new(settings-header):only-child {
+  animation: 200ms cubic-bezier(0, 0, 0.2, 1) 80ms both vt-fade-in;
+}
+
+::view-transition-old(settings-header):only-child {
+  display: block;
+  animation: 120ms cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
+}
+
+::view-transition-new(app-topbar):only-child {
+  animation: 200ms cubic-bezier(0, 0, 0.2, 1) 80ms both vt-fade-in;
+}
+
+::view-transition-old(app-topbar):only-child {
+  display: block;
+  animation: 120ms cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
+}
+
+::view-transition-old(page-footer) {
+  animation: 120ms cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
+}
+
+::view-transition-new(page-footer) {
+  animation: 200ms cubic-bezier(0, 0, 0.2, 1) 80ms both vt-fade-in;
+}
+
+::view-transition-old(page-footer),
+::view-transition-new(page-footer) {
+  height: 100%;
+  object-fit: none;
+  object-position: top;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

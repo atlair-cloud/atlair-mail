@@ -1,10 +1,13 @@
 import { after } from "node:test";
 import { and, eq, isNull } from "drizzle-orm";
+import { betterAuth } from "better-auth";
+import { testUtils } from "better-auth/plugins";
 import { v7 as uuidv7 } from "uuid";
 import { migrate, schema, type ApiKeyPermission } from "@atlair-mail/db";
 import { buildApp, type BuildAppOptions } from "../src/app.ts";
 import type { Env } from "../src/env.ts";
 import { generateApiKeyToken } from "../src/lib/api-key-tokens.ts";
+import { authOptions, panelAuthSettings } from "../src/lib/auth.ts";
 
 export const hasDatabase = Boolean(process.env.DATABASE_URL);
 
@@ -93,6 +96,8 @@ export const panelEnv = {
   BETTER_AUTH_SECRET: "panel-test-secret-that-is-long-enough-for-better-auth",
   BETTER_AUTH_URL: "http://localhost",
   PANEL_ORIGINS: PANEL_ORIGIN,
+  GITHUB_CLIENT_ID: "github-test-client",
+  GITHUB_CLIENT_SECRET: "github-test-secret",
 } satisfies Partial<Env>;
 
 export async function buildPanelTestApp(env: Partial<Env> = {}) {
@@ -115,25 +120,29 @@ export function deleteUserAfterTest(app: TestApp, userId: string) {
 export interface PanelUser {
   id: string;
   email: string;
-  password: string;
   headers: { cookie: string; origin: string };
 }
 
+function createTestAuth(app: TestApp) {
+  const settings = panelAuthSettings(app.config);
+  if (!settings) throw new Error("panel auth is off; use buildPanelTestApp");
+  return betterAuth({ ...authOptions(app.db, settings, app.log), plugins: [testUtils()] });
+}
+
+const testAuths = new WeakMap<TestApp, ReturnType<typeof createTestAuth>>();
+
 export async function signUp(app: TestApp, name = "Panel User"): Promise<PanelUser> {
-  const email = `${uuidv7()}@example.test`;
-  const password = "correct horse battery staple";
-  const res = await app.inject({
-    method: "POST",
-    url: "/api/auth/sign-up/email",
-    remoteAddress: randomIp(),
-    headers: { origin: PANEL_ORIGIN },
-    payload: { name, email, password },
-  });
-  if (res.statusCode !== 200) throw new Error(`sign-up failed: ${res.statusCode} ${res.body}`);
-  const id = res.json().user.id as string;
-  deleteUserAfterTest(app, id);
-  const cookie = res.cookies.map((c) => `${c.name}=${c.value}`).join("; ");
-  return { id, email, password, headers: { cookie, origin: PANEL_ORIGIN } };
+  let testAuth = testAuths.get(app);
+  if (!testAuth) {
+    testAuth = createTestAuth(app);
+    testAuths.set(app, testAuth);
+  }
+  const { test } = await testAuth.$context;
+  const user = await test.saveUser(test.createUser({ name, email: `${uuidv7()}@example.test`, emailVerified: true }));
+  deleteUserAfterTest(app, user.id);
+  const { cookies } = await test.login({ userId: user.id });
+  const cookie = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+  return { id: user.id, email: user.email, headers: { cookie, origin: PANEL_ORIGIN } };
 }
 
 export async function createPanelOrganization(app: TestApp, owner: PanelUser, name = "Acme") {

@@ -15,6 +15,7 @@ export DATABASE_URL=postgres://atlair:atlair@localhost:5432/atlair_mail
 pnpm --filter @atlair-mail/db migrate
 pnpm --filter @atlair-mail/api dev   # node --watch, http://localhost:8080/health
 pnpm --filter @atlair-mail/worker dev  # sends queued emails, see docs/worker.md
+pnpm --filter @atlair-mail/web dev   # panel UI, http://localhost:5173, see docs/web.md
 docker compose exec postgres createdb -U atlair atlair_mail_test   # once
 DATABASE_URL=postgres://atlair:atlair@localhost:5432/atlair_mail_test pnpm test   # one package at a time
 pnpm typecheck                       # tsc, no emit
@@ -58,6 +59,12 @@ Before adding a route, plugin, env var, or health check, read
 - HTTP errors come from `@fastify/sensible` (`fastify.httpErrors.notFound(...)`).
 - Tests use `buildTestApp()` from `tests/helpers.ts` and `app.inject()`; a real port is never opened.
 - Reach for an official `@fastify/*` plugin (https://fastify.dev/ecosystem/) before writing your own.
+
+## Web app
+
+`apps/web` is a Vue 3 + Vite app, not Node-native: it is bundled, imports have no extension, and
+`vue-tsc` typechecks it with TypeScript 5. Read [docs/web.md](docs/web.md) before adding a page.
+It follows atlair-ui's style (single quotes, no semicolons) and keeps the no-comments rule.
 
 ## Architecture
 

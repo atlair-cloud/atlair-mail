@@ -1,5 +1,5 @@
 import type { FastifyBaseLogger } from "fastify";
-import { betterAuth } from "better-auth";
+import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { v7 as uuidv7 } from "uuid";
 import { insertAuditLog, schema, type Database } from "@atlair-mail/db";
@@ -35,21 +35,26 @@ export function panelAuthSettings(env: Env): PanelAuthSettings | null {
   for (const origin of panelOrigins) {
     if (new URL(origin).origin !== origin) throw new Error(`PANEL_ORIGINS entry ${origin} must be an origin like https://mail.example.com`);
   }
+  const github = provider(env.GITHUB_CLIENT_ID, env.GITHUB_CLIENT_SECRET);
+  const google = provider(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET);
+  if (!github && !google) {
+    throw new Error("Set GITHUB_CLIENT_ID/GITHUB_CLIENT_SECRET or GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET to sign in to the panel");
+  }
   return {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     panelOrigins,
     signupDisabled: env.AUTH_SIGNUP === "disabled",
-    github: provider(env.GITHUB_CLIENT_ID, env.GITHUB_CLIENT_SECRET),
-    google: provider(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET),
+    github,
+    google,
   };
 }
 
-export function createAuth(db: Database, settings: PanelAuthSettings, log: FastifyBaseLogger) {
+export function authOptions(db: Database, settings: PanelAuthSettings, log: FastifyBaseLogger) {
   const audit = (action: string, entityType: string, entityId: string, actorUserId: string) =>
     insertAuditLog(db, { action, entityType, entityId, actorUserId });
 
-  return betterAuth({
+  return {
     appName: "atlair-mail",
     logger: {
       log: (level, message, ...args) => log[level]({ args }, message),
@@ -68,11 +73,7 @@ export function createAuth(db: Database, settings: PanelAuthSettings, log: Fasti
         rateLimit: schema.rateLimits,
       },
     }),
-    emailAndPassword: {
-      enabled: true,
-      minPasswordLength: 12,
-      disableSignUp: settings.signupDisabled,
-    },
+    emailAndPassword: { enabled: false },
     socialProviders: {
       ...(settings.github && { github: { ...settings.github, disableSignUp: settings.signupDisabled } }),
       ...(settings.google && { google: { ...settings.google, disableSignUp: settings.signupDisabled } }),
@@ -88,12 +89,12 @@ export function createAuth(db: Database, settings: PanelAuthSettings, log: Fasti
       window: 60,
       max: 100,
       customRules: {
-        "/sign-in/email": { window: 60, max: 5 },
-        "/sign-up/email": { window: 60, max: 3 },
+        "/sign-in/social": { window: 60, max: 10 },
       },
     },
     account: {
       encryptOAuthTokens: true,
+      accountLinking: { enabled: true, trustedProviders: ["github", "google"] },
     },
     advanced: {
       cookiePrefix: "atlair-mail",
@@ -112,7 +113,11 @@ export function createAuth(db: Database, settings: PanelAuthSettings, log: Fasti
         create: { after: async (account) => audit("account.linked", "account", account.id, account.userId) },
       },
     },
-  });
+  } satisfies BetterAuthOptions;
+}
+
+export function createAuth(db: Database, settings: PanelAuthSettings, log: FastifyBaseLogger) {
+  return betterAuth(authOptions(db, settings, log));
 }
 
 export type Auth = ReturnType<typeof createAuth>;
