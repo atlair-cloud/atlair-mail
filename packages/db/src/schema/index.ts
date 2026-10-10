@@ -1,4 +1,6 @@
+export * from "./auth.ts";
 export * from "./organizations.ts";
+export * from "./members.ts";
 export * from "./api-keys.ts";
 export * from "./provider-connections.ts";
 export * from "./domains.ts";

@@ -52,3 +52,37 @@ export interface WebhookPayload {
     subject: string;
   };
 }
+
+export const permissions = [
+  "organization:view",
+  "organization:update",
+  "organization:delete",
+  "member:view",
+  "member:invite",
+  "member:remove",
+  "member:update_role",
+  "audit:view",
+  "api_key:view",
+  "api_key:create",
+  "api_key:revoke",
+  "provider:view",
+  "provider:connect",
+  "provider:disconnect",
+  "domain:view",
+  "domain:create",
+  "domain:verify",
+  "domain:delete",
+  "email:view",
+  "email:send",
+  "webhook:view",
+  "webhook:create",
+  "webhook:update",
+  "webhook:delete",
+  "suppression:view",
+  "suppression:create",
+  "suppression:delete",
+] as const;
+export type Permission = (typeof permissions)[number];
+
+export const roleNames = ["owner", "admin", "member"] as const;
+export type RoleName = (typeof roleNames)[number];
