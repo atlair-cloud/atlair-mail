@@ -16,13 +16,13 @@ All routes need a `full_access` key and only see the caller's organization.
 
 | Route | |
 | --- | --- |
-| `POST /v1/webhooks` `{ "url", "eventTypes": ["email.delivered", …] }` | Creates an endpoint: `201` with `signingSecret` (`whsec_…`). **The secret is shown only here.** |
-| `GET /v1/webhooks` | Lists endpoints. |
-| `GET /v1/webhooks/:id` | One endpoint, without the secret. |
-| `PATCH /v1/webhooks/:id` `{ "url"?, "eventTypes"?, "enabled"? }` | Changes the endpoint. Disabled endpoints receive nothing. |
-| `POST /v1/webhooks/:id/rotate-secret` `{ "overlapHours"? }` | Returns a new `signingSecret`, shown only here. The previous secret keeps signing until `previousSecretExpiresAt`. See [Rotating the secret](#rotating-the-secret). |
-| `DELETE /v1/webhooks/:id` | `204`. Also deletes its delivery history and anything still pending. |
-| `GET /v1/webhooks/:id/deliveries` | Newest first: status, attempts, next attempt, last response code and error. `limit` (1–100) and `before` (last `id` of the previous page). |
+| `POST /service/web/webhooks` `{ "url", "eventTypes": ["email.delivered", …] }` | Creates an endpoint: `201` with `signingSecret` (`whsec_…`). **The secret is shown only here.** |
+| `GET /service/web/webhooks` | Lists endpoints. |
+| `GET /service/web/webhooks/:id` | One endpoint, without the secret. |
+| `PATCH /service/web/webhooks/:id` `{ "url"?, "eventTypes"?, "enabled"? }` | Changes the endpoint. Disabled endpoints receive nothing. |
+| `POST /service/web/webhooks/:id/rotate-secret` `{ "overlapHours"? }` | Returns a new `signingSecret`, shown only here. The previous secret keeps signing until `previousSecretExpiresAt`. See [Rotating the secret](#rotating-the-secret). |
+| `DELETE /service/web/webhooks/:id` | `204`. Also deletes its delivery history and anything still pending. |
+| `GET /service/web/webhooks/:id/deliveries` | Newest first: status, attempts, next attempt, last response code and error. `limit` (1–100) and `before` (last `id` of the previous page). |
 
 At most 20 endpoints per organization (`409 ATL_WEBHOOK_LIMIT`).
 
@@ -115,7 +115,7 @@ const event = wh.verify(rawBody, {
 ## Rotating the secret
 
 ```bash
-curl -X POST https://mail.example.com/v1/webhooks/$ID/rotate-secret \
+curl -X POST https://mail.example.com/service/web/webhooks/$ID/rotate-secret \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{"overlapHours": 24}'
 ```
 
@@ -133,7 +133,7 @@ curl -X POST https://mail.example.com/v1/webhooks/$ID/rotate-secret \
 | `0` | Revokes the previous secret at once, for a leaked secret. Receivers still on it fail until updated. |
 
 Rotating again during an overlap makes the current secret the previous one; the older secret stops
-signing at once. `GET /v1/webhooks/:id` shows `previousSecretExpiresAt` while an overlap is active
+signing at once. `GET /service/web/webhooks/:id` shows `previousSecretExpiresAt` while an overlap is active
 and never shows a secret. The worker clears expired previous secrets every 5 minutes.
 
 ## Retries

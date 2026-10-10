@@ -19,7 +19,7 @@
     "@atlair-mail/db": "workspace:*",
     "@atlair-mail/providers": "workspace:*",
     "close-with-grace": "^2.5.0",
-    "drizzle-orm": "^0.44.7",
+    "drizzle-orm": "^0.45.2",
     "env-schema": "^8.0.0",
     "pino": "^10.4.0",
     "request-filtering-agent": "^3.2.1",

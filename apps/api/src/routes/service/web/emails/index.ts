@@ -1,15 +1,15 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
-import { Uuid } from "../../../lib/schemas.ts";
+import { Uuid } from "../../../../lib/schemas.ts";
 import {
   EmailEventSchema,
   EmailSchema,
   QueuedEmailSchema,
   SendEmailHeadersSchema,
   SendEmailSchema,
-} from "../../../schemas/emails.ts";
-import { toPublicEmailEvent } from "../../../services/email-events.ts";
-import { toPublicEmail, toQueuedEmail } from "../../../services/emails.ts";
+} from "../../../../schemas/emails.ts";
+import { toPublicEmailEvent } from "../../../../services/email-events.ts";
+import { toPublicEmail, toQueuedEmail } from "../../../../services/emails.ts";
 
 const tags = ["Emails"];
 

@@ -6,7 +6,7 @@ import { GetAccountCommand, SESv2Client, SESv2ServiceException } from "@aws-sdk/
 import { schema } from "@atlair-mail/db";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
-const url = "/v1/provider";
+const url = "/service/web/provider";
 const secretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
 const input = { type: "ses", region: "us-east-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE", secretAccessKey };
 
@@ -34,7 +34,7 @@ beforeEach(() => {
   });
 });
 
-describe("/v1/provider", { skip: !hasDatabase }, () => {
+describe("/service/web/provider", { skip: !hasDatabase }, () => {
   it("checks the credentials with the provider and stores only ciphertext", async () => {
     const app = await buildTestApp();
     const { token, organizationId } = await createTestKey(app);
@@ -133,7 +133,7 @@ describe("/v1/provider", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("/v1/provider failures and isolation", { skip: !hasDatabase }, () => {
+describe("/service/web/provider failures and isolation", { skip: !hasDatabase }, () => {
   it("rejects credentials the provider refuses and stores nothing", async () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app);

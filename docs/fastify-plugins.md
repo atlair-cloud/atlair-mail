@@ -8,21 +8,24 @@ For each one: what it's for, where it's set up, and how to use it when writing c
 | [`@fastify/autoload`](#fastifyautoload) | `src/app.ts` | Adding any route or shared plugin |
 | [`@fastify/type-provider-typebox`](#fastifytype-provider-typebox--typebox) + `typebox` | Each route file | Writing route schemas |
 | [`env-schema`](#env-schema) | `src/env.ts`, `src/config.ts` | Adding an environment variable |
-| [`@fastify/bearer-auth`](#fastifybearer-auth) | `src/routes/v1/autohooks.ts` | Reading the caller's API key |
-| [`@fastify/rate-limit`](#fastifyrate-limit) | `src/routes/v1/autohooks.ts` | Giving a route its own limit |
+| [`@fastify/bearer-auth`](#fastifybearer-auth) | `src/routes/service/web/autohooks.ts` | Reading the caller's API key |
+| [`@fastify/rate-limit`](#fastifyrate-limit) | `src/routes/service/web/autohooks.ts` | Giving a route its own limit |
 | [`@fastify/sensible`](#fastifysensible) | `src/plugins/sensible.ts` | Returning an HTTP error |
 | [`@fastify/under-pressure`](#fastifyunder-pressure) | `src/plugins/under-pressure.ts` | Adding a dependency check to `/health` |
 | [`@fastify/swagger`](#fastifyswagger--scalarfastify-api-reference) + `@scalar/fastify-api-reference` | `src/plugins/swagger.ts` | Documenting a route |
 | [`@fastify/helmet`](#fastifyhelmet) | `src/app.ts` | Rarely |
+| [`@fastify/cors`](#fastifycors) | `src/plugins/auth.ts` | Adding a panel origin |
+| [`better-auth`](#better-auth) | `src/lib/auth.ts`, `src/plugins/auth.ts` | Changing sign-in, sessions or auth rate limits |
+| [API versioning](#api-versioning) | `src/lib/api-version.ts`, `src/plugins/api-version.ts`, `src/routes/service/autohooks.ts` | Adding a version of a route |
 
 ## Registration order
 
 `buildApp()` in `src/app.ts` registers things in this order, and the order matters:
 
-1. `config.ts`: registered explicitly, so everything after it can read `fastify.config`.
+1. `config.ts`: registered explicitly, so everything after it can read `fastify.config`. The `apiVersion` route constraint is passed to `Fastify()` itself, in `routerOptions`.
 2. `helmet`.
 3. `autoload` of `src/plugins/`: loads app-wide plugins alphabetically. `swagger` must come before any route, and it does, because routes load in step 4.
-4. `autoload` of `src/routes/`: loads routes, with folder-scoped `autohooks.ts`.
+4. `autoload` of `src/routes/`: loads routes, with folder-scoped `autohooks.ts`. `routeParams: true` turns `_name` folders into `:name` parameters. `routes/service/panel/` is skipped when `BETTER_AUTH_SECRET` is empty.
 
 ---
 
@@ -34,17 +37,26 @@ Loads every file in a folder as a plugin, so `app.ts` never changes when you add
 
 ```
 src/routes/
-├── v1/
-│   ├── autohooks.ts            hooks for everything under /v1 (auth, rate limit)
-│   └── api-keys/
-│       └── index.ts            fastify.get("/current")  →  GET /v1/api-keys/current
+├── service/
+│   ├── autohooks.ts            Api-Version constraint and response headers for everything below
+│   ├── web/
+│   │   ├── autohooks.ts        hooks for everything under /service/web (API key, rate limit)
+│   │   └── api-keys/
+│   │       └── index.ts        fastify.get("/current")  →  GET /service/web/api-keys/current
+│   └── panel/
+│       ├── autohooks.ts        hooks for everything under /service/panel (origin check, session)
+│       └── organizations/
+│           └── _organizationId/
+│               ├── autohooks.ts    membership and config.permissions check
+│               └── members/index.ts  →  /service/panel/organizations/:organizationId/members
+└── webhooks/provider-events/   public, version-neutral
 ```
 
-- **Folders become URL prefixes.** File names don't, so `v1/emails/index.ts` defining `"/"` serves `/v1/emails`.
+- **Folders become URL prefixes.** File names don't, so `service/web/emails/index.ts` defining `"/"` serves `/service/web/emails`.
 - **`autohooks.ts` applies to its folder and every folder below it** (`cascadeHooks: true`). Hooks you would otherwise add with `addHook` or nested `register` calls go here.
 - **Files in `src/plugins/` must be wrapped in `fastify-plugin`.** Otherwise their decorators stay hidden inside their own scope and routes can't see them.
 
-**Add a route:** create `src/routes/v1/<resource>/index.ts`:
+**Add a route:** create `src/routes/service/web/<resource>/index.ts`:
 
 ```ts
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
@@ -56,7 +68,7 @@ const emailRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
 export default emailRoutes;
 ```
 
-**Add a public route group** (no API key), such as provider events: `src/routes/webhooks/provider-events/index.ts`. It sits outside `v1/`, so the v1 `autohooks.ts` doesn't apply.
+**Add a public route group** (no API key), such as provider events: `src/routes/webhooks/provider-events/index.ts`. It sits outside `service/`, so neither API-key auth nor versioning applies.
 
 **Add an app-wide plugin:** create `src/plugins/<name>.ts` that default-exports `fp(async (fastify) => { ... }, { name: "<name>" })`. If it reads another decorator, declare that with `dependencies: ["config"]`.
 
@@ -94,7 +106,7 @@ fastify.post(
 - **Type route plugins as `FastifyPluginAsyncTypebox`.** With a plain `FastifyPluginAsync`, `request.body` is `unknown`.
 - **Always declare a `response` schema.** Anything not in it is removed from the response, so database columns can't leak out by accident.
 - **Import from `typebox`** (v1), not `@sinclair/typebox` (v0.34, which the platform repo uses). The type provider expects v1.
-- **`Type.Record` does not validate keys.** It emits `patternProperties`, so non-matching keys pass as extra properties (and Fastify's `removeAdditional` would silently drop them). Add `propertyNames: { pattern }` when keys matter, as `/v1/emails` does for header names.
+- **`Type.Record` does not validate keys.** It emits `patternProperties`, so non-matching keys pass as extra properties (and Fastify's `removeAdditional` would silently drop them). Add `propertyNames: { pattern }` when keys matter, as `/service/web/emails` does for header names.
 
 ## `env-schema`
 
@@ -106,13 +118,13 @@ Tests override values without touching `process.env`: `buildApp({ env: { RATE_LI
 
 ## `@fastify/bearer-auth`
 
-Checks `Authorization: Bearer <key>` on every route under `src/routes/v1/`. Missing or unknown keys get a `401` before your handler runs.
+Checks `Authorization: Bearer <key>` on every route under `src/routes/service/web/`. Missing or unknown keys get a `401` before your handler runs.
 
 **Read the caller's key:**
 
 ```ts
 async (request) => {
-  const keyId = request.apiKey!.id; // always set on /v1 routes
+  const keyId = request.apiKey!.id; // always set on /service/web routes
 };
 ```
 
@@ -120,7 +132,7 @@ async (request) => {
 
 **Two kinds of key.** An *organization key* (stored hashed in `api_keys`) sets `request.apiKey`. The *root key* (`ROOT_API_KEY`, compared in constant time) sets `request.isRootKey` and belongs only to the operator. If `ROOT_API_KEY` is empty, no token matches it.
 
-**Route access is organization-only by default.** A `preHandler` in `routes/v1/autohooks.ts` reads `config.access` and returns `403` when the wrong kind of key calls the route:
+**Route access is organization-only by default.** A `preHandler` in `routes/service/web/autohooks.ts` reads `config.access` and returns `403` when the wrong kind of key calls the route:
 
 ```ts
 fastify.post("/", { config: { access: "root" }, schema: { ... } }, handler);
@@ -128,14 +140,14 @@ fastify.post("/", { config: { access: "root" }, schema: { ... } }, handler);
 
 Omit `access` (or use `"organization"`) and the route requires an organization key, so the root key can never reach organization-scoped data by accident.
 
-**Organization routes also require `full_access` by default.** A `sending_access` key gets `403` unless the route opts in with `config: { permission: "sending_access" }`, so a leaked send-only key can't mint itself a full-access one. `GET /v1/api-keys/current` opts in; sending email will too.
+**Organization routes also require `full_access` by default.** A `sending_access` key gets `403` unless the route opts in with `config: { permission: "sending_access" }`, so a leaked send-only key can't mint itself a full-access one. `GET /service/web/api-keys/current` opts in; sending email will too.
 
 **`last_used_at`** is written by `verify()` at most once a minute per key (`touchApiKeyLastUsed`), so busy keys don't rewrite their row on every request.
 
 **Bootstrap locally:** set `ROOT_API_KEY` in `.env`, start the API, and create an organization. The response carries its first key's token, shown only once:
 
 ```bash
-curl -X POST localhost:8080/v1/organizations \
+curl -X POST localhost:8080/service/web/organizations \
   -H "Authorization: Bearer $ROOT_API_KEY" -H 'Content-Type: application/json' \
   -d '{"name":"Local"}'
 ```
@@ -144,7 +156,7 @@ curl -X POST localhost:8080/v1/organizations \
 
 ## Email provider and credential encryption
 
-The public API never names a provider. Each organization connects one email provider with `PUT /v1/provider` (`full_access` only); the body is tagged by `type`, so a new provider adds a union member, not a route:
+The public API never names a provider. Each organization connects one email provider with `PUT /service/web/provider` (`full_access` only); the body is tagged by `type`, so a new provider adds a union member, not a route:
 
 ```json
 { "type": "ses", "region": "us-east-1", "accessKeyId": "AKIA...", "secretAccessKey": "..." }
@@ -256,11 +268,11 @@ echo "CREDENTIALS_ENCRYPTION_KEYS=1:$(openssl rand -base64 32)" >> apps/api/.env
 | `AtlairMailSes` | Connecting, domains and sending. Identities are named by the customer, so this one stays `*`. |
 | `AtlairMailEventConfigurationSet` | Event setup: only the `atlair-mail` configuration set. |
 | `AtlairMailEventTopic` | Event setup and switching modes: only the `atlair-mail-events` topic. `ListSubscriptionsByTopic` and `Unsubscribe` are checked against the topic ARN. |
-| `AtlairMailEventQueues` | Pull mode only: this connection's `atlair-mail-events-<connection id>` queue and its `-dlq`. `SendMessage` and `StartMessageMoveTask` are only used by `POST /v1/provider/events/redrive`; leave them out if you never redrive. |
+| `AtlairMailEventQueues` | Pull mode only: this connection's `atlair-mail-events-<connection id>` queue and its `-dlq`. `SendMessage` and `StartMessageMoveTask` are only used by `POST /service/web/provider/events/redrive`; leave them out if you never redrive. |
 
 ## Domains
 
-A sending domain is added with `POST /v1/domains` (`full_access`, a connected provider required). The service in `src/services/domains.ts` asks the organization's `EmailProvider` to register and check the domain, and stores the DNS records the provider returns in `domains.dns_records`.
+A sending domain is added with `POST /service/web/domains` (`full_access`, a connected provider required). The service in `src/services/domains.ts` asks the organization's `EmailProvider` to register and check the domain, and stores the DNS records the provider returns in `domains.dns_records`.
 
 **Names** are normalized by `src/lib/domain-names.ts`: trimmed, lowercased, trailing dot removed, unicode converted to punycode. `tldts` rejects IPs, `localhost`, unknown suffixes, and bare public suffixes such as `co.uk`. Subdomains such as `mail.example.com` are allowed.
 
@@ -277,7 +289,7 @@ The DMARC record sits on the sending domain itself, never its parent, so it cann
 
 **Return path.** Once a domain is `verified`, create or verify calls `EmailProvider.configureReturnPath` if it has none. If the provider refuses (for example a missing IAM permission), verification still succeeds and the refusal is logged with its reason.
 
-**Status:** `GET` returns what is stored and never calls the provider. `POST /v1/domains/:id/verify` asks the provider and updates `status` to `pending`, `verified` or `failed`; a domain the provider no longer knows becomes `failed`. Only `verified` domains can send.
+**Status:** `GET` returns what is stored and never calls the provider. `POST /service/web/domains/:id/verify` asks the provider and updates `status` to `pending`, `verified` or `failed`; a domain the provider no longer knows becomes `failed`. Only `verified` domains can send.
 
 **Existing registrations are adopted.** If the provider already has the domain, `POST` reads it instead of failing. `DELETE` removes the domain from atlair-mail only, so registrations the customer uses elsewhere are never deleted; it returns `409` while emails reference the domain.
 
@@ -290,7 +302,7 @@ The DMARC record sits on the sending domain itself, never its parent, so it cann
 
 ## Emails
 
-`POST /v1/emails` queues an email and returns **202** `{ id, status: "queued", scheduledAt, createdAt }`; the worker sends it. `GET /v1/emails/:id` returns it with its status. Both accept `sending_access` keys and are scoped to the caller's organization.
+`POST /service/web/emails` queues an email and returns **202** `{ id, status: "queued", scheduledAt, createdAt }`; the worker sends it. `GET /service/web/emails/:id` returns it with its status. Both accept `sending_access` keys and are scoped to the caller's organization.
 
 **Order of checks** (`src/services/emails.ts`):
 
@@ -299,7 +311,7 @@ The DMARC record sits on the sending domain itself, never its parent, so it cann
 3. Headers: routing, identity and MIME headers (`From`, `To`, `Cc`, `Bcc`, `Reply-To`, `Sender`, `Return-Path`, `Message-ID`, `Date`, `MIME-Version`, `Content-*`, `DKIM-Signature`, `Received`) cannot be set.
 4. `Idempotency-Key`: a repeat with the same normalized request returns the original email with `Idempotent-Replayed: true`; a different request gets `422 ATL_IDEMPOTENCY_KEY_REUSED` (IETF draft semantics). The fingerprint is SHA-256 over the request serialized with `safe-stable-stringify`. Keys are scoped to the organization and kept for the life of the email.
 5. The From domain must be `verified` in the caller's organization (`422 ATL_DOMAIN_NOT_VERIFIED`).
-6. No recipient may be in the organization's suppression list (`422 ATL_RECIPIENT_SUPPRESSED`). See [suppressions.md](suppressions.md) for how entries are added and `/v1/suppressions`.
+6. No recipient may be in the organization's suppression list (`422 ATL_RECIPIENT_SUPPRESSED`). See [suppressions.md](suppressions.md) for how entries are added and `/service/web/suppressions`.
 
 `scheduledAt` may be up to 30 days ahead; a past time means now. Request bodies are never logged.
 
@@ -307,11 +319,11 @@ The DMARC record sits on the sending domain itself, never its parent, so it cann
 
 **Status** follows the transition table in `packages/core/src/email-status.ts`; see [email-lifecycle.md](email-lifecycle.md) for the table, how provider events move it, and why order and repeats do not matter.
 
-`GET /v1/emails/:id/events` returns the provider events for an email, oldest first, as `{ data: [{ id, type, occurredAt, recipients: [{ address, diagnosticCode? }], bounce?, complaint?, smtpResponse?, link? }] }`. It accepts `sending_access` keys and returns 404 for another organization's email.
+`GET /service/web/emails/:id/events` returns the provider events for an email, oldest first, as `{ data: [{ id, type, occurredAt, recipients: [{ address, diagnosticCode? }], bounce?, complaint?, smtpResponse?, link? }] }`. It accepts `sending_access` keys and returns 404 for another organization's email.
 
 ## `@fastify/rate-limit`
 
-Limits each API key to `RATE_LIMIT_MAX` requests per `RATE_LIMIT_WINDOW` on `/v1`. Over the limit returns `429` with `Retry-After`. Every response carries `x-ratelimit-limit`, `x-ratelimit-remaining` and `x-ratelimit-reset`.
+Limits each API key to `RATE_LIMIT_MAX` requests per `RATE_LIMIT_WINDOW` on `/service/web`. Over the limit returns `429` with `Retry-After`. Every response carries `x-ratelimit-limit`, `x-ratelimit-remaining` and `x-ratelimit-reset`.
 
 - **The limit is per key, not per IP.** `keyGenerator` uses `request.apiKey.id`. That only works because the limit runs on `preHandler`, after bearer-auth's `onRequest` has set the key. Keep that order.
 - **Override one route** (for example, a stricter limit on sending):
@@ -393,7 +405,54 @@ const app = await buildTestApp({ RATE_LIMIT_MAX: 2 });
 const { token } = await createTestKey(app);
 const res = await app.inject({
   method: "GET",
-  url: "/v1/api-keys/current",
+  url: "/service/web/api-keys/current",
   headers: { authorization: `Bearer ${token}` },
 });
 ```
+
+---
+
+## `@fastify/cors`
+
+Registered by `src/plugins/auth.ts` only when panel auth is on. A `delegator` answers CORS for
+`/api/auth/*` and `/service/panel/*` from the origins in `PANEL_ORIGINS`, with credentials; every
+other path gets no CORS headers, so `/service/web` stays server-to-server. `Api-Version` is an allowed
+request header and an exposed response header.
+
+## `better-auth`
+
+`src/lib/auth.ts` builds the Better Auth instance (Drizzle adapter on the `auth` schema, UUIDv7 IDs);
+`src/plugins/auth.ts` mounts it at `/api/auth/*` and decorates:
+
+- `fastify.auth`: the instance, or `null` when `BETTER_AUTH_SECRET` is empty.
+- `fastify.requireSession(request)`: sets `request.user` and `request.session`, or throws `401`.
+- `request.membership`: set by `routes/service/panel/organizations/_organizationId/autohooks.ts`.
+
+The handler forwards Fastify's `request.ip` to Better Auth in `x-atlair-mail-client-ip`, overwriting
+any client-sent value, so auth rate limits key on the connection the same way `/service/web` does.
+Behind a proxy, configure Fastify's `trustProxy` rather than trusting a header.
+
+**Panel routes** declare the permissions they need; the organization hook returns `404` to
+non-members and `403` when a permission is missing. A route without `config.permissions` under
+`_organizationId` fails at startup.
+
+```ts
+fastify.get("/", { config: { permissions: ["member:view"] }, schema: { /* ... */ } }, handler);
+```
+
+## API versioning
+
+The version travels in the `Api-Version` header (default `1`). `src/lib/api-version.ts` defines an
+`apiVersion` router constraint; `routes/service/autohooks.ts` gives every route below it
+`config.version ?? ["1"]` as its constraint, and sets `Api-Version` and `Vary` on responses.
+`src/plugins/api-version.ts` turns a request for a version no route serves into `400`.
+
+Serve a route in more than one version, or add a second handler for a new version:
+
+```ts
+fastify.get("/", { config: { version: ["1", "2"] } }, handler);
+fastify.get("/", { config: { version: ["3"] } }, handlerV3);
+```
+
+Routes outside `routes/service/` (`/api/auth`, `/webhooks`, `/health`, `/docs`) take no constraint
+and ignore the header.

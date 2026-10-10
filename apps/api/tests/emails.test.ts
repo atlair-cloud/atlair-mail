@@ -5,7 +5,7 @@ import { v7 as uuidv7 } from "uuid";
 import { schema } from "@atlair-mail/db";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
-const url = "/v1/emails";
+const url = "/service/web/emails";
 type TestApp = Awaited<ReturnType<typeof buildTestApp>>;
 
 async function sender(app: TestApp, opts: { permission?: "sending_access"; status?: "verified" | "pending" } = {}) {
@@ -29,7 +29,7 @@ const message = (from: string, overrides: object = {}) => ({
   ...overrides,
 });
 
-describe("POST /v1/emails", { skip: !hasDatabase }, () => {
+describe("POST /service/web/emails", { skip: !hasDatabase }, () => {
   it("queues the email and returns 202 with only public fields", async () => {
     const app = await buildTestApp();
     const { token, from, organizationId, keyId } = await sender(app);
@@ -122,7 +122,7 @@ describe("POST /v1/emails", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("POST /v1/emails rejections", { skip: !hasDatabase }, () => {
+describe("POST /service/web/emails rejections", { skip: !hasDatabase }, () => {
   it("rejects a From domain that is missing, pending, or belongs to another organization", async () => {
     const app = await buildTestApp();
     const mine = await sender(app);
@@ -137,7 +137,7 @@ describe("POST /v1/emails rejections", { skip: !hasDatabase }, () => {
       assert.equal(res.statusCode, 422);
       assert.equal(res.json().code, "ATL_DOMAIN_NOT_VERIFIED");
     }
-    assert.match(spoofed.json().message, /POST \/v1\/domains/);
+    assert.match(spoofed.json().message, /POST \/service\/web\/domains/);
   });
 
   it("rejects suppressed recipients and names them", async () => {
@@ -214,7 +214,7 @@ describe("POST /v1/emails rejections", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("GET /v1/emails/:id", { skip: !hasDatabase }, () => {
+describe("GET /service/web/emails/:id", { skip: !hasDatabase }, () => {
   it("shows why the last attempt failed", async () => {
     const app = await buildTestApp();
     const { token, from } = await sender(app);

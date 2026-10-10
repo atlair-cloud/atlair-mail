@@ -4,7 +4,7 @@ import { v7 as uuidv7 } from "uuid";
 import { schema } from "@atlair-mail/db";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
-const url = "/v1/suppressions";
+const url = "/service/web/suppressions";
 type TestApp = Awaited<ReturnType<typeof buildTestApp>>;
 
 const add = (app: TestApp, token: string, address: string) =>
@@ -13,7 +13,7 @@ const add = (app: TestApp, token: string, address: string) =>
 const list = (app: TestApp, token: string, query = "") =>
   app.inject({ method: "GET", url: `${url}${query}`, headers: auth(token) });
 
-describe("/v1/suppressions", { skip: !hasDatabase }, () => {
+describe("/service/web/suppressions", { skip: !hasDatabase }, () => {
   it("adds an address once, lists it and removes it, after which sending works again", async () => {
     const app = await buildTestApp();
     const { token, organizationId } = await createTestKey(app);
@@ -22,7 +22,7 @@ describe("/v1/suppressions", { skip: !hasDatabase }, () => {
     const send = () =>
       app.inject({
         method: "POST",
-        url: "/v1/emails",
+        url: "/service/web/emails",
         headers: auth(token),
         payload: { from: `hello@${domain}`, to: ["ada@example.org"], subject: "Hi", text: "Hi" },
       });

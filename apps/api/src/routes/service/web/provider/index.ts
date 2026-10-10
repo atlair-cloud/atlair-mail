@@ -6,7 +6,7 @@ import {
   SavedProviderConnectionSchema,
   RedriveEventsSchema,
   SetUpEventsSchema,
-} from "../../../schemas/provider-connections.ts";
+} from "../../../../schemas/provider-connections.ts";
 
 const tags = ["Provider"];
 

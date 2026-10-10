@@ -21,7 +21,7 @@ const nullable = <T extends Parameters<typeof Type.Union>[0][number]>(schema: T,
 const ProviderEventsSchema = Type.Object(
   {
     mode: nullable(Type.Enum(["push", "pull"]), "push: the provider calls this server. pull: the worker reads a queue."),
-    url: nullable(Type.String(), "In push mode, the public address registered with POST /v1/provider/events."),
+    url: nullable(Type.String(), "In push mode, the public address registered with POST /service/web/provider/events."),
     status: Type.Enum(["disabled", "pending_confirmation", "confirmed", "failing"], {
       description:
         "pending_confirmation until the provider confirms the subscription; the provider drops subscriptions still pending after three days. failing when the worker cannot read the queue; see lastError.",
@@ -32,7 +32,7 @@ const ProviderEventsSchema = Type.Object(
     backlog: nullable(Type.Integer(), "In pull mode, events waiting in the queue, refreshed every few minutes."),
     deadLetters: nullable(
       Type.Integer(),
-      "In pull mode, events that failed 10 times and were set aside. Move them back with POST /v1/provider/events/redrive.",
+      "In pull mode, events that failed 10 times and were set aside. Move them back with POST /service/web/provider/events/redrive.",
     ),
   },
   { description: "Delivery events: delivered, bounced and complained." },

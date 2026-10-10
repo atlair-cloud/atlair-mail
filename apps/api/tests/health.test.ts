@@ -25,7 +25,7 @@ describe("GET /health", () => {
   it("sheds every other route while Postgres is unreachable", async () => {
     const app = await buildTestApp({ DATABASE_URL: UNREACHABLE_DATABASE_URL });
 
-    const res = await app.inject({ method: "GET", url: "/v1/api-keys/current" });
+    const res = await app.inject({ method: "GET", url: "/service/web/api-keys/current" });
 
     assert.equal(res.statusCode, 503);
   });

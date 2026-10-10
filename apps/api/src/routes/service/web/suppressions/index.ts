@@ -1,12 +1,12 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
-import { Uuid } from "../../../lib/schemas.ts";
+import { Uuid } from "../../../../lib/schemas.ts";
 import {
   AddSuppressionSchema,
   SuppressionListQuerySchema,
   SuppressionListSchema,
   SuppressionSchema,
-} from "../../../schemas/suppressions.ts";
+} from "../../../../schemas/suppressions.ts";
 
 const tags = ["Suppressions"];
 

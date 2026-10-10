@@ -42,18 +42,31 @@ is swapped (for example to SigV4 over `fetch` with `aws4fetch`); nothing else ch
 
 ## Organizations and access
 
-Everything hangs off an **organization**: the ownership and isolation boundary. It has no members;
-it only owns keys, domains, emails, and a provider connection.
+Everything hangs off an **organization**: the ownership and isolation boundary. It owns keys,
+domains, emails, and a provider connection; people reach it through **members** with a **role**.
 
-- **No end-user login.** atlair-mail is API-only; an API key is the only identity. Users, sessions,
-  and roles belong to whatever sits on top (Atlair Cloud's dashboard). A dashboard, if one is ever
-  needed, is a separate app that calls the public API.
-- An API key resolves to exactly one organization; organization-scoped routes read
-  `request.apiKey.organizationId`.
-- The operator (Atlair Cloud or a self-hoster) provisions organizations with `ROOT_API_KEY`
-  through the same public API. Atlair maps each of its orgs to one organization.
+| Identity | Credential | Surface |
+| --- | --- | --- |
+| Apps and servers | API key (`Bearer`) | `/service/web` |
+| People | Better Auth session cookie | `/api/auth`, `/service/panel` |
+| Operator automation | `ROOT_API_KEY` | root routes under `/service/web` |
+
+- An API key resolves to exactly one organization; `/service/web` routes read
+  `request.apiKey.organizationId`. Cookies never authenticate `/service/web`, and API keys never
+  authenticate `/service/panel`.
+- **Panel sign-in is built in** and optional: it is on when `BETTER_AUTH_SECRET` is set, so a
+  self-hoster can sign in with nothing else running. Without it, atlair-mail stays API-only.
+- Organizations, members and roles follow `atlair-platform`: each organization seeds `owner`,
+  `admin` and `member` roles with permission lists, its creator becomes `owner`, members are added
+  by the email of an existing account, and every change is written to `audit_logs`.
+  Panel routes take the organization from the URL and answer `404` to non-members.
+- The operator (Atlair Cloud or a self-hoster) can still provision organizations with
+  `ROOT_API_KEY`, then hand one to its owner with `POST /service/web/organizations/:id/members`.
 - Organizations bring **their own SES**: credentials, region, configuration set, and verified
   domains. Secrets are encrypted at rest and never leave the server.
+- APIs are versioned by the `Api-Version` header (default `1`).
+
+See [panel-auth.md](panel-auth.md) for the details.
 
 ## Data model
 
@@ -65,13 +78,21 @@ erDiagram
     ORGANIZATION ||--o{ EMAIL : sends
     ORGANIZATION ||--o{ WEBHOOK_ENDPOINT : registers
     ORGANIZATION ||--o{ SUPPRESSED_ADDRESS : maintains
+    ORGANIZATION ||--|{ ROLE : defines
+    ORGANIZATION ||--o{ MEMBER : has
+    USER ||--o{ MEMBER : joins
+    ROLE ||--o{ MEMBER : grants
+    ORGANIZATION ||--o{ AUDIT_LOG : records
     EMAIL ||--o{ EMAIL_EVENT : transitions
     WEBHOOK_ENDPOINT ||--o{ WEBHOOK_DELIVERY : fans_out
 ```
 
 | Table | Role | Issue |
 | --- | --- | --- |
-| `organizations` | Ownership and isolation root. | ATL-80 |
+| `organizations` | Ownership and isolation root, with a unique `slug` and `deactivated_at`. | ATL-80, ATL-100 |
+| `auth.user`, `auth.session`, `auth.account`, `auth.verification`, `auth.rate_limit` | Better Auth's tables, in their own Postgres schema. | ATL-100 |
+| `roles`, `members` | Per-organization roles with `permissions text[]`; one membership per user and organization. | ATL-100 |
+| `audit_logs` | Append-only record of organization, member and sign-in changes. | ATL-100 |
 | `api_keys` | A named key per caller: `permission` (`full_access` \| `sending_access`), `token_hash` (SHA-256; the token is shown once), `token_prefix`, `last_used_at`, `revoked_at`. | ATL-80 |
 | `provider_connections` | One per organization: `provider` type, non-secret `settings` (jsonb), encrypted `credentials`. | ATL-75, ATL-93 |
 | `domains` | Sending domains: provider-issued `dns_records` (jsonb) and verification `status`. Unique per organization. | ATL-77, ATL-81, ATL-93 |
@@ -97,7 +118,7 @@ Key indexes: `emails(send_at) WHERE status='queued'` (partial, drives the claim)
 ## Send pipeline
 
 ```
-POST /v1/emails ──▶ route ──▶ EmailService ──▶ emails row (status = queued) ──▶ 202 { id }
+POST /service/web/emails ──▶ route ──▶ EmailService ──▶ emails row (status = queued) ──▶ 202 { id }
                                                   │
 worker claims queued rows ◀───────────────────────┘
         │  pre-send chain: suppression → domain verified → (per-key limit)

@@ -1,7 +1,7 @@
 # Email lifecycle
 
 An email's `status` summarizes every recipient. Per-recipient results live in `email_events` and
-are returned by `GET /v1/emails/:id/events`. The rules live in `packages/core/src/email-status.ts`.
+are returned by `GET /service/web/emails/:id/events`. The rules live in `packages/core/src/email-status.ts`.
 
 ## Worker statuses
 

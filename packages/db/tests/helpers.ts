@@ -8,10 +8,13 @@ import { hasPgErrorCode, pgErrorCodes } from "../src/errors.ts";
 import { migrate } from "../src/migrate.ts";
 import {
   apiKeys,
+  auditLogs,
   domains,
   emails,
+  members,
   organizations,
   providerConnections,
+  roles,
   suppressedAddresses,
   webhookEndpoints,
   type NewApiKey,
@@ -34,6 +37,9 @@ async function deleteOrganizations(db: Database, ids: string[]) {
   await db.delete(domains).where(inArray(domains.organizationId, ids));
   await db.delete(providerConnections).where(inArray(providerConnections.organizationId, ids));
   await db.delete(apiKeys).where(inArray(apiKeys.organizationId, ids));
+  await db.delete(auditLogs).where(inArray(auditLogs.organizationId, ids));
+  await db.delete(members).where(inArray(members.organizationId, ids));
+  await db.delete(roles).where(inArray(roles.organizationId, ids));
   await db.delete(organizations).where(inArray(organizations.id, ids));
 }
 

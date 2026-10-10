@@ -26,11 +26,11 @@ provider ──▶ notification topic ──HTTPS──▶ POST /webhooks/provid
 
 ## Setup
 
-1. Connect the provider with `PUT /v1/provider`. Events start out `disabled`.
+1. Connect the provider with `PUT /service/web/provider`. Events start out `disabled`.
 2. Register this server's public HTTPS address:
 
    ```bash
-   curl -X POST https://mail.example.com/v1/provider/events \
+   curl -X POST https://mail.example.com/service/web/provider/events \
      -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
      -d '{"url": "https://mail.example.com"}'
    ```
@@ -50,7 +50,7 @@ lowercased and trailing slashes removed.
 | --- | --- |
 | Same `url` again | Repairs the provider setup; stays `confirmed`. |
 | New `url` | Re-subscribes; back to `pending_confirmation` until confirmed. |
-| `PUT /v1/provider` (replace the connection) | Events become `disabled`; register the URL again. |
+| `PUT /service/web/provider` (replace the connection) | Events become `disabled`; register the URL again. |
 
 For SES this creates, in the connection's region:
 
@@ -74,13 +74,13 @@ worker: claim the connection (Postgres lease) ─▶ receive (10s long poll, up 
 ```
 
 ```bash
-curl -X POST https://mail.example.com/v1/provider/events \
+curl -X POST https://mail.example.com/service/web/provider/events \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{"mode": "pull"}'
 ```
 
 The connection shows `events.mode: "pull"` and `status: "confirmed"` straight away (SNS confirms a
 queue subscription created by the topic owner at once). The worker starts reading within a second.
-`GET /v1/provider` then shows `lastReceivedAt`, `backlog` and `deadLetters` (refreshed every five
+`GET /service/web/provider` then shows `lastReceivedAt`, `backlog` and `deadLetters` (refreshed every five
 minutes), and `status: "failing"` with `lastError` while the queue cannot be read.
 
 For SES this adds, next to the topic and configuration set above:
@@ -115,7 +115,7 @@ is computed from all events, so neither matters.
 permissions or a replaced topic), then move them back:
 
 ```bash
-curl -X POST https://mail.example.com/v1/provider/events/redrive -H "Authorization: Bearer $KEY"
+curl -X POST https://mail.example.com/service/web/provider/events/redrive -H "Authorization: Bearer $KEY"
 ```
 
 This starts an SQS message move task back to the event queue and returns `202`. Only one move can
@@ -139,8 +139,8 @@ example `ATL_PROVIDER_REJECTED: AccessDenied`. The next successful poll clears i
 and creating it again within 60 seconds fails with `ATL_PROVIDER_UNAVAILABLE: QueueDeletedRecently`;
 run the setup again after a minute.
 
-`PUT /v1/provider` with new credentials or a new region turns events off. The old queues stay in
-the old account; delete them there if no longer needed. `DELETE /v1/provider` does not delete them
+`PUT /service/web/provider` with new credentials or a new region turns events off. The old queues stay in
+the old account; delete them there if no longer needed. `DELETE /service/web/provider` does not delete them
 either: anything unread stays until it expires.
 
 ### Cost
@@ -155,7 +155,7 @@ queue while your laptop sleeps.
 
 For push mode, SNS needs a public HTTPS URL. A quick tunnel (`cloudflared tunnel --url
 http://localhost:8080` or `ngrok http 8080`) prints a new address each time; register it with
-`POST /v1/provider/events`. When the address changes, register the new one; the old subscription
+`POST /service/web/provider/events`. When the address changes, register the new one; the old subscription
 then fails and SNS stops retrying it.
 
 **Cloudflare Tunnel with a fixed hostname.** If your domain is on Cloudflare, a named tunnel keeps
@@ -172,7 +172,7 @@ Register `https://mail-events.example.com` once. Events sent while the tunnel or
 still dropped by SNS after its short retry window; use pull mode if that matters.
 
 Send to the [mailbox simulator](deliverability.md#testing-without-hurting-reputation) to produce
-delivery, bounce and complaint events, then read them with `GET /v1/emails/:id/events`.
+delivery, bounce and complaint events, then read them with `GET /service/web/emails/:id/events`.
 
 ## Security
 

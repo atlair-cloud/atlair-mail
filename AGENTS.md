@@ -43,8 +43,11 @@ Before adding a route, plugin, env var, or health check, read
 - `@fastify/autoload` owns registration. Add a route by adding a file under `src/routes/` (folders are
   URL prefixes) and an app-wide plugin by adding an `fp`-wrapped file under `src/plugins/`. `app.ts`
   stays unchanged.
-- Folder-wide hooks go in that folder's `autohooks.ts`. `routes/v1/autohooks.ts` applies API-key
-  auth then per-key rate limiting to all of `/v1`; public routes (webhooks) live outside `v1/`.
+- Folder-wide hooks go in that folder's `autohooks.ts`. `routes/service/web/autohooks.ts` applies API-key
+  auth then per-key rate limiting to all of `/service/web`; public routes (webhooks) live outside `service/`.
+  `routes/service/panel/autohooks.ts` applies session auth and the origin check to `/service/panel`.
+- Versions travel in the `Api-Version` header. A route under `routes/service/` serves version `1`
+  unless it declares `config: { version: [...] }`; see [docs/panel-auth.md](docs/panel-auth.md).
 - Every route declares a TypeBox schema (`typebox` v1, `FastifyPluginAsyncTypebox`) for params,
   body, and **response**, plus `summary`/`tags`; the response schema strips unlisted fields and
   feeds the `/docs` OpenAPI spec.

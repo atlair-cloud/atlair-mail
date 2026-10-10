@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
-import { Uuid } from "../../../lib/schemas.ts";
+import { Uuid } from "../../../../lib/schemas.ts";
 import {
   CreatedWebhookSchema,
   CreateWebhookSchema,
@@ -11,7 +11,7 @@ import {
   WebhookDeliveryQuerySchema,
   WebhookListSchema,
   WebhookSchema,
-} from "../../../schemas/webhooks.ts";
+} from "../../../../schemas/webhooks.ts";
 
 const tags = ["Webhooks"];
 const params = Type.Object({ id: Uuid() });

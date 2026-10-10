@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
-import { Uuid } from "../../../lib/schemas.ts";
-import { CreateDomainSchema, DomainSchema } from "../../../schemas/domains.ts";
+import { Uuid } from "../../../../lib/schemas.ts";
+import { CreateDomainSchema, DomainSchema } from "../../../../schemas/domains.ts";
 
 const tags = ["Domains"];
 const params = Type.Object({ id: Uuid() });
@@ -43,7 +43,7 @@ const domainRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     {
       schema: {
         summary: "Get a domain",
-        description: "Returns the stored status. Use POST /v1/domains/:id/verify to check with the provider again.",
+        description: "Returns the stored status. Use POST /service/web/domains/:id/verify to check with the provider again.",
         tags,
         params,
         response: { 200: DomainSchema },

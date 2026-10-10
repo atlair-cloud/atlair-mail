@@ -15,7 +15,7 @@ import { schema } from "@atlair-mail/db";
 import { v7 as uuidv7 } from "uuid";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
-const url = "/v1/domains";
+const url = "/service/web/domains";
 const ses = mockClient(SESv2Client);
 const tokens = ["tokenone", "tokentwo", "tokenthree"];
 const zone = "dkim.eu-west-1.example-zone.com";
@@ -32,7 +32,7 @@ async function connectedOrganization(app: TestApp) {
   const owner = await createTestKey(app);
   await app.inject({
     method: "PUT",
-    url: "/v1/provider",
+    url: "/service/web/provider",
     headers: auth(owner.token),
     payload: { type: "ses", region: "eu-west-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE", secretAccessKey: "secret" },
   });
@@ -51,7 +51,7 @@ beforeEach(() => {
   });
 });
 
-describe("/v1/domains", { skip: !hasDatabase }, () => {
+describe("/service/web/domains", { skip: !hasDatabase }, () => {
   it("adds a domain and returns publishable DNS records", async () => {
     const app = await buildTestApp();
     const { token } = await connectedOrganization(app);
@@ -151,7 +151,7 @@ describe("/v1/domains", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("/v1/domains return path", { skip: !hasDatabase }, () => {
+describe("/service/web/domains return path", { skip: !hasDatabase }, () => {
   const mailFrom = (status: "PENDING" | "SUCCESS") => ({
     ...identity("SUCCESS"),
     MailFromAttributes: {
@@ -221,7 +221,7 @@ describe("/v1/domains return path", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("/v1/domains rejections and isolation", { skip: !hasDatabase }, () => {
+describe("/service/web/domains rejections and isolation", { skip: !hasDatabase }, () => {
   it("requires a connected provider first", async () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app);
@@ -230,7 +230,7 @@ describe("/v1/domains rejections and isolation", { skip: !hasDatabase }, () => {
 
     assert.equal(res.statusCode, 409);
     assert.equal(res.json().code, "ATL_PROVIDER_NOT_CONNECTED");
-    assert.match(res.json().message, /\/v1\/provider/);
+    assert.match(res.json().message, /\/service\/web\/provider/);
     assert.equal(ses.commandCalls(CreateEmailIdentityCommand).length, 0);
   });
 

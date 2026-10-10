@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import bearerAuth from "@fastify/bearer-auth";
 import rateLimit from "@fastify/rate-limit";
 
-const v1Hooks: FastifyPluginAsync = async (fastify) => {
+const serviceWebHooks: FastifyPluginAsync = async (fastify) => {
   await fastify.register(bearerAuth, {
     keys: [],
     verifyErrorLogLevel: "info",
@@ -38,4 +38,4 @@ const v1Hooks: FastifyPluginAsync = async (fastify) => {
   });
 };
 
-export default v1Hooks;
+export default serviceWebHooks;

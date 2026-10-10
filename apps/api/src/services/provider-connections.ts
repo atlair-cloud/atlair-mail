@@ -22,7 +22,7 @@ import {
 
 export const ProviderNotConnectedError = createError(
   "ATL_PROVIDER_NOT_CONNECTED",
-  "Connect an email provider with PUT /v1/provider first",
+  "Connect an email provider with PUT /service/web/provider first",
   409,
 );
 

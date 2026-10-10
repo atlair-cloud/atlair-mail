@@ -41,7 +41,7 @@ export const ScheduleTooFarError = createError(
 );
 export const DomainNotVerifiedError = createError(
   "ATL_DOMAIN_NOT_VERIFIED",
-  "%s is not a verified domain. Add it with POST /v1/domains and check it with POST /v1/domains/:id/verify",
+  "%s is not a verified domain. Add it with POST /service/web/domains and check it with POST /service/web/domains/:id/verify",
   422,
 );
 export const RecipientSuppressedError = createError(
