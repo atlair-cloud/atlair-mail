@@ -5,7 +5,7 @@ import {
   type HandledProviderMessage,
   type ProviderMessageContext,
 } from "@atlair-mail/core";
-import { claimDueEventPolls, finishEventPoll, type Executor } from "@atlair-mail/db";
+import { claimDueEventPolls, finishEventPoll, msUntilNextEventPoll, type Executor } from "@atlair-mail/db";
 import type { ProviderConnection } from "@atlair-mail/db/schema";
 import {
   ProviderError,
@@ -15,7 +15,7 @@ import {
   type EventQueueStats,
 } from "@atlair-mail/providers";
 import type { Logger } from "pino";
-import { createPollLoop } from "./poll-loop.ts";
+import { createPollLoop, type IdleWait } from "./poll-loop.ts";
 import {
   errorCodes,
   eventPollBackoffSeconds,
@@ -24,7 +24,7 @@ import {
   eventReceiveBatchSize,
   eventReceiveWaitSeconds,
   eventStatsIntervalMs,
-  pollIntervalMs,
+  idleWaitMs,
 } from "./settings.ts";
 
 export type MessageHandler = (
@@ -38,7 +38,7 @@ export interface EventPollerOptions {
   logger: Logger;
   cipher: CredentialsCipher;
   concurrency?: number;
-  pollIntervalMs?: number;
+  idle?: IdleWait;
   waitSeconds?: number;
   providerFor?: (connection: ProviderConnection) => Promise<EmailProvider>;
   handleMessage?: MessageHandler;
@@ -159,9 +159,10 @@ export function createEventPoller(options: EventPollerOptions) {
     name: "event poll",
     logger,
     concurrency,
-    pollIntervalMs: options.pollIntervalMs ?? pollIntervalMs,
+    idle: options.idle ?? idleWaitMs,
     claim: (limit) =>
       claimDueEventPolls(db, { limit, leaseUntil: new Date(Date.now() + eventPollLeaseSeconds * 1_000) }),
+    msUntilNextDue: () => msUntilNextEventPoll(db),
     process: (connection, signal) => pollConnection(connection, options, signal),
   });
 
@@ -170,6 +171,8 @@ export function createEventPoller(options: EventPollerOptions) {
       loop.start();
       logger.info({ concurrency }, "event poller started");
     },
+
+    wake: loop.wake,
 
     async stop() {
       await loop.stop();

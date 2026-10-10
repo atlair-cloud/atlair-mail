@@ -99,7 +99,7 @@ describe("webhook dispatcher", { skip: !databaseUrl }, () => {
     (await claimDueWebhookDeliveries(t.db, { limit: 100, leaseSeconds: 60 })).find((row) => row.id === id);
 
   const start = (send: WebhookSender) => {
-    const dispatcher = createWebhookDispatcher({ db: t.db, logger: silentLogger, cipher, send, pollIntervalMs: 20 });
+    const dispatcher = createWebhookDispatcher({ db: t.db, logger: silentLogger, cipher, send, idle: { minMs: 20, maxMs: 20 } });
     dispatcher.start();
     return dispatcher;
   };

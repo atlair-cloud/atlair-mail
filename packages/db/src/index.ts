@@ -1,4 +1,5 @@
 export { createDb, ping } from "./client.ts";
+export { listenForWork, workChannel, workKinds, type WorkKind, type WorkListener } from "./notify.ts";
 export type { Database, Db, Executor, Transaction } from "./client.ts";
 export { migrate } from "./migrate.ts";
 export * as schema from "./schema/index.ts";

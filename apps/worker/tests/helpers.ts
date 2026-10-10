@@ -84,7 +84,7 @@ export function startWorker(
   loadProvider: (organizationId: string) => Promise<EmailProvider | null>,
   concurrency = 5,
 ) {
-  const worker = createWorker({ db, logger: silentLogger, concurrency, loadProvider, pollIntervalMs: 20, sweepIntervalMs: 50 });
+  const worker = createWorker({ db, logger: silentLogger, concurrency, loadProvider, idle: { minMs: 20, maxMs: 50 } });
   worker.start();
   return worker;
 }

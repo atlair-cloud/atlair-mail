@@ -2,6 +2,7 @@ import { and, arrayContains, asc, desc, eq, inArray, isNull, lt, lte, sql } from
 import type { Executor } from "../client.ts";
 import { webhookDeliveries, webhookEndpoints } from "../schema/index.ts";
 import type { EmailEventType, WebhookDeliveryStatus, WebhookPayload } from "../types.ts";
+import { msUntilEarliest } from "./_wait.ts";
 
 export interface WebhookDeliveryRequest {
   organizationId: string;
@@ -78,6 +79,14 @@ export async function claimDueWebhookDeliveries(db: Executor, options: { limit: 
     const endpoint = byId.get(webhookEndpointId);
     return endpoint ? [{ ...delivery, endpoint }] : [];
   });
+}
+
+export async function msUntilNextWebhookDelivery(db: Executor) {
+  const [row] = await db
+    .select({ ms: msUntilEarliest(webhookDeliveries.nextAttemptAt) })
+    .from(webhookDeliveries)
+    .where(eq(webhookDeliveries.status, "pending"));
+  return row?.ms ?? null;
 }
 
 export type ClaimedWebhookDelivery = Awaited<ReturnType<typeof claimDueWebhookDeliveries>>[number];

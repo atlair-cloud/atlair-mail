@@ -7,6 +7,7 @@ import { createHealthServer } from "./health.ts";
 import { shutdownGraceMs } from "./settings.ts";
 import { createEventPoller } from "./event-poller.ts";
 import { createWebhookDispatcher } from "./webhook-dispatcher.ts";
+import { createWorkListener } from "./work-listener.ts";
 import { createWorker } from "./worker.ts";
 
 const env = loadEnv();
@@ -24,11 +25,19 @@ const worker = createWorker({
 
 const webhooks = createWebhookDispatcher({ db, cipher, logger: logger.child({ component: "webhooks" }) });
 const events = createEventPoller({ db, cipher, logger: logger.child({ component: "provider-events" }) });
+const loops = { email: worker, webhook: webhooks, events } as const;
+const listener = createWorkListener({
+  url: env.DATABASE_LISTEN_URL ?? env.DATABASE_URL,
+  logger: logger.child({ component: "work-listener" }),
+  onWork: (kind) => loops[kind].wake(),
+  onListen: () => Object.values(loops).forEach((loop) => loop.wake()),
+});
 const health = createHealthServer({ logger: logger.child({ component: "health" }), host: env.HOST, port: env.PORT });
 
 closeWithGrace({ delay: shutdownGraceMs, logger }, async ({ signal, err }) => {
   if (err) logger.error({ err }, "worker crashed");
   logger.info({ signal }, "shutting down");
+  await listener.stop();
   await Promise.all([worker.stop(), webhooks.stop(), events.stop(), health.stop()]);
   await close();
 });
@@ -36,4 +45,5 @@ closeWithGrace({ delay: shutdownGraceMs, logger }, async ({ signal, err }) => {
 worker.start();
 webhooks.start();
 events.start();
+listener.start();
 health.start();

@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, lt, lte, sql } from "drizzle-orm";
 import type { Executor } from "../client.ts";
 import { emails } from "../schema/index.ts";
+import { msUntilEarliest } from "./_wait.ts";
 
 const sending = eq(emails.status, "sending");
 
@@ -72,4 +73,14 @@ export async function listExpiredLeases(db: Executor, limit: number) {
     .orderBy(asc(emails.lockedUntil))
     .limit(limit);
   return rows.map((row) => row.id);
+}
+
+export async function msUntilNextEmail(db: Executor) {
+  const [row] = await db.select({ ms: msUntilEarliest(emails.sendAt) }).from(emails).where(eq(emails.status, "queued"));
+  return row?.ms ?? null;
+}
+
+export async function msUntilNextLeaseExpiry(db: Executor) {
+  const [row] = await db.select({ ms: msUntilEarliest(emails.lockedUntil) }).from(emails).where(sending);
+  return row?.ms ?? null;
 }

@@ -2,16 +2,17 @@ import type { CredentialsCipher } from "@atlair-mail/core";
 import {
   claimDueWebhookDeliveries,
   clearExpiredPreviousSecrets,
+  msUntilNextWebhookDelivery,
   recordWebhookAttempt,
   type ClaimedWebhookDelivery,
   type Executor,
 } from "@atlair-mail/db";
 import type { Logger } from "pino";
 import { Webhook } from "standardwebhooks";
-import { createPollLoop } from "./poll-loop.ts";
+import { createPollLoop, type IdleWait } from "./poll-loop.ts";
 import {
+  idleWaitMs,
   maxWebhookAttempts,
-  pollIntervalMs,
   secretSweepIntervalMs,
   webhookConcurrency,
   webhookErrorCodes,
@@ -26,7 +27,7 @@ export interface WebhookDispatcherOptions {
   cipher: CredentialsCipher;
   send?: WebhookSender;
   concurrency?: number;
-  pollIntervalMs?: number;
+  idle?: IdleWait;
   now?: () => Date;
 }
 
@@ -120,11 +121,12 @@ export function createWebhookDispatcher(options: WebhookDispatcherOptions) {
     name: "webhook",
     logger,
     concurrency,
-    pollIntervalMs: options.pollIntervalMs ?? pollIntervalMs,
+    idle: options.idle ?? idleWaitMs,
     claim: async (limit) => {
       await sweepExpiredSecrets();
       return claimDueWebhookDeliveries(db, { limit, leaseSeconds: webhookLeaseSeconds });
     },
+    msUntilNextDue: () => msUntilNextWebhookDelivery(db),
     process: (delivery) => deliverWebhook(delivery, { ...options, send }),
   });
 
@@ -133,6 +135,8 @@ export function createWebhookDispatcher(options: WebhookDispatcherOptions) {
       loop.start();
       logger.info({ concurrency }, "webhook dispatcher started");
     },
+
+    wake: loop.wake,
 
     async stop() {
       await loop.stop();
