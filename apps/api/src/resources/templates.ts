@@ -269,7 +269,7 @@ export const templateRoutes =
         },
       },
       async (request, reply) => {
-        const removed = await fastify.services.templates.remove(scope.organizationId(request), request.params.id);
+        const removed = await fastify.services.templates.remove(scope.organizationId(request), request.params.id, scope.actor(request));
         if (!removed) notFound();
         return reply.code(204).send(null);
       },

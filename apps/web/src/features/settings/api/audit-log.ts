@@ -7,6 +7,7 @@ export type AuditEntry = {
   entityId: string
   changes: Record<string, unknown> | null
   actor: { id: string; name: string; email: string } | null
+  apiKey: { id: string; name: string } | null
   createdAt: string
 }
 

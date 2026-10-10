@@ -14,6 +14,7 @@ import {
   lockTemplate,
   pgErrorCodes,
   publishTemplateVersion,
+  recordAudit,
   updateTemplate,
   type Actor,
   type Database,
@@ -144,13 +145,17 @@ export function createTemplateService(db: Database) {
       checkAlias(input.alias);
       const source = validateTemplate(input);
       const template = await save(() =>
-        insertTemplate(db, {
-          organizationId,
-          name: input.name,
-          alias: input.alias ?? null,
-          ...source,
-          ...creatorColumns(actor),
-          ...editorColumns(actor),
+        db.transaction(async (tx) => {
+          const created = await insertTemplate(tx, {
+            organizationId,
+            name: input.name,
+            alias: input.alias ?? null,
+            ...source,
+            ...creatorColumns(actor),
+            ...editorColumns(actor),
+          });
+          await recordAudit(tx, { organizationId, actor, action: "template.created", entityType: "template", entityId: created.id, changes: { name: created.name } });
+          return created;
         }),
       );
       return toPublic(template);
@@ -186,14 +191,20 @@ export function createTemplateService(db: Database) {
         variables: input.variables ?? existing.variables,
       });
       const updated = await save(() =>
-        updateTemplate(
-          db,
-          organizationId,
-          id,
-          input.revision,
-          { name: input.name, alias: input.alias, ...source },
-          actor,
-        ),
+        db.transaction(async (tx) => {
+          const row = await updateTemplate(tx, organizationId, id, input.revision, { name: input.name, alias: input.alias, ...source }, actor);
+          if (row && (row.name !== existing.name || row.alias !== existing.alias)) {
+            await recordAudit(tx, {
+              organizationId,
+              actor,
+              action: "template.renamed",
+              entityType: "template",
+              entityId: id,
+              changes: { before: { name: existing.name, alias: existing.alias }, after: { name: row.name, alias: row.alias } },
+            });
+          }
+          return row;
+        }),
       );
       if (updated) return toPublic(updated);
       const current = await findTemplateHead(db, organizationId, id);
@@ -213,7 +224,16 @@ export function createTemplateService(db: Database) {
         if (!locked) return null;
         if (locked.revision !== draft.revision) throw new TemplateChangedError(locked.revision);
         if (locked.publishedRevision === locked.revision) return locked;
-        return (await publishTemplateVersion(tx, locked, source, cleanNote(input.note), actor)).template;
+        const { template, version } = await publishTemplateVersion(tx, locked, source, cleanNote(input.note), actor);
+        await recordAudit(tx, {
+          organizationId,
+          actor,
+          action: "template.published",
+          entityType: "template",
+          entityId: id,
+          changes: { name: template.name, version: version.number, note: version.note },
+        });
+        return template;
       });
       return published && toPublic(published);
     },
@@ -247,7 +267,13 @@ export function createTemplateService(db: Database) {
         throw new TemplateVersionNotFoundError(id, number);
       }
       const source = validateTemplate(version);
-      const restored = await updateTemplate(db, organizationId, id, input.revision, source, actor);
+      const restored = await db.transaction(async (tx) => {
+        const row = await updateTemplate(tx, organizationId, id, input.revision, source, actor);
+        if (row) {
+          await recordAudit(tx, { organizationId, actor, action: "template.restored", entityType: "template", entityId: id, changes: { name: row.name, version: number } });
+        }
+        return row;
+      });
       if (restored) return toPublic(restored);
       const current = await findTemplateHead(db, organizationId, id);
       if (!current) return null;
@@ -267,12 +293,28 @@ export function createTemplateService(db: Database) {
         if (!locked) return null;
         if (locked.revision !== input.revision) throw new TemplateChangedError(locked.revision);
         const restored = await updateTemplate(tx, organizationId, id, input.revision, source, actor);
-        return (await publishTemplateVersion(tx, restored!, source, note, actor)).template;
+        const { template, version: published } = await publishTemplateVersion(tx, restored!, source, note, actor);
+        await recordAudit(tx, {
+          organizationId,
+          actor,
+          action: "template.rolled_back",
+          entityType: "template",
+          entityId: id,
+          changes: { name: template.name, from: number, version: published.number },
+        });
+        return template;
       });
       return published && toPublic(published);
     },
 
-    remove: (organizationId: string, id: string) => deleteTemplate(db, organizationId, id),
+    remove: (organizationId: string, id: string, actor: Actor) =>
+      db.transaction(async (tx) => {
+        const removed = await deleteTemplate(tx, organizationId, id);
+        if (removed) {
+          await recordAudit(tx, { organizationId, actor, action: "template.deleted", entityType: "template", entityId: id, changes: { name: removed.name } });
+        }
+        return removed;
+      }),
 
     previewDraft: (input: TemplateInput, values: VariableValues = {}) => renderTemplate(validateTemplate(input), values, "preview"),
 

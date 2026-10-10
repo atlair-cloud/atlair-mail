@@ -112,7 +112,7 @@ export async function deleteTemplate(db: Executor, organizationId: string, id: s
   const [template] = await db
     .delete(templates)
     .where(and(eq(templates.organizationId, organizationId), eq(templates.id, id)))
-    .returning({ id: templates.id });
+    .returning({ id: templates.id, name: templates.name });
   return template ?? null;
 }
 
