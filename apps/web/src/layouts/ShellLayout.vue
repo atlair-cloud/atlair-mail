@@ -7,6 +7,7 @@ import CrashScreen from '../components/shared/CrashScreen.vue'
 import ErrorBoundary from '../components/shared/ErrorBoundary.vue'
 import FlickeringGrid from '../components/shared/FlickeringGrid.vue'
 import AppTopbar from './organization/AppTopbar.vue'
+import SectionTabs from './organization/SectionTabs.vue'
 import PanelProgress from './shell/PanelProgress.vue'
 import ShellBar from './shell/ShellBar.vue'
 
@@ -31,8 +32,13 @@ watch(
       <PanelProgress />
       <div
         ref="panel"
-        class="shell-panel relative min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-t-[20px] bg-canvas [view-transition-name:app-panel]"
+        class="shell-panel relative min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-t-[10px] bg-canvas [view-transition-name:app-panel]"
       >
+        <div v-if="inOrganization && !appFailure" class="sticky top-0 z-10 border-b border-slate-200 bg-canvas px-4 sm:px-8">
+          <div class="mx-auto w-full" :class="route.meta.wide ? 'max-w-[96rem]' : 'max-w-6xl'">
+            <SectionTabs />
+          </div>
+        </div>
         <CrashScreen v-if="appFailure" :error="appFailure.error" :kind="appFailure.kind" />
         <ErrorBoundary v-else>
           <RouterView v-slot="{ Component }">

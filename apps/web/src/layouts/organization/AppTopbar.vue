@@ -5,7 +5,6 @@ import { logoUrl } from '../../lib/brand'
 import ThemeToggle from '../shell/ThemeToggle.vue'
 import CommandMenu from './CommandMenu.vue'
 import OrganizationSwitcher from './OrganizationSwitcher.vue'
-import SectionTabs from './SectionTabs.vue'
 import UserMenu from './UserMenu.vue'
 import { useBreadcrumb } from './useBreadcrumb'
 
@@ -28,7 +27,7 @@ const breadcrumb = useBreadcrumb()
           </RouterLink>
         </UTooltip>
 
-        <nav aria-label="Breadcrumb" class="flex min-w-0 items-center gap-1 text-sm lg:max-w-[calc(50%-12rem)]">
+        <nav aria-label="Breadcrumb" class="flex min-w-0 items-center gap-1 text-sm lg:max-w-[calc(50%-14rem)]">
           <span aria-hidden="true" class="text-white/45">/</span>
           <OrganizationSwitcher />
           <template v-if="breadcrumb">
@@ -47,9 +46,6 @@ const breadcrumb = useBreadcrumb()
           <ThemeToggle />
           <UserMenu />
         </div>
-      </div>
-      <div class="mx-auto w-full" :class="route.meta.wide ? 'max-w-[96rem]' : 'max-w-6xl'">
-        <SectionTabs />
       </div>
     </div>
   </header>
