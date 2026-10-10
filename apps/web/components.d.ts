@@ -13,6 +13,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AvatarFace: typeof import('./src/components/shared/AvatarFace.vue')['default']
     ConfirmModal: typeof import('./src/components/shared/ConfirmModal.vue')['default']
+    CopyButton: typeof import('./src/components/shared/CopyButton.vue')['default']
     CrashScreen: typeof import('./src/components/shared/CrashScreen.vue')['default']
     EmptyState: typeof import('./src/components/shared/EmptyState.vue')['default']
     ErrorBoundary: typeof import('./src/components/shared/ErrorBoundary.vue')['default']
@@ -32,6 +33,7 @@ declare module 'vue' {
     UDropdownMenu: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/DropdownMenu.vue')['default']
     UInput: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Input.vue')['default']
     UModal: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Modal.vue')['default']
+    USelect: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Select.vue')['default']
     UTooltip: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
   }
 }

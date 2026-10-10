@@ -44,7 +44,7 @@ export const organizationRoutes: RouteRecordRaw[] = [
           {
             path: '',
             name: 'organization',
-            component: () => import('../../features/organizations/pages/OverviewPage.vue'),
+            component: () => import('../../features/overview/pages/OverviewPage.vue'),
             meta: { title: 'Overview', depth: 2 },
           },
           {
