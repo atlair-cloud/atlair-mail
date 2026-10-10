@@ -1,6 +1,5 @@
 import fp from "fastify-plugin";
 import underPressure from "@fastify/under-pressure";
-import { ping } from "@atlair-mail/db";
 
 export default fp(
   async function underPressurePlugin(fastify) {
@@ -14,12 +13,8 @@ export default fp(
         routeSchemaOpts: { security: [] },
         routeResponseSchemaOpts: { uptime: { type: "number" } },
       },
-      healthCheck: async () => {
-        await ping(fastify.db);
-        return { uptime: process.uptime() };
-      },
-      healthCheckInterval: 5000,
+      healthCheck: async () => ({ uptime: process.uptime() }),
     });
   },
-  { name: "under-pressure", dependencies: ["db"] },
+  { name: "under-pressure" },
 );

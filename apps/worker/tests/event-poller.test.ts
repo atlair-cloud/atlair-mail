@@ -281,7 +281,7 @@ describe("provider event poller", { skip: !databaseUrl }, () => {
     const queue = fakeQueue();
     queue.add(delivered(topicArn, providerMessageId));
     const pollers = [1, 2].map(() =>
-      createEventPoller({ ...options(queue.provider), pollIntervalMs: 10, waitSeconds: 0 }),
+      createEventPoller({ ...options(queue.provider), idle: { minMs: 10, maxMs: 10 }, waitSeconds: 0 }),
     );
 
     for (const poller of pollers) poller.start();

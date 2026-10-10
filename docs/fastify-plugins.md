@@ -11,7 +11,7 @@ For each one: what it's for, where it's set up, and how to use it when writing c
 | [`@fastify/bearer-auth`](#fastifybearer-auth) | `src/routes/service/web/autohooks.ts` | Reading the caller's API key |
 | [`@fastify/rate-limit`](#fastifyrate-limit) | `src/routes/service/web/autohooks.ts` | Giving a route its own limit |
 | [`@fastify/sensible`](#fastifysensible) | `src/plugins/sensible.ts` | Returning an HTTP error |
-| [`@fastify/under-pressure`](#fastifyunder-pressure) | `src/plugins/under-pressure.ts` | Adding a dependency check to `/health` |
+| [`@fastify/under-pressure`](#fastifyunder-pressure) | `src/plugins/under-pressure.ts` | Changing load-shedding thresholds or `/health` |
 | [`@fastify/swagger`](#fastifyswagger--scalarfastify-api-reference) + `@scalar/fastify-api-reference` | `src/plugins/swagger.ts` | Documenting a route |
 | [`@fastify/helmet`](#fastifyhelmet) | `src/app.ts` | Rarely |
 | [`@fastify/cors`](#fastifycors) | `src/plugins/auth.ts` | Adding a panel origin |
@@ -404,11 +404,11 @@ All of these produce Fastify's standard error body: `{ "statusCode": 404, "error
 It does two jobs:
 
 1. **Load shedding.** When the event loop is overloaded (delay above 1s, or utilization above 98%), every route returns `503` with `Retry-After: 10` instead of queueing more work. The thresholds are in `src/plugins/under-pressure.ts`.
-2. **`GET /health`.** Under-pressure serves this route itself. It returns `{ "status": "ok", "uptime": ... }`, and returns `503` while the process is under pressure or when `healthCheck` fails. `healthCheck` pings Postgres (`select 1`). It needs no API key, and it logs only at warn level so load balancer probes don't flood the logs.
+2. **`GET /health` (liveness).** Under-pressure serves this route itself. It returns `{ "status": "ok", "uptime": ... }`, and `503` only while the process is under pressure. It never touches Postgres. It needs no API key, and it logs only at warn level so load balancer probes don't flood the logs.
 
-**A failed check sheds every route, not just `/health`.** Under-pressure runs `healthCheck` at startup and then every `healthCheckInterval` (5s). While it fails, the process counts as unhealthy and *every* request gets `503`. The interval is what lets the app recover once Postgres is back; without it, a database that was down at boot would leave the app returning `503` forever.
+**Dependency checks go in `GET /health/ready`** (`src/routes/health/index.ts`), not in under-pressure's `healthCheck`. It pings Postgres when called and returns `503` with `Retry-After: 10` if it can't. Point readiness probes there and liveness probes at `/health`.
 
-**Add a dependency check:** extend `healthCheck` in the same file. If it throws or returns `false`, the response is `503`. If it returns an object, that object is merged into the `200` body, and each new field must be added to `routeResponseSchemaOpts` or it gets removed from the response.
+**Why no `healthCheck`, or `healthCheckInterval`, on the database:** a periodic check queries Postgres every few seconds for the life of the process, so a serverless database never suspends. Without an interval, under-pressure runs `healthCheck` once at boot and keeps that result, so a database that was down at startup would leave every route returning `503` forever. While Postgres is down, routes that need it fail per request instead of all being shed up front.
 
 ## `@fastify/swagger` + `@scalar/fastify-api-reference`
 

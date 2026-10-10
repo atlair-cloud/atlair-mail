@@ -1,9 +1,9 @@
 # Worker
 
-`apps/worker` sends queued emails, delivers customer webhooks and reads provider events in pull mode. It is plain Node (no HTTP server)
-and shares `packages/db`, `packages/core` and `packages/providers` with the API. Both run on the same
-poll loop (`src/poll-loop.ts`): claim up to the free concurrency, process outside any transaction,
-sleep when idle.
+`apps/worker` sends queued emails, delivers customer webhooks and reads provider events in pull mode. It is plain Node with
+one small HTTP server for `GET /health`, and shares `packages/db`, `packages/core` and `packages/providers` with the API.
+All three run on the same loop (`src/poll-loop.ts`): claim up to the free concurrency, process outside any transaction,
+and when nothing is due, sleep until the next item is due or a notification arrives (see [Waking up](#waking-up)).
 
 ```bash
 cp apps/worker/.env.example apps/worker/.env   # same DATABASE_URL and CREDENTIALS_ENCRYPTION_KEYS as the API
@@ -15,11 +15,13 @@ pnpm --filter @atlair-mail/worker dev
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `DATABASE_URL` | local compose database | Same database as the API |
+| `DATABASE_LISTEN_URL` | `DATABASE_URL` | Direct (unpooled) URL for `LISTEN`. Set it when `DATABASE_URL` goes through PgBouncer in transaction mode, such as Neon's or PlanetScale's pooled URL, where `LISTEN` doesn't work |
 | `CREDENTIALS_ENCRYPTION_KEYS` | required | Same keys as the API, to decrypt provider credentials |
 | `LOG_LEVEL` | `info` | pino level |
 | `WORKER_CONCURRENCY` | `10` | Emails sent at the same time by one process (1–100) |
+| `PORT` | `8081` | Port for `GET /health`. The Dockerfile sets `8080`, and Cloud Run sets its own |
 
-Everything else is a constant in `src/settings.ts`: poll every 1s, 120s lease, sweep every 30s,
+Everything else is a constant in `src/settings.ts`: idle waits between 1s and 5m, 120s lease, lease sweep 1s after the earliest lease ends,
 6 attempts, backoff 30s → 2m → 10m → 30m → 1h with ±20% jitter, 25s shutdown grace. Webhooks: 10
 in flight, 60s lease, 15s request timeout, 8 attempts (see [webhooks.md](webhooks.md)).
 
@@ -36,6 +38,7 @@ claim: UPDATE emails SET status='sending', locked_until=now()+120s, attempt_coun
        THROTTLED / UNAVAILABLE  → queued again with backoff; failed after attempt 6
        ATL_PROVIDER_TIMEOUT     → failed (outcome unknown, never resent)
 sweeper: status='sending' AND locked_until < now() → failed (ATL_WORKER_LEASE_EXPIRED), one guarded update per email
+         runs 1s after the earliest lease ends, and at least every 5m
 every failed → same transaction: failed event + email.failed webhook deliveries (src/email-failures.ts)
 ```
 
@@ -90,12 +93,41 @@ claim: UPDATE provider_connections SET events_poll_after = now()+120s
 
 At most 20 connections are polled at once per worker. See [provider-events.md](provider-events.md).
 
+## Waking up
+
+The worker doesn't poll on a fixed interval. An idle system runs about one query per loop every 5 minutes.
+
+```
+API inserts a queued email ─┐
+worker queues a retry ──────┼─ trigger (migration 0021) → pg_notify('atlair_work', 'email')
+                            │                                   │
+                            │       worker LISTEN connection ◄──┘ (DATABASE_LISTEN_URL)
+                            │                 └─ wake the email loop → claim now
+loop finds nothing due ─────┴─ SELECT min(send_at) - now() … status='queued' (partial index)
+                                  └─ sleep that long: at least 1s if overdue, at most 5m
+```
+
+| Trigger | Fires on | Payload |
+| --- | --- | --- |
+| `emails_notify_work` | insert, or update of `status`/`send_at`, when the row is `queued` | `email` |
+| `webhook_deliveries_notify_work` | insert | `webhook` |
+| `provider_connections_notify_work` | `events_poll_after` going from null to a time (pull mode turned on) | `events` |
+
+- **Claims never notify.** A claim moves an email to `sending`, which the trigger ignores, so the worker never wakes itself.
+  Postgres also merges identical notifications in one transaction, so a batch insert sends one.
+- **Finishing a job wakes its loop.** That's how webhook retries and the next event poll get picked up: the worker
+  that wrote them claims again, then sleeps until the next due time.
+- **Notifications are a shortcut, not the source of truth.** If the listener is down, the loops still claim at least
+  every 5 minutes and at each item's due time. After each (re)connect, `onListen` wakes every loop, so work that
+  arrived while disconnected is claimed straight away. A failed first connection is retried every 30s.
+- **Scheduled emails** wake on time: the insert notifies, and the loop sleeps until `send_at`.
+
 ## Shutdown and scaling
 
 `close-with-grace` handles SIGTERM/SIGINT: stop claiming, wait for in-flight sends and webhook
 requests (up to 25s, below both leases), close the database. Run more processes to scale; `SKIP LOCKED` keeps them from
 taking the same email. A Postgres queue is comfortable well below about 100 concurrent senders;
-beyond that, consider LISTEN/NOTIFY wake-ups, partitioning or a broker.
+beyond that, consider partitioning or a broker.
 
 ## Tests
 

@@ -4,6 +4,7 @@ import type { ProviderSettings } from "@atlair-mail/providers/types";
 import { providerConnections, type NewProviderConnection } from "../schema/index.ts";
 import type { Actor } from "../types.ts";
 import { editorColumns } from "./actors.ts";
+import { msUntilEarliest } from "./_wait.ts";
 
 const disabledEvents = {
   eventsMode: null,
@@ -118,6 +119,14 @@ export async function claimDueEventPolls(db: Executor, options: { limit: number;
     .set({ eventsPollAfter: options.leaseUntil, updatedAt: sql`${providerConnections.updatedAt}` })
     .where(inArray(providerConnections.id, due))
     .returning();
+}
+
+export async function msUntilNextEventPoll(db: Executor) {
+  const [row] = await db
+    .select({ ms: msUntilEarliest(providerConnections.eventsPollAfter) })
+    .from(providerConnections)
+    .where(isNotNull(providerConnections.eventsPollAfter));
+  return row?.ms ?? null;
 }
 
 export interface EventPollResult {

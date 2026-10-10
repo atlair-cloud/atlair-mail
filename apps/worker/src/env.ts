@@ -3,6 +3,7 @@ import { Type, type Static } from "typebox";
 
 const schema = Type.Object({
   DATABASE_URL: Type.String({ default: "postgres://atlair:atlair@localhost:5432/atlair_mail" }),
+  DATABASE_LISTEN_URL: Type.Optional(Type.String({ minLength: 1 })),
   CREDENTIALS_ENCRYPTION_KEYS: Type.String({ minLength: 1 }),
   LOG_LEVEL: Type.Union(
     ["trace", "debug", "info", "warn", "error", "fatal", "silent"].map((level) => Type.Literal(level)),
