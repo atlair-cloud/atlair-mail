@@ -56,17 +56,44 @@ src/routes/
 - **`autohooks.ts` applies to its folder and every folder below it** (`cascadeHooks: true`). Hooks you would otherwise add with `addHook` or nested `register` calls go here.
 - **Files in `src/plugins/` must be wrapped in `fastify-plugin`.** Otherwise their decorators stay hidden inside their own scope and routes can't see them.
 
-**Add a route:** create `src/routes/service/web/<resource>/index.ts`:
+**Add an organization resource route** (served on both `/service/web` and `/service/panel`):
+define it once in `src/resources/<resource>.ts` as a factory that takes a `ResourceScope`
+(`src/resources/scope.ts`), then register it from both route folders.
 
 ```ts
-import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-
-const emailRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
-  fastify.post("/", { schema: { /* ... */ } }, async (request) => { /* ... */ });
-};
-
-export default emailRoutes;
+export const domainRoutes =
+  (scope: ResourceScope): FastifyPluginAsyncTypebox =>
+  async (fastify) => {
+    fastify.get(
+      "/:id",
+      {
+        config: scope.config(["domain:view"]),
+        schema: { tags, ...scope.security, params: scope.params({ id: Uuid() }), response: { 200: DomainSchema } },
+      },
+      async (request) => fastify.services.domains.get(scope.organizationId(request), request.params.id),
+    );
+  };
 ```
+
+```ts
+export default domainRoutes(webScope);
+export default domainRoutes(panelScope);
+```
+
+The first line goes in `routes/service/web/domains/index.ts`, the second in
+`routes/service/panel/organizations/_organizationId/domains/index.ts`. The scope decides the rest:
+
+| | `webScope` | `panelScope` |
+| --- | --- | --- |
+| `organizationId(request)` | the API key's organization | the membership's organization |
+| `apiKeyId(request)` | the key's id | `null` |
+| `config(permissions, keyPermission?)` | `{ permission: keyPermission }` when given, else `full_access` | `{ permissions }` |
+| `params(props)` | `props` | `organizationId` plus `props` |
+| `security` | bearer key (the default) | `panelSession` |
+
+Every route passes both: the panel permissions it needs, and `"sending_access"` when a sending key may
+call it on `/service/web`. Routes that only make sense on one surface (`api-keys/current`, root
+organization routes) stay in that surface's route file.
 
 **Add a public route group** (no API key), such as provider events: `src/routes/webhooks/provider-events/index.ts`. It sits outside `service/`, so neither API-key auth nor versioning applies.
 
