@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { formatRelativeTime } from '../../../lib/format/relative-time'
 import { routeIfExists } from '../../../lib/links'
 import type { Overview } from '../api/get-overview'
-import { DOMAIN_STATUS } from '../lib/email-status'
+import { DOMAIN_STATUS } from '../../domains'
 import { formatCount } from '../lib/format'
 
 const props = defineProps<{ overview: Overview; organizationId: string }>()

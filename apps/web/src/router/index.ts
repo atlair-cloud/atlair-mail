@@ -14,6 +14,7 @@ declare module 'vue-router' {
     wide?: boolean
     fill?: boolean
     shell?: boolean
+    section?: string
   }
 }
 

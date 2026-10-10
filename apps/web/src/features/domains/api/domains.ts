@@ -1,5 +1,6 @@
 import { apiFetch } from '../../../lib/api/client'
-import type { DomainStatus } from './get-overview'
+
+export type DomainStatus = 'pending' | 'verified' | 'failed'
 
 export type DnsRecord = {
   record: 'DKIM' | 'MAIL_FROM' | 'SPF' | 'DMARC'
@@ -33,4 +34,15 @@ export function addDomain(organizationId: string, name: string) {
 
 export function verifyDomain(organizationId: string, domainId: string) {
   return apiFetch<Domain>(`/organizations/${organizationId}/domains/${domainId}/verify`, { method: 'POST' })
+}
+
+export const domainsQueryKey = (organizationId: string) => ['organizations', organizationId, 'domains'] as const
+
+export async function listDomains(organizationId: string) {
+  const { data } = await apiFetch<{ data: Domain[] }>(`/organizations/${organizationId}/domains`)
+  return data
+}
+
+export function removeDomain(organizationId: string, domainId: string) {
+  return apiFetch<void>(`/organizations/${organizationId}/domains/${domainId}`, { method: 'DELETE' })
 }

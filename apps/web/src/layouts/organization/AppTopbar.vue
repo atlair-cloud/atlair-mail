@@ -5,10 +5,13 @@ import { logoUrl } from '../../lib/brand'
 import ThemeToggle from '../shell/ThemeToggle.vue'
 import CommandMenu from './CommandMenu.vue'
 import OrganizationSwitcher from './OrganizationSwitcher.vue'
+import SectionTabs from './SectionTabs.vue'
 import UserMenu from './UserMenu.vue'
+import { useBreadcrumb } from './useBreadcrumb'
 
 const route = useRoute()
 const { organizationId } = useCurrentOrganization()
+const breadcrumb = useBreadcrumb()
 </script>
 
 <template>
@@ -28,6 +31,15 @@ const { organizationId } = useCurrentOrganization()
         <nav aria-label="Breadcrumb" class="flex min-w-0 items-center gap-1 text-sm lg:max-w-[calc(50%-12rem)]">
           <span aria-hidden="true" class="text-white/45">/</span>
           <OrganizationSwitcher />
+          <template v-if="breadcrumb">
+            <span aria-hidden="true" class="text-white/45 max-sm:hidden">/</span>
+            <RouterLink
+              :to="breadcrumb.section.to"
+              class="shrink-0 rounded-sm px-1.5 py-1 text-white/65 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white max-sm:hidden"
+            >{{ breadcrumb.section.label }}</RouterLink>
+            <span aria-hidden="true" class="text-white/45">/</span>
+            <span aria-current="page" class="truncate px-1.5 py-1 font-medium text-white">{{ breadcrumb.item }}</span>
+          </template>
         </nav>
 
         <div class="ml-auto flex shrink-0 items-center gap-2">
@@ -35,6 +47,9 @@ const { organizationId } = useCurrentOrganization()
           <ThemeToggle />
           <UserMenu />
         </div>
+      </div>
+      <div class="mx-auto w-full" :class="route.meta.wide ? 'max-w-[96rem]' : 'max-w-6xl'">
+        <SectionTabs />
       </div>
     </div>
   </header>

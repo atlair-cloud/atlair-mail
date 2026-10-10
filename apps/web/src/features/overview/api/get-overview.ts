@@ -1,6 +1,5 @@
 import { apiFetch } from '../../../lib/api/client'
-
-export type EmailStatus = 'queued' | 'sending' | 'sent' | 'delivered' | 'bounced' | 'complained' | 'failed' | 'canceled'
+import type { EmailStatus, EmailSummary } from '../../emails'
 
 export type StatusCounts = Record<EmailStatus, number> & { total: number }
 
@@ -15,17 +14,6 @@ export type AttentionItem = {
 }
 
 export type DomainStatus = 'pending' | 'verified' | 'failed'
-
-export type EmailSummary = {
-  id: string
-  status: EmailStatus
-  from: string
-  to: string[]
-  subject: string
-  scheduledAt: string
-  sentAt: string | null
-  createdAt: string
-}
 
 export type Overview = {
   generatedAt: string

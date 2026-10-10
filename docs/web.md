@@ -56,6 +56,18 @@ src/
 | `/onboarding`, `/organizations/new` | Create an organization |
 | `/organizations` | Pick an organization |
 | `/organizations/:organizationId` | Overview |
+| `/organizations/:organizationId/emails` | Emails: status filter (`?status=`), newest first, "Load older emails" |
+| `/organizations/:organizationId/emails/:emailId` | One email: what happened, content, addresses, IDs |
+| `/organizations/:organizationId/domains` | Table of domains with status, region and when each was added; add a domain |
+| `/organizations/:organizationId/domains/:domainId` | Status, added/region/last checked, DNS records grouped as DKIM, SPF and DMARC, "Check now", remove |
+| `/organizations/:organizationId/api-keys` | Active and revoked keys; create (shown once) and revoke |
+| `/organizations/:organizationId/webhooks` | Endpoints; add one (signing secret shown once) |
+| `/organizations/:organizationId/webhooks/:webhookId` | Deliveries, events, edit, enable/disable, rotate secret, delete |
+| `/organizations/:organizationId/suppressions` | Suppressed addresses with reason and source email; look up, add, remove |
+| `/organizations/:organizationId/settings` | General: name, slug (checked live), ID, deactivate (owner) |
+| `/organizations/:organizationId/settings/provider` | SES connection, delivery tracking status, retry set-aside events, replace credentials, disconnect |
+| `/organizations/:organizationId/settings/members` | Add (they must have signed in once), change role, remove or leave |
+| `/organizations/:organizationId/settings/audit-log` | Who changed the organization and its members (owners and admins) |
 
 ## Overview
 
@@ -86,5 +98,46 @@ from one request, `GET /service/panel/organizations/:id/overview` (`services/ove
 - Links to pages that don't exist yet are left out (`routeIfExists` in `src/lib/links.ts`), so they
   appear as the Domains, API keys, Emails and Settings pages land.
 
-Next: section tabs, then domains and provider, API keys, emails, webhooks and suppressions, and
-organization settings (members, roles, audit log).
+## Navigation
+
+Section tabs sit under the top bar (`layouts/organization/SectionTabs.vue`). A tab shows once its
+route exists, and a route marks its tab with `meta.section`. The breadcrumb adds the current item on
+detail pages (for example Emails / subject), and ⌘K jumps to sections and common filters.
+
+## Emails
+
+- The list polls every 5 seconds while the newest page has an email queued, sending or sent, and
+  every 30 seconds otherwise. "Load older emails" pages with `before`.
+- The detail page builds "What happened" from the email and its events: queued, scheduled, accepted
+  by SES, then delivered, delayed, bounced (soft or permanent, with each recipient's diagnostic),
+  complained, opened, clicked, or failed with the worker's error code explained. While waiting it
+  shows the next step and polls every 4 seconds.
+- HTML bodies render in an `<iframe sandbox="">` with `srcdoc`, so scripts and forms never run.
+
+## Patterns
+
+Every panel endpoint has a page. They share a few patterns so moving between them feels the same:
+
+- **Page header** (`components/shared/PageHeader.vue`): eyebrow, title, one sentence on what the
+  page is for, and the primary action on the right. The primary action is hidden until there is
+  something to manage; the empty state carries it instead.
+- **States**: skeleton while loading, `LoadErrorCard` with "Try again" on failure, `EmptyState`
+  that says what will appear and how to start, `NotFound` for unknown IDs.
+- **Modals** put the content on the white card and the choices on the frame below: Cancel on the left,
+  the action on the right (`ModalActions`). Forms used in a modal take `in-modal` and a `form-id`, and
+  the footer button submits them with `form=`.
+- **Controls**: `AtlairSwitch` for on/off choices (webhook events, API key full access), `ChoiceCards` for picking one
+  of several options (rotation overlap). No native checkboxes or radios; corners follow the
+  0.25rem Atlair radius, never pills.
+- **Create flows** open a `FramedModal`. Anything shown once (API keys, signing secrets) is revealed
+  in the same modal with `SecretReveal`, and the modal can't be dismissed by clicking outside until
+  it's acknowledged. Creating a domain or webhook then opens its page.
+- **Destructive actions** sit in a red `SettingsCard` at the bottom and confirm with `ConfirmModal`;
+  irreversible, wide-reaching ones (removing a domain, deactivating, disconnecting) ask you to type
+  a confirmation.
+- **Feedback**: small changes show a Nuxt UI toast; after a mutation every query under
+  `['organizations', id]` is invalidated, so the overview, tabs and lists agree.
+- **Roles**: owners and admins see write actions; members get read-only pages with a note saying
+  who can act. Only owners see "Deactivate"; the audit log is for owners and admins.
+- Onboarding reuses the same components (`ConnectSesForm`, `DeliveryTrackingCard`, `AddDomainForm`,
+  `DomainVerification`, `CreateApiKeyForm`), so a step looks the same as its page.

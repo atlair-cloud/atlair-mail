@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Check, Lock, NavArrowDown } from '@iconoir/vue'
 import { computed, ref, watch } from 'vue'
-import type { CreatedApiKey } from '../api/api-keys'
+import type { CreatedApiKey } from '../../api-keys'
 import type { Overview } from '../api/get-overview'
 import { setupSteps, type SetupStepKey } from '../lib/setup'
 import ApiKeyStep from './setup/ApiKeyStep.vue'
