@@ -13,5 +13,7 @@ export function useCurrentOrganization() {
 
   const canManage = computed(() => organization.value?.role === 'owner' || organization.value?.role === 'admin')
 
-  return { organizationId, organization, organizations, canManage, isPending: query.isPending }
+  const isOwner = computed(() => organization.value?.role === 'owner')
+
+  return { organizationId, organization, organizations, canManage, isOwner, isPending: query.isPending }
 }

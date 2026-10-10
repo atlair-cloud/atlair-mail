@@ -1,4 +1,4 @@
-import type { DomainStatus, EmailStatus } from '../api/get-overview'
+import type { EmailStatus } from '../api/types'
 
 export const EMAIL_STATUS: Record<EmailStatus, { label: string; dot: string; text: string }> = {
   queued: { label: 'Queued', dot: 'bg-slate-300', text: 'text-slate-600' },
@@ -9,12 +9,6 @@ export const EMAIL_STATUS: Record<EmailStatus, { label: string; dot: string; tex
   complained: { label: 'Complained', dot: 'bg-red-500', text: 'text-red-600' },
   failed: { label: 'Failed', dot: 'bg-red-500', text: 'text-red-600' },
   canceled: { label: 'Canceled', dot: 'bg-slate-300', text: 'text-slate-500' },
-}
-
-export const DOMAIN_STATUS: Record<DomainStatus, { label: string; dot: string }> = {
-  verified: { label: 'Verified', dot: 'bg-status-live' },
-  pending: { label: 'Waiting for DNS', dot: 'bg-status-attention' },
-  failed: { label: 'Failed', dot: 'bg-red-500' },
 }
 
 export function isInFlight(status: EmailStatus) {

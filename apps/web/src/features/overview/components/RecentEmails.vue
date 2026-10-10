@@ -5,8 +5,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatRelativeTime } from '../../../lib/format/relative-time'
 import { routeIfExists } from '../../../lib/links'
-import type { EmailSummary } from '../api/get-overview'
-import { EMAIL_STATUS } from '../lib/email-status'
+import { EMAIL_STATUS, type EmailSummary } from '../../emails'
 
 const props = defineProps<{ emails: EmailSummary[]; organizationId: string; live: boolean }>()
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Computer, HalfMoon, Home, Search, SunLight } from '@iconoir/vue'
+import { BellNotification, Computer, Globe, Group, HalfMoon, Home, Journal, Key, Mail, Prohibition, Search, Settings, SunLight, CloudSync } from '@iconoir/vue'
 import type { CommandPaletteGroup, CommandPaletteItem } from '@nuxt/ui'
 import { onKeyStroke } from '@vueuse/core'
 import { computed, ref } from 'vue'
@@ -35,7 +35,20 @@ const groups = computed<CommandPaletteGroup<CommandPaletteItem>[]>(() => {
     {
       id: 'navigate',
       label: 'Go to',
-      items: [{ id: 'overview', label: 'Overview', kind: 'icon', glyph: Home, onSelect: () => go({ name: 'organization', params: org }) }],
+      items: [
+        { id: 'overview', label: 'Overview', kind: 'icon', glyph: Home, onSelect: () => go({ name: 'organization', params: org }) },
+        { id: 'emails', label: 'Emails', kind: 'icon', glyph: Mail, onSelect: () => go({ name: 'emails', params: org }) },
+        { id: 'emails-failed', label: 'Failed emails', kind: 'icon', glyph: Mail, onSelect: () => go({ name: 'emails', params: org, query: { status: 'failed' } }) },
+        { id: 'emails-bounced', label: 'Bounced emails', kind: 'icon', glyph: Mail, onSelect: () => go({ name: 'emails', params: org, query: { status: 'bounced' } }) },
+        { id: 'domains', label: 'Domains', kind: 'icon', glyph: Globe, onSelect: () => go({ name: 'domains', params: org }) },
+        { id: 'api-keys', label: 'API keys', kind: 'icon', glyph: Key, onSelect: () => go({ name: 'api-keys', params: org }) },
+        { id: 'webhooks', label: 'Webhooks', kind: 'icon', glyph: BellNotification, onSelect: () => go({ name: 'webhooks', params: org }) },
+        { id: 'suppressions', label: 'Suppressions', kind: 'icon', glyph: Prohibition, onSelect: () => go({ name: 'suppressions', params: org }) },
+        { id: 'settings', label: 'Settings', kind: 'icon', glyph: Settings, onSelect: () => go({ name: 'organization-settings', params: org }) },
+        { id: 'provider', label: 'Provider (Amazon SES)', kind: 'icon', glyph: CloudSync, onSelect: () => go({ name: 'organization-settings-provider', params: org }) },
+        { id: 'members', label: 'Members', kind: 'icon', glyph: Group, onSelect: () => go({ name: 'organization-settings-members', params: org }) },
+        { id: 'audit-log', label: 'Audit log', kind: 'icon', glyph: Journal, onSelect: () => go({ name: 'organization-settings-activity', params: org }) },
+      ],
     },
     {
       id: 'organizations',

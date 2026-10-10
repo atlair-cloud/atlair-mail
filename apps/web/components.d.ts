@@ -11,7 +11,9 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AtlairSwitch: typeof import('./src/components/shared/AtlairSwitch.vue')['default']
     AvatarFace: typeof import('./src/components/shared/AvatarFace.vue')['default']
+    ChoiceCards: typeof import('./src/components/shared/ChoiceCards.vue')['default']
     ConfirmModal: typeof import('./src/components/shared/ConfirmModal.vue')['default']
     CopyButton: typeof import('./src/components/shared/CopyButton.vue')['default']
     CrashScreen: typeof import('./src/components/shared/CrashScreen.vue')['default']
@@ -20,13 +22,19 @@ declare module 'vue' {
     FlickeringGrid: typeof import('./src/components/shared/FlickeringGrid.vue')['default']
     FramedModal: typeof import('./src/components/shared/FramedModal.vue')['default']
     GridBackdrop: typeof import('./src/components/shared/GridBackdrop.vue')['default']
+    LoadErrorCard: typeof import('./src/components/shared/LoadErrorCard.vue')['default']
+    ModalActions: typeof import('./src/components/shared/ModalActions.vue')['default']
     NotFound: typeof import('./src/components/shared/NotFound.vue')['default']
+    PageHeader: typeof import('./src/components/shared/PageHeader.vue')['default']
     PageSkeleton: typeof import('./src/components/shared/PageSkeleton.vue')['default']
     PuffMood: typeof import('./src/components/shared/PuffMood.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SecretReveal: typeof import('./src/components/shared/SecretReveal.vue')['default']
+    SettingsCard: typeof import('./src/components/shared/SettingsCard.vue')['default']
     SlowNotice: typeof import('./src/components/shared/SlowNotice.vue')['default']
     StatusScreen: typeof import('./src/components/shared/StatusScreen.vue')['default']
+    TextButton: typeof import('./src/components/shared/TextButton.vue')['default']
     UApp: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/App.vue')['default']
     UButton: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Button.vue')['default']
     UCommandPalette: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/CommandPalette.vue')['default']
@@ -34,6 +42,7 @@ declare module 'vue' {
     UInput: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Input.vue')['default']
     UModal: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Modal.vue')['default']
     USelect: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Select.vue')['default']
+    USwitch: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Switch.vue')['default']
     UTooltip: typeof import('./../../node_modules/.pnpm/@nuxt+ui@4.11.3_de397ad76e20793deab18f55a42a56ba/node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
   }
 }

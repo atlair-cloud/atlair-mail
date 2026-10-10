@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import CopyButton from '../../../../components/shared/CopyButton.vue'
 import { API_URL } from '../../../../lib/api/client'
-import type { CreatedApiKey } from '../../api/api-keys'
+import type { CreatedApiKey } from '../../../api-keys'
 
 const props = defineProps<{
   sendingDomain: string | null
