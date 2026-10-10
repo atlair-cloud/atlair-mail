@@ -268,10 +268,31 @@ through `/api/auth/sign-up/email`, cookie carried between requests.
   responses carry `Api-Version` and `Vary`; `/health` and `/api/auth/*` ignore the header; a route
   with `config.version: ["1", "2"]` answers both.
 
+## Email resources on the panel (ATL-101)
+
+Domains, API keys, provider, emails, webhooks and suppressions are defined once in
+`apps/api/src/resources/` and registered on both surfaces, so `/service/panel/organizations/:id/<resource>`
+answers with the same bodies and statuses as `/service/web/<resource>`. See "Add an organization
+resource route" in `fastify-plugins.md`.
+
+| Resource | Read | Write |
+| --- | --- | --- |
+| API keys | `api_key:view` | `api_key:create`, `api_key:revoke` |
+| Domains | `domain:view` | `domain:create`, `domain:verify`, `domain:delete` |
+| Provider | `provider:view` | `provider:connect` (connect, events, redrive), `provider:disconnect` |
+| Emails | `email:view` (list, get, events) | `email:send` |
+| Webhooks | `webhook:view` (incl. deliveries) | `webhook:create`, `webhook:update` (incl. rotate), `webhook:delete` |
+| Suppressions | `suppression:view` | `suppression:create`, `suppression:delete` |
+
+- `GET /emails` (both surfaces): newest first, without bodies, `before` + `limit` (1–100, default 50)
+  and an optional `status` filter. Backed by `emails(organization_id, id)` (migration `0015`).
+- Emails sent from the panel store no API key (`api_key_id` is null).
+- Panel routes are rate limited per signed-in user with the same `RATE_LIMIT_MAX`/`RATE_LIMIT_WINDOW`
+  as API keys.
+- Resource changes made through the panel are not written to `audit_logs` yet.
+
 ## Out of scope
 
-- Panel routes for domains, API keys, provider, emails, webhooks, suppressions, and `GET
-  /service/web/emails` (list). Next ticket; they reuse the same services under `_organizationId`.
 - The panel UI (`apps/panel`).
 - Later: auth emails (verification, password reset, invitations) through atlair-mail's own sending;
   generic OIDC for "Sign in with Atlair" and other identity providers; 2FA.
