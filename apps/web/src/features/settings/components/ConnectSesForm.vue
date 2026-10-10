@@ -3,6 +3,7 @@ import { NavArrowDown } from '@iconoir/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import CopyButton from '../../../components/shared/CopyButton.vue'
+import { ApiError } from '../../../lib/api/client'
 import { connectSes, type ProviderConnection } from '../api/provider'
 import { sesIamPolicy } from '../lib/ses-policy'
 
@@ -29,6 +30,12 @@ const connect = useMutation({
     await queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId] })
     emit('connected', connection)
   },
+})
+
+const connectError = computed(() => {
+  const error = connect.error.value
+  if (!error) return null
+  return error instanceof ApiError && error.code === 'ATL_PROVIDER_ACCOUNT_IN_USE' ? 'This AWS account is already used by another organization.' : error.message
 })
 
 const canSubmit = computed(() => /^[A-Z0-9]{16,128}$/.test(accessKeyId.value.trim()) && secretAccessKey.value.trim() !== '')
@@ -78,6 +85,6 @@ function submit() {
       <button v-if="cancellable" type="button" class="rounded-sm px-2 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900" @click="emit('cancel')">Cancel</button>
       <p class="m-0 text-xs text-slate-500">The key is checked with AWS, then stored encrypted. It’s never shown again.</p>
     </div>
-    <p v-if="connect.error.value" role="alert" class="m-0 text-sm text-red-600">{{ connect.error.value.message }}</p>
+    <p v-if="connectError" role="alert" class="m-0 text-sm text-red-600">{{ connectError }}</p>
   </form>
 </template>

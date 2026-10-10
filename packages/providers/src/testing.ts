@@ -28,6 +28,7 @@ export function createFakeProvider(overrides: Partial<Omit<EmailProvider, "type"
 
   const implementations: Omit<EmailProvider, "type"> = {
     verifyAccount: async (): Promise<ProviderAccount> => ({
+      accountId: "123456789012",
       sendingEnabled: true,
       sandbox: false,
       dailyQuota: 50_000,

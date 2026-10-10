@@ -1,8 +1,9 @@
+import type { Authorship } from '../../../lib/api/actors'
 import { apiFetch } from '../../../lib/api/client'
 
 export type RoleName = 'owner' | 'admin' | 'member'
 
-export type Member = { id: string; userId: string; name: string; email: string; image: string | null; role: RoleName; createdAt: string }
+export type Member = Authorship & { id: string; userId: string; name: string; email: string; image: string | null; role: RoleName }
 
 export type Role = { id: string; name: RoleName; permissions: string[] }
 

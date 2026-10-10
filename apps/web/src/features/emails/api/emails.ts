@@ -1,20 +1,28 @@
 import { ApiError, apiFetch } from '../../../lib/api/client'
 import type { Email, EmailEvent, EmailStatus, EmailSummary } from './types'
 
-export const emailPageSize = 50
+export interface EmailListQuery {
+  status: EmailStatus | null
+  search: string
+  since: string | null
+  before?: string
+  limit: number
+}
 
-export const emailsQueryKey = (organizationId: string, status: EmailStatus | null) => ['organizations', organizationId, 'emails', { status }] as const
+export const emailsQueryKey = (organizationId: string, query?: Omit<EmailListQuery, 'since'> & { range: string | null }) =>
+  query ? (['organizations', organizationId, 'emails', 'list', query] as const) : (['organizations', organizationId, 'emails', 'list'] as const)
 
 export const emailQueryKey = (organizationId: string, emailId: string) => ['organizations', organizationId, 'emails', emailId] as const
 
 export const emailEventsQueryKey = (organizationId: string, emailId: string) => ['organizations', organizationId, 'emails', emailId, 'events'] as const
 
-export async function listEmails(organizationId: string, query: { status: EmailStatus | null; before?: string }) {
-  const params = new URLSearchParams({ limit: String(emailPageSize) })
+export function listEmails(organizationId: string, query: EmailListQuery) {
+  const params = new URLSearchParams({ limit: String(query.limit) })
   if (query.status) params.set('status', query.status)
+  if (query.search) params.set('search', query.search)
+  if (query.since) params.set('since', query.since)
   if (query.before) params.set('before', query.before)
-  const { data } = await apiFetch<{ data: EmailSummary[] }>(`/organizations/${organizationId}/emails?${params}`)
-  return data
+  return apiFetch<{ data: EmailSummary[]; hasMore: boolean }>(`/organizations/${organizationId}/emails?${params}`)
 }
 
 export function getEmail(organizationId: string, emailId: string) {

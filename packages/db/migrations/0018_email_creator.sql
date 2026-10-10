@@ -1,0 +1,2 @@
+ALTER TABLE "emails" ADD COLUMN "created_by" uuid;--> statement-breakpoint
+ALTER TABLE "emails" ADD CONSTRAINT "emails_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "auth"."user"("id") ON DELETE set null ON UPDATE no action;

@@ -24,6 +24,7 @@ import {
   SubscribeCommand,
 } from "@aws-sdk/client-sns";
 import { SQSClient } from "@aws-sdk/client-sqs";
+import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import libmime from "libmime";
 import {
   ProviderError,
@@ -263,6 +264,8 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
 
   const callSns = <T>(run: (client: SNSClient) => Promise<T>) => using(new SNSClient(clientConfig), run);
 
+  const callSts = <T>(run: (client: STSClient) => Promise<T>) => using(new STSClient(clientConfig), run);
+
   const callSqs = <T>(run: (client: SQSClient) => Promise<T>, requestTimeout = clientConfig.requestHandler.requestTimeout) =>
     using(new SQSClient({ ...clientConfig, requestHandler: { ...clientConfig.requestHandler, requestTimeout } }), run);
 
@@ -349,17 +352,21 @@ export function createSesProvider(settings: SesSettings, secrets: SesSecrets): E
   return {
     type: "ses",
 
-    verifyAccount: () =>
-      call(async (client) => {
-        const account = await client.send(new GetAccountCommand({}));
-        return {
-          sendingEnabled: account.SendingEnabled ?? false,
-          sandbox: account.ProductionAccessEnabled !== true,
-          dailyQuota: account.SendQuota?.Max24HourSend ?? 0,
-          maxSendRate: account.SendQuota?.MaxSendRate ?? 0,
-          sentLast24h: account.SendQuota?.SentLast24Hours ?? 0,
-        };
-      }),
+    verifyAccount: async () => {
+      const [account, identity] = await Promise.all([
+        call((client) => client.send(new GetAccountCommand({}))),
+        callSts((client) => client.send(new GetCallerIdentityCommand({}))),
+      ]);
+      if (!identity.Account) throw new ProviderUnavailableError({ reason: "MissingAccountId" });
+      return {
+        accountId: identity.Account,
+        sendingEnabled: account.SendingEnabled ?? false,
+        sandbox: account.ProductionAccessEnabled !== true,
+        dailyQuota: account.SendQuota?.Max24HourSend ?? 0,
+        maxSendRate: account.SendQuota?.MaxSendRate ?? 0,
+        sentLast24h: account.SendQuota?.SentLast24Hours ?? 0,
+      };
+    },
 
     createDomain: (name) =>
       call(async (client) => {

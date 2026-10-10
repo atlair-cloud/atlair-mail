@@ -11,6 +11,7 @@ import {
   SESv2ServiceException,
   TooManyRequestsException,
 } from "@aws-sdk/client-sesv2";
+import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { createProvider, ProviderError } from "../src/index.ts";
 import { toDomainStatus } from "../src/ses/ses-provider.ts";
 
@@ -22,6 +23,7 @@ const provider = createProvider({
 }, { retry: false });
 const dkim = { Tokens: ["t1", "t2", "t3"], SigningHostedZone: "dkim.example-zone.com", Status: "PENDING" as const };
 const ses = mockClient(SESv2Client);
+const sts = mockClient(STSClient);
 
 const sesError = <T>(Type: new (opts: { message: string; $metadata: object }) => T) =>
   new Type({ message: "x", $metadata: {} });
@@ -32,7 +34,11 @@ const expectProviderError = (code: string, statusCode: number) => (error: unknow
   error.statusCode === statusCode &&
   !JSON.stringify({ ...error, message: error.message }).includes(secretAccessKey);
 
-beforeEach(() => ses.reset());
+beforeEach(() => {
+  ses.reset();
+  sts.reset();
+  sts.on(GetCallerIdentityCommand).resolves({ Account: "123456789012" });
+});
 
 describe("SES provider", () => {
   it("maps SES verification to domain status", () => {
@@ -52,6 +58,7 @@ describe("SES provider", () => {
     });
 
     assert.deepEqual(await provider.verifyAccount(), {
+      accountId: "123456789012",
       sendingEnabled: true,
       sandbox: true,
       dailyQuota: 200,

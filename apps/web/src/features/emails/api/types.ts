@@ -1,3 +1,5 @@
+import type { Actor } from '../../../lib/api/actors'
+
 export type EmailStatus = 'queued' | 'sending' | 'sent' | 'delivered' | 'bounced' | 'complained' | 'failed' | 'canceled'
 
 export const emailStatuses: EmailStatus[] = ['queued', 'sending', 'sent', 'delivered', 'bounced', 'complained', 'failed', 'canceled']
@@ -12,6 +14,7 @@ export type EmailSummary = {
   sentAt: string | null
   lastError: string | null
   createdAt: string
+  createdBy: Actor | null
 }
 
 export type Email = EmailSummary & {

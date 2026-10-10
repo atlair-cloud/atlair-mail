@@ -28,6 +28,7 @@ export async function upsertProviderConnection(db: Executor, values: NewProvider
       set: {
         provider: values.provider,
         settings: values.settings,
+        accountId: values.accountId ?? null,
         credentialsEncrypted: values.credentialsEncrypted,
         encryptionKeyVersion: values.encryptionKeyVersion,
         ...disabledEvents,

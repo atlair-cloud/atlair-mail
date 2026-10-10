@@ -14,6 +14,7 @@ import {
   updateMemberRole,
   type Database,
 } from "@atlair-mail/db";
+import { loadMemberAuthors, withMemberAuthors } from "../lib/authors.ts";
 
 export const UserNotFoundError = createError(
   "ATL_USER_NOT_FOUND",
@@ -42,8 +43,11 @@ export function createMemberService(db: Database) {
   return {
     membership: (organizationId: string, userId: string) => findMembership(db, organizationId, userId),
 
-    list: (organizationId: string, page: { before?: string; limit: number }) =>
-      listMembers(db, { organizationId, ...page }),
+    list: async (organizationId: string, page: { before?: string; limit: number }) => {
+      const rows = await listMembers(db, { organizationId, ...page });
+      const authors = await loadMemberAuthors(db, rows);
+      return rows.map((row) => ({ ...row, ...authors(row) }));
+    },
 
     add: async (input: AddMemberInput) => {
       try {
@@ -73,7 +77,7 @@ export function createMemberService(db: Database) {
             entityId: member.id,
             changes: { userId, role: role.name },
           });
-          return (await findMember(tx, input.organizationId, member.id))!;
+          return withMemberAuthors(tx, (await findMember(tx, input.organizationId, member.id))!);
         });
       } catch (error) {
         if (hasPgErrorCode(error, pgErrorCodes.uniqueViolation)) throw new AlreadyMemberError();
@@ -99,7 +103,7 @@ export function createMemberService(db: Database) {
           entityId: input.memberId,
           changes: { before: { role: existing.role }, after: { role: role.name } },
         });
-        return (await findMember(tx, input.organizationId, input.memberId))!;
+        return withMemberAuthors(tx, (await findMember(tx, input.organizationId, input.memberId))!);
       }),
 
     remove: (input: { organizationId: string; memberId: string; actorUserId: string }) =>

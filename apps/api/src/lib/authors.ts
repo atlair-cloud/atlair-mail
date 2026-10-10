@@ -41,3 +41,24 @@ export async function loadAuthors(db: Executor, rows: (CreatedByColumns & Update
 export async function withAuthors<T extends CreatedByColumns & UpdatedByColumns>(db: Executor, row: T) {
   return (await loadAuthors(db, [row]))(row);
 }
+
+export interface MemberAuthorColumns {
+  createdBy: string | null;
+  updatedBy: string | null;
+}
+
+const asAuthorship = (row: MemberAuthorColumns) => ({
+  createdBy: row.createdBy,
+  createdByApiKeyId: null,
+  updatedBy: row.updatedBy,
+  updatedByApiKeyId: null,
+});
+
+export async function loadMemberAuthors(db: Executor, rows: MemberAuthorColumns[]) {
+  const authors = await loadAuthors(db, rows.map(asAuthorship));
+  return (row: MemberAuthorColumns) => authors(asAuthorship(row));
+}
+
+export async function withMemberAuthors<T extends MemberAuthorColumns>(db: Executor, row: T) {
+  return { ...row, ...(await loadMemberAuthors(db, [row]))(row) };
+}

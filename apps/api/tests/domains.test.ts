@@ -1,6 +1,8 @@
+import { randomInt } from "node:crypto";
 import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mockClient } from "aws-sdk-client-mock";
+import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import {
   AlreadyExistsException,
   CreateEmailIdentityCommand,
@@ -17,6 +19,8 @@ import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
 const url = "/service/web/domains";
 const ses = mockClient(SESv2Client);
+const sts = mockClient(STSClient);
+const awsAccountId = () => String(randomInt(100_000_000_000, 1_000_000_000_000));
 const tokens = ["tokenone", "tokentwo", "tokenthree"];
 const zone = "dkim.eu-west-1.example-zone.com";
 
@@ -44,6 +48,8 @@ const addDomain = (app: TestApp, token: string, name = `${uuidv7()}.example.com`
 
 beforeEach(() => {
   ses.reset();
+  sts.reset();
+  sts.on(GetCallerIdentityCommand).resolves({ Account: awsAccountId() });
   ses.on(GetAccountCommand).resolves({ SendingEnabled: true });
   ses.on(CreateEmailIdentityCommand).resolves({
     DkimAttributes: { Tokens: tokens, SigningHostedZone: zone, Status: "PENDING" },

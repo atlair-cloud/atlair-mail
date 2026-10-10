@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { Uuid } from "../../../../../lib/schemas.ts";
-import { OrganizationNameSchema, OrganizationSchema, OrganizationSlugSchema } from "../../../../../schemas/panel.ts";
+import { OrganizationDetailSchema, OrganizationNameSchema, OrganizationSlugSchema } from "../../../../../schemas/panel.ts";
 
 const tags = ["Panel"];
 const params = Type.Object({ organizationId: Uuid() });
@@ -16,7 +16,7 @@ const organizationDetailRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         tags,
         security: [{ panelSession: [] }],
         params,
-        response: { 200: Type.Object({ ...OrganizationSchema.properties, role: Type.String() }) },
+        response: { 200: Type.Object({ ...OrganizationDetailSchema.properties, role: Type.String() }) },
       },
     },
     async (request) => {
@@ -38,7 +38,7 @@ const organizationDetailRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           { name: Type.Optional(OrganizationNameSchema), slug: Type.Optional(OrganizationSlugSchema) },
           { minProperties: 1 },
         ),
-        response: { 200: OrganizationSchema },
+        response: { 200: OrganizationDetailSchema },
       },
     },
     async (request) => {

@@ -3,7 +3,9 @@ import { Key, Plus } from '@iconoir/vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useToast } from '@nuxt/ui/composables'
 import { computed, ref, useTemplateRef } from 'vue'
+import { DataTable, type TableColumn } from '../../../components/data-table'
 import ActorName from '../../../components/shared/ActorName.vue'
+import AuditStamp from '../../../components/shared/AuditStamp.vue'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
 import EmptyState from '../../../components/shared/EmptyState.vue'
 import FramedModal from '../../../components/shared/FramedModal.vue'
@@ -39,6 +41,14 @@ function openCreate() {
   created.value = null
   creating.value = true
 }
+
+const columns: TableColumn[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'permission', label: 'Permission', width: 'w-36', hideBelow: 'sm' },
+  { key: 'created', label: 'Created', width: 'w-44', hideBelow: 'md' },
+  { key: 'lastUsed', label: 'Last used', width: 'w-32', hideBelow: 'lg' },
+  { key: 'actions', label: 'Actions', width: 'w-28', align: 'right', labelHiddenOnMobile: true },
+]
 
 const permissionLabel = (permission: ApiKey['permission']) => API_KEY_PERMISSIONS.find((option) => option.value === permission)?.label ?? permission
 
@@ -86,35 +96,23 @@ function askRevoke(key: ApiKey) {
       <p v-else class="m-0 text-xs text-slate-500">An owner or admin can create keys.</p>
     </EmptyState>
 
-    <div v-else class="mt-8 overflow-hidden rounded-md bg-white ring-1 ring-slate-200">
-      <table class="w-full table-fixed border-collapse text-sm">
-        <thead class="border-b border-slate-100 text-left">
-          <tr class="font-mono text-[10.5px] uppercase tracking-[0.12em] text-slate-500">
-            <th scope="col" class="px-4 py-2.5 font-medium">Name</th>
-            <th scope="col" class="hidden w-36 px-4 py-2.5 font-medium sm:table-cell">Permission</th>
-            <th scope="col" class="hidden w-44 px-4 py-2.5 font-medium lg:table-cell">Created by</th>
-            <th scope="col" class="hidden w-36 px-4 py-2.5 font-medium md:table-cell">Last used</th>
-            <th scope="col" class="w-28 px-4 py-2.5 font-medium"><span class="sr-only">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <tr v-for="key in active" :key="key.id">
-            <td class="min-w-0 px-4 py-3">
-              <span class="block truncate font-medium text-slate-900">{{ key.name }}</span>
-              <span class="block truncate font-mono text-[11px] text-slate-500">{{ key.tokenPrefix }}… · created {{ formatRelativeTime(key.createdAt) }}</span>
-            </td>
-            <td class="hidden px-4 py-3 sm:table-cell">
-              <span class="rounded-sm px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset" :class="key.permission === 'full_access' ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-slate-50 text-slate-700 ring-slate-200'">{{ permissionLabel(key.permission) }}</span>
-            </td>
-            <td class="hidden px-4 py-3 text-slate-700 lg:table-cell"><ActorName :actor="key.createdBy" /></td>
-            <td class="hidden px-4 py-3 text-slate-600 md:table-cell">{{ key.lastUsedAt ? formatRelativeTime(key.lastUsedAt) : 'Never' }}</td>
-            <td class="px-4 py-3 text-right">
-              <TextButton v-if="canManage" tone="danger" @click="askRevoke(key)">Revoke</TextButton>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <DataTable v-else class="mt-8" label="API keys" :columns="columns" :rows="active" :row-key="(key) => key.id">
+      <template #cell-name="{ row }">
+        <span class="block truncate font-medium text-slate-900">{{ row.name }}</span>
+        <span class="block truncate font-mono text-[11px] text-slate-500">{{ row.tokenPrefix }}…</span>
+      </template>
+      <template #cell-permission="{ row }">
+        <span class="rounded-sm px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset" :class="row.permission === 'full_access' ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-slate-50 text-slate-700 ring-slate-200'">{{ permissionLabel(row.permission) }}</span>
+      </template>
+      <template #cell-created="{ row }"><AuditStamp :at="row.createdAt" :by="row.createdBy" /></template>
+      <template #cell-lastUsed="{ row }">
+        <time v-if="row.lastUsedAt" :datetime="row.lastUsedAt" :title="new Date(row.lastUsedAt).toLocaleString()" class="font-mono text-[11px] tabular-nums text-slate-500">{{ formatRelativeTime(row.lastUsedAt) }}</time>
+        <span v-else class="text-xs text-slate-500">Never</span>
+      </template>
+      <template #cell-actions="{ row }">
+        <TextButton v-if="canManage" tone="danger" @click="askRevoke(row)">Revoke</TextButton>
+      </template>
+    </DataTable>
 
     <section v-if="revoked.length" class="mt-6">
       <button type="button" class="rounded-sm text-sm font-medium text-slate-600 hover:text-slate-900" :aria-expanded="showRevoked" @click="showRevoked = !showRevoked">
@@ -123,8 +121,10 @@ function askRevoke(key: ApiKey) {
       <ul v-if="showRevoked" class="m-0 mt-3 list-none divide-y divide-slate-100 overflow-hidden rounded-md bg-white p-0 ring-1 ring-slate-200">
         <li v-for="key in revoked" :key="key.id" class="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
           <span class="min-w-0 truncate text-slate-500 line-through decoration-slate-300">{{ key.name }}</span>
-          <span class="flex shrink-0 items-center gap-1 text-[11px] text-slate-500">
-            <span class="font-mono">{{ key.tokenPrefix }}…</span> · revoked {{ formatRelativeTime(key.revokedAt!) }}<template v-if="key.updatedBy"> by <ActorName :actor="key.updatedBy" class="text-slate-700" /></template>
+          <span class="flex shrink-0 flex-wrap items-center justify-end gap-x-1 text-[11px] text-slate-500">
+            <span class="font-mono">{{ key.tokenPrefix }}…</span>
+            · created {{ formatRelativeTime(key.createdAt) }}<template v-if="key.createdBy"> by <ActorName :actor="key.createdBy" class="text-slate-700" /></template>
+            · revoked <time :datetime="key.revokedAt!" :title="new Date(key.revokedAt!).toLocaleString()">{{ formatRelativeTime(key.revokedAt!) }}</time><template v-if="key.updatedBy"> by <ActorName :actor="key.updatedBy" class="text-slate-700" /></template>
           </span>
         </li>
       </ul>

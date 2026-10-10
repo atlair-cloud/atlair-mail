@@ -1,7 +1,9 @@
+import { randomInt } from "node:crypto";
 import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { mockClient } from "aws-sdk-client-mock";
+import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { GetAccountCommand, SESv2Client, SESv2ServiceException } from "@aws-sdk/client-sesv2";
 import { schema } from "@atlair-mail/db";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
@@ -11,6 +13,8 @@ const secretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
 const input = { type: "ses", region: "us-east-1", accessKeyId: "AKIAIOSFODNN7EXAMPLE", secretAccessKey };
 
 const ses = mockClient(SESv2Client);
+const sts = mockClient(STSClient);
+const awsAccountId = () => String(randomInt(100_000_000_000, 1_000_000_000_000));
 
 const awsError = (name: string, fault: "client" | "server") =>
   new SESv2ServiceException({ name, $fault: fault, $metadata: {}, message: name });
@@ -27,6 +31,8 @@ const storedConnection = async (app: TestApp, organizationId: string) =>
 
 beforeEach(() => {
   ses.reset();
+  sts.reset();
+  sts.on(GetCallerIdentityCommand).resolves({ Account: awsAccountId() });
   ses.on(GetAccountCommand).resolves({
     SendingEnabled: true,
     ProductionAccessEnabled: false,
@@ -103,6 +109,41 @@ describe("/service/web/provider", { skip: !hasDatabase }, () => {
     assert.equal(second.id, first.id);
     assert.equal(second.region, "eu-west-1");
     assert.equal(second.accessKeyId, "AKIAI44QH8DHBEXAMPLE");
+  });
+
+  it("refuses an account already connected to another organization", async () => {
+    const app = await buildTestApp();
+    const first = await createTestKey(app);
+    const second = await createTestKey(app);
+    const shared = awsAccountId();
+    const own = awsAccountId();
+
+    sts.on(GetCallerIdentityCommand).resolves({ Account: shared });
+    await app.inject({ method: "PUT", url, headers: auth(first.token), payload: input });
+    const taken = await app.inject({ method: "PUT", url, headers: auth(second.token), payload: input });
+    const reconnected = await app.inject({ method: "PUT", url, headers: auth(first.token), payload: input });
+    sts.on(GetCallerIdentityCommand).resolves({ Account: own });
+    const other = await app.inject({ method: "PUT", url, headers: auth(second.token), payload: input });
+
+    assert.equal(taken.statusCode, 409);
+    assert.equal(taken.json().code, "ATL_PROVIDER_ACCOUNT_IN_USE");
+    assert.equal(reconnected.statusCode, 200);
+    assert.equal(other.statusCode, 200);
+    assert.equal((await storedConnection(app, first.organizationId))?.accountId, shared);
+    assert.equal((await storedConnection(app, second.organizationId))?.accountId, own);
+  });
+
+  it("lets another organization use the account once it is disconnected", async () => {
+    const app = await buildTestApp();
+    const first = await createTestKey(app);
+    const second = await createTestKey(app);
+    sts.on(GetCallerIdentityCommand).resolves({ Account: awsAccountId() });
+
+    await app.inject({ method: "PUT", url, headers: auth(first.token), payload: input });
+    await app.inject({ method: "DELETE", url, headers: auth(first.token) });
+    const moved = await app.inject({ method: "PUT", url, headers: auth(second.token), payload: input });
+
+    assert.equal(moved.statusCode, 200);
   });
 
   it("builds a working provider from the stored connection", async () => {

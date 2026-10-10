@@ -202,6 +202,8 @@ The public API never names a provider. Each organization connects one email prov
 { "type": "ses", "region": "us-east-1", "accessKeyId": "AKIA...", "secretAccessKey": "..." }
 ```
 
+**One account, one organization.** `verifyAccount()` also returns the provider's account ID (for SES, the AWS account from STS `GetCallerIdentity`, which needs no IAM permission). It is stored in `provider_connections.account_id` under a unique index on `(provider, account_id)`, so connecting an account another organization already uses fails with `409 ATL_PROVIDER_ACCOUNT_IN_USE`. Organizations sharing one AWS account would share its sandbox, quota, reputation and suppression list, and every event would reach both event queues. Connections saved before this check have no account ID until they are saved again.
+
 **Provider code** lives in `packages/providers` (no Fastify or Postgres). `createProvider(config, { logger, retry })` returns an `EmailProvider` with `verifyAccount()`, `createDomain(name)`, `getDomain(name)` and `send(message)`, wrapped as `withRetry(withLogging(adapter))`. Tests use `createFakeProvider()` from `@atlair-mail/providers/testing`.
 
 **Errors.** Adapters map every failure to a `ProviderError` subclass with an HTTP status and a `retryable` flag. Only the provider's error *name* reaches the client; the original error stays in `cause`.
