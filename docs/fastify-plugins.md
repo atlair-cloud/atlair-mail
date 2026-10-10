@@ -87,6 +87,7 @@ The first line goes in `routes/service/web/domains/index.ts`, the second in
 | --- | --- | --- |
 | `organizationId(request)` | the API key's organization | the membership's organization |
 | `apiKeyId(request)` | the key's id | `null` |
+| `actor(request)` | `{ userId: null, apiKeyId }` | `{ userId, apiKeyId: null }` |
 | `config(permissions, keyPermission?)` | `{ permission: keyPermission }` when given, else `full_access` | `{ permissions }` |
 | `params(props)` | `props` | `organizationId` plus `props` |
 | `security` | bearer key (the default) | `panelSession` |
@@ -94,6 +95,18 @@ The first line goes in `routes/service/web/domains/index.ts`, the second in
 Every route passes both: the panel permissions it needs, and `"sending_access"` when a sending key may
 call it on `/service/web`. Routes that only make sense on one surface (`api-keys/current`, root
 organization routes) stay in that surface's route file.
+
+**Record who made a change.** Organization resources (domains, API keys, webhooks, suppressions,
+the provider connection) carry `created_by`/`created_by_api_key_id` and
+`updated_by`/`updated_by_api_key_id`, so a change is credited to either a member or an API key.
+Routes that create or change one pass `scope.actor(request)` to the service, which writes it
+with `creatorColumns(actor)`/`editorColumns(actor)` from `@atlair-mail/db`. Responses return
+`createdBy`/`updatedBy` as `{ type: "user" | "api_key", id, name }` or `null`
+(`AuthorshipSchema` in `src/schemas/authors.ts`); services look the names up in one query with
+`loadAuthors` (`src/lib/authors.ts`). `null` means Atlair Mail made the change itself (a
+suppression from a bounce, the first key of an organization) or the member or key is gone.
+`updated_at` follows the same rule: background work (event polling, subscription confirmation,
+expired-secret cleanup) keeps it as it was with ``updatedAt: sql`${table.updatedAt}` ``.
 
 **Add a public route group** (no API key), such as provider events: `src/routes/webhooks/provider-events/index.ts`. It sits outside `service/`, so neither API-key auth nor versioning applies.
 

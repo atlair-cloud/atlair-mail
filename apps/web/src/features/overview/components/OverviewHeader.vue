@@ -3,7 +3,7 @@ import { useNow } from '@vueuse/core'
 import { computed } from 'vue'
 import { formatRelativeTime } from '../../../lib/format/relative-time'
 import type { Overview } from '../api/get-overview'
-import { formatCount, formatRate } from '../lib/format'
+import { formatCount } from '../lib/format'
 
 const props = defineProps<{ organizationName: string; overview: Overview | null; stepsDone: number; stepsTotal: number }>()
 
@@ -15,18 +15,18 @@ const tone = computed(() => {
   if (overview.health === 'setup') {
     return { dot: 'bg-slate-300', label: 'Not sending yet', detail: `${props.stepsDone} of ${props.stepsTotal} setup steps done` }
   }
-  if (overview.health === 'critical') {
-    return { dot: 'bg-red-500', label: 'Needs attention now', detail: overview.attention[0]?.title ?? '' }
+  const { last24h, latestEmailAt } = overview.metrics
+  const activity = [`${formatCount(last24h.total)} ${last24h.total === 1 ? 'email' : 'emails'} in the last 24 hours`]
+  if (latestEmailAt) activity.push(`last ${formatRelativeTime(latestEmailAt, now.value.getTime())}`)
+  const [first, ...rest] = overview.attention
+  if (first && (overview.health === 'critical' || overview.health === 'warning')) {
+    return {
+      dot: overview.health === 'critical' ? 'bg-red-500' : 'bg-status-attention',
+      label: first.title,
+      detail: rest.length ? `${rest.length} more below` : activity.join(' · '),
+    }
   }
-  const { last24h, rates, latestEmailAt } = overview.metrics
-  const parts = [`${formatCount(last24h.total)} in the last 24 hours`]
-  if (rates.delivery !== null && overview.setup.provider.eventsConnected) parts.push(`${formatRate(rates.delivery)} delivered`)
-  if (latestEmailAt) parts.push(`last email ${formatRelativeTime(latestEmailAt, now.value.getTime())}`)
-  if (overview.health === 'warning') {
-    const count = overview.attention.length
-    return { dot: 'bg-status-attention', label: `Sending, ${count} ${count === 1 ? 'thing' : 'things'} to check`, detail: parts.join(' · ') }
-  }
-  return { dot: 'bg-status-live', label: 'Sending normally', detail: parts.join(' · ') }
+  return { dot: 'bg-status-live', label: 'Sending normally', detail: activity.join(' · ') }
 })
 </script>
 

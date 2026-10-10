@@ -1,4 +1,5 @@
 import { apiFetch } from '../../../lib/api/client'
+import type { ProviderAccount } from '../../settings/api/provider'
 import type { EmailStatus, EmailSummary } from '../../emails'
 
 export type StatusCounts = Record<EmailStatus, number> & { total: number }
@@ -6,7 +7,19 @@ export type StatusCounts = Record<EmailStatus, number> & { total: number }
 export type Health = 'setup' | 'ok' | 'warning' | 'critical'
 
 export type AttentionItem = {
-  kind: 'domain_failed' | 'domain_pending' | 'events_not_connected' | 'events_error' | 'bounce_rate' | 'complaint_rate' | 'emails_failed' | 'webhook_failing'
+  kind:
+    | 'domain_failed'
+    | 'domain_pending'
+    | 'events_not_connected'
+    | 'events_error'
+    | 'bounce_rate'
+    | 'complaint_rate'
+    | 'emails_failed'
+    | 'emails_sandbox'
+    | 'emails_suppressed'
+    | 'sending_paused'
+    | 'quota_near'
+    | 'webhook_failing'
   severity: 'warning' | 'critical'
   title: string
   detail: string
@@ -19,7 +32,7 @@ export type Overview = {
   generatedAt: string
   health: Health
   setup: {
-    provider: { connected: boolean; provider: string | null; region: string | null; eventsConnected: boolean }
+    provider: { connected: boolean; provider: string | null; region: string | null; eventsConnected: boolean; account: ProviderAccount | null }
     domains: { total: number; verified: number; pending: number; failed: number }
     apiKeys: number
     webhooks: number
@@ -32,6 +45,7 @@ export type Overview = {
     last7d: StatusCounts
     daily: { day: string; counts: StatusCounts }[]
     rates: { delivery: number | null; bounce: number | null; complaint: number | null }
+    volume: { accepted: number; finished: number; minimumForRates: number }
     latestEmailAt: string | null
   }
   attention: AttentionItem[]

@@ -1,3 +1,4 @@
+import type { Authorship } from '../../../lib/api/actors'
 import { apiFetch } from '../../../lib/api/client'
 
 export type DomainStatus = 'pending' | 'verified' | 'failed'
@@ -12,14 +13,13 @@ export type DnsRecord = {
   status: DomainStatus | null
 }
 
-export type Domain = {
+export type Domain = Authorship & {
   id: string
   name: string
   status: DomainStatus
   records: DnsRecord[]
   lastCheckedAt: string | null
   verifiedAt: string | null
-  createdAt: string
 }
 
 export const domainQueryKey = (organizationId: string, domainId: string) => ['organizations', organizationId, 'domains', domainId] as const

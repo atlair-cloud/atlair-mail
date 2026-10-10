@@ -2,6 +2,7 @@ import { Type } from "typebox";
 import { domainStatuses, emailStatuses } from "@atlair-mail/db";
 import { DateTime, Uuid } from "../lib/schemas.ts";
 import { EmailSummarySchema } from "./emails.ts";
+import { ProviderAccountSchema } from "./provider-connections.ts";
 
 const nullable = <T extends Parameters<typeof Type.Union>[0][number]>(schema: T) => Type.Union([schema, Type.Null()]);
 
@@ -22,12 +23,18 @@ const AttentionItemSchema = Type.Object({
     "bounce_rate",
     "complaint_rate",
     "emails_failed",
+    "emails_sandbox",
+    "emails_suppressed",
+    "sending_paused",
+    "quota_near",
     "webhook_failing",
   ]),
   severity: Type.Enum(["warning", "critical"]),
   title: Type.String(),
   detail: Type.String(),
-  targetId: nullable(Uuid()),
+  targetId: Type.Union([Uuid(), Type.Null()], {
+    description: "The domain, webhook or latest failed email the item is about.",
+  }),
 });
 
 export const OverviewSchema = Type.Object({
@@ -41,6 +48,7 @@ export const OverviewSchema = Type.Object({
       provider: nullable(Type.String()),
       region: nullable(Type.String()),
       eventsConnected: Type.Boolean(),
+      account: nullable(ProviderAccountSchema),
     }),
     domains: Type.Object({
       total: Type.Integer(),
@@ -66,8 +74,16 @@ export const OverviewSchema = Type.Object({
         bounce: nullable(Type.Number()),
         complaint: nullable(Type.Number()),
       },
-      { description: "Over the seven days, as a share of emails the provider accepted. null with nothing accepted." },
+      {
+        description:
+          "Over the seven days. delivery is a share of finished emails (delivered, bounced, complained or failed); bounce and complaint are shares of emails the provider accepted, as SES measures them. null with nothing to measure.",
+      },
     ),
+    volume: Type.Object({
+      accepted: Type.Integer({ description: "Emails the provider accepted in the seven days." }),
+      finished: Type.Integer({ description: "Emails delivered, bounced, complained or failed in the seven days." }),
+      minimumForRates: Type.Integer({ description: "Accepted emails needed before bounce and complaint rates mean much." }),
+    }),
     latestEmailAt: nullable(DateTime()),
   }),
   attention: Type.Array(AttentionItemSchema, { description: "Problems to fix, critical first. Empty when all is well." }),

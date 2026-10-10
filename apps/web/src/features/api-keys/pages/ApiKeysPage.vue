@@ -3,6 +3,7 @@ import { Key, Plus } from '@iconoir/vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useToast } from '@nuxt/ui/composables'
 import { computed, ref, useTemplateRef } from 'vue'
+import ActorName from '../../../components/shared/ActorName.vue'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
 import EmptyState from '../../../components/shared/EmptyState.vue'
 import FramedModal from '../../../components/shared/FramedModal.vue'
@@ -91,7 +92,8 @@ function askRevoke(key: ApiKey) {
           <tr class="font-mono text-[10.5px] uppercase tracking-[0.12em] text-slate-500">
             <th scope="col" class="px-4 py-2.5 font-medium">Name</th>
             <th scope="col" class="hidden w-36 px-4 py-2.5 font-medium sm:table-cell">Permission</th>
-            <th scope="col" class="hidden w-40 px-4 py-2.5 font-medium md:table-cell">Last used</th>
+            <th scope="col" class="hidden w-44 px-4 py-2.5 font-medium lg:table-cell">Created by</th>
+            <th scope="col" class="hidden w-36 px-4 py-2.5 font-medium md:table-cell">Last used</th>
             <th scope="col" class="w-28 px-4 py-2.5 font-medium"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
@@ -104,6 +106,7 @@ function askRevoke(key: ApiKey) {
             <td class="hidden px-4 py-3 sm:table-cell">
               <span class="rounded-sm px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset" :class="key.permission === 'full_access' ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-slate-50 text-slate-700 ring-slate-200'">{{ permissionLabel(key.permission) }}</span>
             </td>
+            <td class="hidden px-4 py-3 text-slate-700 lg:table-cell"><ActorName :actor="key.createdBy" /></td>
             <td class="hidden px-4 py-3 text-slate-600 md:table-cell">{{ key.lastUsedAt ? formatRelativeTime(key.lastUsedAt) : 'Never' }}</td>
             <td class="px-4 py-3 text-right">
               <TextButton v-if="canManage" tone="danger" @click="askRevoke(key)">Revoke</TextButton>
@@ -120,7 +123,9 @@ function askRevoke(key: ApiKey) {
       <ul v-if="showRevoked" class="m-0 mt-3 list-none divide-y divide-slate-100 overflow-hidden rounded-md bg-white p-0 ring-1 ring-slate-200">
         <li v-for="key in revoked" :key="key.id" class="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
           <span class="min-w-0 truncate text-slate-500 line-through decoration-slate-300">{{ key.name }}</span>
-          <span class="shrink-0 font-mono text-[11px] text-slate-500">{{ key.tokenPrefix }}… · revoked {{ formatRelativeTime(key.revokedAt!) }}</span>
+          <span class="flex shrink-0 items-center gap-1 text-[11px] text-slate-500">
+            <span class="font-mono">{{ key.tokenPrefix }}…</span> · revoked {{ formatRelativeTime(key.revokedAt!) }}<template v-if="key.updatedBy"> by <ActorName :actor="key.updatedBy" class="text-slate-700" /></template>
+          </span>
         </li>
       </ul>
     </section>

@@ -1,6 +1,7 @@
 import {
   countEmailsByDay,
   countEmailsByStatus,
+  countFailuresByError,
   countOrganizationResources,
   emailStatuses,
   findLatestEmailAt,
@@ -11,12 +12,15 @@ import {
   type EmailStatus,
   type EmailStatusCount,
 } from "@atlair-mail/db";
+import type { ProviderAccount } from "@atlair-mail/providers";
 import type { EmailService } from "./emails.ts";
+import type { ProviderConnectionService } from "./provider-connections.ts";
 
 const hour = 60 * 60 * 1000;
 const day = 24 * hour;
 const chartDays = 7;
-const minimumVolumeForRates = 50;
+export const minimumVolumeForRates = 50;
+const quotaWarning = 0.8;
 
 export const rateLimits = {
   bounce: { warning: 0.02, critical: 0.05 },
@@ -35,6 +39,10 @@ export type AttentionKind =
   | "bounce_rate"
   | "complaint_rate"
   | "emails_failed"
+  | "emails_sandbox"
+  | "emails_suppressed"
+  | "sending_paused"
+  | "quota_near"
   | "webhook_failing";
 
 export interface AttentionItem {
@@ -43,6 +51,65 @@ export interface AttentionItem {
   title: string;
   detail: string;
   targetId: string | null;
+}
+
+interface FailureGroup {
+  error: string | null;
+  count: number;
+  latestEmailId: string;
+}
+
+const emailsWord = (count: number) => `${count} ${count === 1 ? "email" : "emails"}`;
+
+export function failureAttention(group: FailureGroup, account: ProviderAccount | null): AttentionItem {
+  const [code = "", reason = ""] = (group.error ?? "").split(":").map((part) => part.trim());
+  const emails = emailsWord(group.count);
+  const item = (kind: AttentionKind, title: string, detail: string): AttentionItem => ({
+    kind,
+    severity: "warning",
+    title,
+    detail,
+    targetId: group.latestEmailId,
+  });
+  switch (code) {
+    case "ATL_PROVIDER_REJECTED":
+      if (account?.sandbox && reason === "MessageRejected") {
+        return item(
+          "emails_sandbox",
+          `${emails} refused: your Amazon SES account is in the sandbox`,
+          "In the sandbox, SES only sends to addresses verified in your AWS account. Request production access, or verify the recipient in SES to test.",
+        );
+      }
+      return item(
+        "emails_failed",
+        `${emails} refused by Amazon SES`,
+        `SES rejected them${reason ? ` (${reason})` : ""}. Check the sender address and the content, then send again.`,
+      );
+    case "ATL_RECIPIENT_SUPPRESSED":
+      return item(
+        "emails_suppressed",
+        `${emails} skipped: every recipient is suppressed`,
+        "They bounced or marked an earlier email as spam, so nothing was sent. Remove an address from suppressions only if you're sure it works now.",
+      );
+    case "ATL_DOMAIN_NOT_VERIFIED":
+      return item("emails_failed", `${emails} failed: the sending domain isn't verified`, "Verify the domain in the from address, then send again.");
+    case "ATL_PROVIDER_NOT_CONNECTED":
+      return item("emails_failed", `${emails} failed: no provider was connected`, "Connect Amazon SES, then send again.");
+    case "ATL_PROVIDER_THROTTLED":
+      return item(
+        "emails_failed",
+        `${emails} failed: over the SES sending rate`,
+        `Every retry hit the limit${account ? ` of ${account.maxSendRate} per second` : ""}. Send more slowly, or ask AWS to raise it.`,
+      );
+    case "ATL_INVALID_ADDRESS":
+      return item("emails_failed", `${emails} failed: an address isn't valid`, "Fix the address and send again.");
+    default:
+      return item(
+        "emails_failed",
+        `${emails} failed`,
+        group.error ? `The last attempt ended with ${group.error}. Open one to see what happened.` : "Open one to see what happened.",
+      );
+  }
 }
 
 function toCounts(rows: EmailStatusCount[]): StatusCounts {
@@ -67,13 +134,13 @@ function utcDay(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-export function createOverviewService(db: Database, emails: EmailService) {
+export function createOverviewService(db: Database, emails: EmailService, providerConnections: ProviderConnectionService) {
   return {
     get: async (organizationId: string, now = new Date()) => {
       const since24h = new Date(now.getTime() - day);
       const chartStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (chartDays - 1)));
 
-      const [last24hRows, dailyRows, latestEmailAt, domainRows, provider, counts, failingWebhooks, recentEmails] =
+      const [last24hRows, dailyRows, latestEmailAt, domainRows, provider, counts, failingWebhooks, recentEmails, failures, account] =
         await Promise.all([
           countEmailsByStatus(db, organizationId, since24h),
           countEmailsByDay(db, organizationId, chartStart),
@@ -83,6 +150,8 @@ export function createOverviewService(db: Database, emails: EmailService) {
           countOrganizationResources(db, organizationId),
           listFailingWebhookEndpoints(db, organizationId, since24h),
           emails.list(organizationId, { limit: 10 }),
+          countFailuresByError(db, organizationId, since24h),
+          providerConnections.account(organizationId),
         ]);
 
       const daily = Array.from({ length: chartDays }, (_, index) => {
@@ -93,8 +162,9 @@ export function createOverviewService(db: Database, emails: EmailService) {
       const last24h = toCounts(last24hRows);
 
       const accepted = last7d.sent + last7d.delivered + last7d.bounced + last7d.complained;
+      const finished = last7d.delivered + last7d.bounced + last7d.complained + last7d.failed;
       const rates = {
-        delivery: rate(last7d.delivered, accepted),
+        delivery: rate(last7d.delivered, finished),
         bounce: rate(last7d.bounced, accepted),
         complaint: rate(last7d.complained, accepted),
       };
@@ -113,14 +183,24 @@ export function createOverviewService(db: Database, emails: EmailService) {
               provider: provider.provider,
               region: provider.settings.region,
               eventsConnected: provider.eventsConfirmedAt !== null,
+              account,
             }
-          : { connected: false, provider: null, region: null, eventsConnected: false },
+          : { connected: false, provider: null, region: null, eventsConnected: false, account: null },
         domains: domainCounts,
         ...counts,
         firstEmailSent: latestEmailAt !== null,
       };
 
       const attention: AttentionItem[] = [];
+      if (provider && account && !account.sendingEnabled) {
+        attention.push({
+          kind: "sending_paused",
+          severity: "critical",
+          title: "Amazon SES has paused sending for this account",
+          detail: "Every email will fail until AWS turns sending back on. Check the account status in the SES console.",
+          targetId: null,
+        });
+      }
       for (const domain of domainRows) {
         if (domain.status === "failed") {
           attention.push({
@@ -186,12 +266,13 @@ export function createOverviewService(db: Database, emails: EmailService) {
           targetId: null,
         });
       }
-      if (last24h.failed > 0) {
+      for (const group of failures) attention.push(failureAttention(group, account));
+      if (account && account.dailyQuota > 0 && account.sentLast24h >= account.dailyQuota * quotaWarning) {
         attention.push({
-          kind: "emails_failed",
-          severity: "warning",
-          title: `${last24h.failed} ${last24h.failed === 1 ? "email" : "emails"} failed in the last 24 hours`,
-          detail: "The provider refused them. Open one to see the reason.",
+          kind: "quota_near",
+          severity: account.sentLast24h >= account.dailyQuota ? "critical" : "warning",
+          title: `${account.sentLast24h.toLocaleString("en")} of ${account.dailyQuota.toLocaleString("en")} daily SES emails used`,
+          detail: "Amazon SES refuses emails over the 24-hour quota. Ask AWS for a higher limit before you reach it.",
           targetId: null,
         });
       }
@@ -219,7 +300,14 @@ export function createOverviewService(db: Database, emails: EmailService) {
         generatedAt: now,
         health,
         setup,
-        metrics: { last24h, last7d, daily, rates, latestEmailAt },
+        metrics: {
+          last24h,
+          last7d,
+          daily,
+          rates,
+          volume: { accepted, finished, minimumForRates: minimumVolumeForRates },
+          latestEmailAt,
+        },
         attention,
         domains: domainRows,
         recentEmails,

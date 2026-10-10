@@ -64,18 +64,22 @@ src/
 | `/organizations/:organizationId/webhooks` | Endpoints; add one (signing secret shown once) |
 | `/organizations/:organizationId/webhooks/:webhookId` | Deliveries, events, edit, enable/disable, rotate secret, delete |
 | `/organizations/:organizationId/suppressions` | Suppressed addresses with reason and source email; look up, add, remove |
+| `/organizations/:organizationId/playground` | Compose an email, see the same request as cURL, Node.js or Python, send it with your session and watch its status. Recipient shortcuts include Amazon's simulator addresses, which work in the SES sandbox |
 | `/organizations/:organizationId/settings` | General: name, slug (checked live), ID, deactivate (owner) |
 | `/organizations/:organizationId/settings/provider` | SES connection, delivery tracking status, retry set-aside events, replace credentials, disconnect |
 | `/organizations/:organizationId/settings/members` | Add (they must have signed in once), change role, remove or leave |
 | `/organizations/:organizationId/settings/audit-log` | Who changed the organization and its members (owners and admins) |
+
+The API reference isn't rebuilt in the panel: "API docs" in the section tabs, the playground and the command menu open the API's own docs site (`{API_URL}/docs/`, `API_DOCS_URL` in `src/lib/links.ts`).
 
 ## Overview
 
 Where people land in an organization. It answers "is my email working, and if not, what next?"
 from one request, `GET /service/panel/organizations/:id/overview` (`services/overview.ts`).
 
-- **Status line** under the name: "Not sending yet", "Sending normally", "Sending, N things to
-  check" or "Needs attention now", from the response's `health`.
+- **Status line** under the name: "Not sending yet" during setup, "Sending normally" with the last
+  24 hours, or the most important problem itself ("4 emails refused: your Amazon SES account is in
+  the sandbox") with how many more are listed below.
 - **Setup** (`health: "setup"`, until SES is connected, a domain is verified and an email was sent):
   a four-step guide done in place, each step ticked from real data. The open step follows progress.
   1. Connect Amazon SES: region and access key, with the least-privilege IAM policy to copy. Then
@@ -86,13 +90,23 @@ from one request, `GET /service/panel/organizations/:id/overview` (`services/ove
   4. Send your first email: a ready `curl`, or a test send to yourself or to Amazon's simulator
      (works in the SES sandbox). Finishing setup shows a one-time "You're sending" banner.
   Steps 1–3 need an owner or admin; steps unlock in order (a domain needs SES, sending needs a domain).
-- **Sending**: emails over 7 UTC days, delivered rate, and bounce and complaint rates drawn against
-  Amazon SES's review limits (5% and 0.1%). Rates count only emails SES accepted, and raise attention
-  items only from 50 accepted emails, so one early bounce isn't an alarm (warning at 2% and 0.05%).
-- **Needs attention**: shown only when something is wrong, critical first. Failed or pending domains,
-  delivery events not connected or failing, the two rates, failed emails in 24 hours, and webhook
-  endpoints with failed or retrying deliveries in 24 hours.
-- **Recent emails** (10) and **sending domains**, plus counts of keys, webhooks, suppressions and members.
+- **Last 7 days** (`SendingSummary`): the total, "N of M delivered" over finished emails (delivered,
+  bounced, complained or failed, so failures count), one outcome bar with a labelled count for
+  delivered, failed, bounced or spam, and in flight. A daily chart with counts appears once there are
+  3 active days; before that a sentence says when they were sent.
+- **Bounce and complaint rates** are shares of emails SES accepted, drawn against SES's review limits
+  (5% and 0.1%). Below 50 accepted emails they say "Not enough emails yet" instead of a number, and
+  raise no attention items (warning at 2% and 0.05%).
+- **Needs attention**: shown only when something is wrong, critical first, each with its fix as a
+  button. Failed emails in the last 24 hours are grouped by error code and explained: refused in the
+  SES sandbox (links to request production access), recipients suppressed, domain not verified,
+  over the sending rate. Also failed or pending domains, delivery events not connected or failing,
+  the two rates, SES sending paused, 80% of the daily quota used, and failing webhook endpoints.
+- **Recent emails** (10): identical emails in a row collapse into one with ×N, and failed ones show
+  a short reason (`shortFailureReason`).
+- **Sending domains** and **Sending limits**: sandbox or production, emails sent against the 24-hour
+  quota, and the per-second rate, read from SES with `GetAccount` and cached for 5 minutes
+  (`providerConnections.account`).
 - Refreshes every 5 seconds while a recent email is queued, sending or sent; every 15 seconds while a
   domain waits for DNS; otherwise every minute.
 - Links to pages that don't exist yet are left out (`routeIfExists` in `src/lib/links.ts`), so they
@@ -137,6 +151,9 @@ Every panel endpoint has a page. They share a few patterns so moving between the
   a confirmation.
 - **Feedback**: small changes show a Nuxt UI toast; after a mutation every query under
   `['organizations', id]` is invalidated, so the overview, tabs and lists agree.
+- **Who and when**: lists show who added each item (`ActorName`: a member's initials, or a key icon
+  and the API key's name). Detail pages show created and updated, each with its author, in a
+  `FactsRow` built with `authorshipFacts()`. Hover a relative time for the exact one.
 - **Roles**: owners and admins see write actions; members get read-only pages with a note saying
   who can act. Only owners see "Deactivate"; the audit log is for owners and admins.
 - Onboarding reuses the same components (`ConnectSesForm`, `DeliveryTrackingCard`, `AddDomainForm`,

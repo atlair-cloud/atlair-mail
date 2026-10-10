@@ -13,7 +13,7 @@ import {
   upsertProviderConnection,
 } from "../src/repositories/provider-connections.ts";
 import { providerConnections } from "../src/schema/index.ts";
-import { CHECK_VIOLATION, databaseUrl, pgError, useTestDb } from "./helpers.ts";
+import { CHECK_VIOLATION, databaseUrl, pgError, system, useTestDb } from "./helpers.ts";
 
 const connection = (organizationId: string, accessKeyId = "AKIAEXAMPLE000000001") => ({
   organizationId,
@@ -70,12 +70,12 @@ describe("provider connection repositories", { skip: !databaseUrl }, () => {
     const read = async () => (await findProviderConnectionById(t.db, created.id))!;
 
     assert.equal(await markProviderEventsConfirmed(t.db, created.id), null);
-    await saveProviderEvents(t.db, created.id, { mode: "push", settings, eventsUrl: "https://a.example.com", active: false });
+    await saveProviderEvents(t.db, created.id, { mode: "push", settings, eventsUrl: "https://a.example.com", active: false }, system);
     await markProviderEventsConfirmed(t.db, created.id);
     const confirmed = await read();
-    await saveProviderEvents(t.db, created.id, { mode: "push", settings, eventsUrl: "https://a.example.com", active: false });
+    await saveProviderEvents(t.db, created.id, { mode: "push", settings, eventsUrl: "https://a.example.com", active: false }, system);
     const sameUrl = await read();
-    await saveProviderEvents(t.db, created.id, { mode: "push", settings, eventsUrl: "https://b.example.com", active: false });
+    await saveProviderEvents(t.db, created.id, { mode: "push", settings, eventsUrl: "https://b.example.com", active: false }, system);
     const newUrl = await read();
     await markProviderEventsConfirmed(t.db, created.id);
     await upsertProviderConnection(t.db, connection(organization.id, "AKIAEXAMPLE000000002"));
@@ -101,7 +101,7 @@ describe("provider connection repositories", { skip: !databaseUrl }, () => {
   const pullConnection = async () => {
     const organization = await t.newOrganization();
     const created = await upsertProviderConnection(t.db, connection(organization.id));
-    await saveProviderEvents(t.db, created.id, { mode: "pull", settings: pullSettings, active: true });
+    await saveProviderEvents(t.db, created.id, { mode: "pull", settings: pullSettings, active: true }, system);
     return created.id;
   };
 
@@ -125,7 +125,7 @@ describe("provider connection repositories", { skip: !databaseUrl }, () => {
       settings: pullSettings,
       eventsUrl: "https://a.example.com",
       active: false,
-    });
+    }, system);
     const switched = await readById(id);
     await upsertProviderConnection(t.db, connection(pulled.organizationId, "AKIAEXAMPLE000000003"));
     const replaced = await readById(id);

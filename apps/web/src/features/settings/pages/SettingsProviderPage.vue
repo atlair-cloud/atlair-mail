@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useToast } from '@nuxt/ui/composables'
 import { computed, ref } from 'vue'
+import ActorName from '../../../components/shared/ActorName.vue'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
 import LoadErrorCard from '../../../components/shared/LoadErrorCard.vue'
 import SettingsCard from '../../../components/shared/SettingsCard.vue'
@@ -73,10 +74,19 @@ const disconnect = useMutation({
     <SettingsCard title="Amazon SES" description="The AWS account emails are sent through.">
       <div class="grid gap-4">
         <SandboxNotice v-if="latest?.account" :account="latest.account" :region="provider.region" />
-        <dl class="m-0 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
+        <dl class="m-0 grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
           <div><dt class="text-xs text-slate-500">Region</dt><dd class="m-0 mt-0.5 font-mono text-slate-900">{{ provider.region }}</dd></div>
           <div><dt class="text-xs text-slate-500">Access key</dt><dd class="m-0 mt-0.5 truncate font-mono text-slate-900">{{ provider.accessKeyId }}</dd></div>
-          <div><dt class="text-xs text-slate-500">Connected</dt><dd class="m-0 mt-0.5 text-slate-900">{{ formatRelativeTime(provider.createdAt) }}</dd></div>
+          <div class="min-w-0">
+            <dt class="text-xs text-slate-500">Connected</dt>
+            <dd class="m-0 mt-0.5 text-slate-900" :title="new Date(provider.createdAt).toLocaleString()">{{ formatRelativeTime(provider.createdAt) }}</dd>
+            <dd v-if="provider.createdBy" class="m-0 mt-0.5 text-xs text-slate-600"><span class="sr-only">by </span><ActorName :actor="provider.createdBy" /></dd>
+          </div>
+          <div class="min-w-0">
+            <dt class="text-xs text-slate-500">Updated</dt>
+            <dd class="m-0 mt-0.5 text-slate-900" :title="new Date(provider.updatedAt).toLocaleString()">{{ formatRelativeTime(provider.updatedAt) }}</dd>
+            <dd v-if="provider.updatedBy" class="m-0 mt-0.5 text-xs text-slate-600"><span class="sr-only">by </span><ActorName :actor="provider.updatedBy" /></dd>
+          </div>
         </dl>
       </div>
       <template v-if="canManage" #footer>

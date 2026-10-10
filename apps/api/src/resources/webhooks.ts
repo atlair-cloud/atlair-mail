@@ -40,7 +40,7 @@ export const webhookRoutes =
         },
       },
       async (request, reply) =>
-        reply.code(201).send(await fastify.services.webhooks.create(scope.organizationId(request), request.body)),
+        reply.code(201).send(await fastify.services.webhooks.create(scope.organizationId(request), request.body, scope.actor(request))),
     );
 
     fastify.get(
@@ -89,7 +89,7 @@ export const webhookRoutes =
         },
       },
       async (request) =>
-        (await fastify.services.webhooks.update(scope.organizationId(request), request.params.id, request.body)) ??
+        (await fastify.services.webhooks.update(scope.organizationId(request), request.params.id, request.body, scope.actor(request))) ??
         notFound(),
     );
 
@@ -112,7 +112,7 @@ export const webhookRoutes =
         },
       },
       async (request) =>
-        (await fastify.services.webhooks.rotateSecret(scope.organizationId(request), request.params.id, request.body)) ??
+        (await fastify.services.webhooks.rotateSecret(scope.organizationId(request), request.params.id, request.body, scope.actor(request))) ??
         notFound(),
     );
 

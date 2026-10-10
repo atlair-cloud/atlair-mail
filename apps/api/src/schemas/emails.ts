@@ -120,5 +120,6 @@ export const EmailSummarySchema = Type.Object({
   subject: Type.String(),
   scheduledAt: DateTime(),
   sentAt: Type.Union([DateTime(), Type.Null()]),
+  lastError: Type.Union([Type.String(), Type.Null()], { description: "Why it failed, for failed emails." }),
   createdAt: DateTime(),
 });

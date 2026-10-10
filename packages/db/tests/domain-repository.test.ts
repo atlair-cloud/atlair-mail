@@ -10,7 +10,7 @@ import {
   updateDomainVerification,
 } from "../src/repositories/domains.ts";
 import { emails } from "../src/schema/index.ts";
-import { databaseUrl, newEmail, useTestDb } from "./helpers.ts";
+import { databaseUrl, newEmail, system, useTestDb } from "./helpers.ts";
 
 const domainName = () => `${uuidv7()}.example.com`;
 const record = {
@@ -51,7 +51,7 @@ describe("domain repositories", { skip: !databaseUrl }, () => {
     );
     assert.equal(await findDomainInOrganization(t.db, { id: elsewhere!.id, organizationId: organization.id }), null);
     assert.equal(
-      await updateDomainVerification(t.db, { id: elsewhere!.id, organizationId: organization.id }, { status: "verified" }),
+      await updateDomainVerification(t.db, { id: elsewhere!.id, organizationId: organization.id }, { status: "verified" }, system),
       null,
     );
     assert.equal(await deleteDomain(t.db, { id: elsewhere!.id, organizationId: organization.id }), null);
@@ -65,10 +65,10 @@ describe("domain repositories", { skip: !databaseUrl }, () => {
     const pending = await updateDomainVerification(t.db, key, {
       status: "pending",
       dnsRecords: [record],
-    });
-    const verified = await updateDomainVerification(t.db, key, { status: "verified" });
-    const again = await updateDomainVerification(t.db, key, { status: "verified" });
-    const failed = await updateDomainVerification(t.db, key, { status: "failed" });
+    }, system);
+    const verified = await updateDomainVerification(t.db, key, { status: "verified" }, system);
+    const again = await updateDomainVerification(t.db, key, { status: "verified" }, system);
+    const failed = await updateDomainVerification(t.db, key, { status: "failed" }, system);
 
     assert.ok(pending?.lastCheckedAt);
     assert.deepEqual(pending.dnsRecords, [record]);

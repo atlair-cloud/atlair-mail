@@ -1,9 +1,12 @@
 import createError from "@fastify/error";
 import {
+  creatorColumns,
   deleteProviderConnection,
+  editorColumns,
   findProviderConnectionByOrganization,
   saveProviderEvents,
   upsertProviderConnection,
+  type Actor,
   type Database,
 } from "@atlair-mail/db";
 import type { ProviderConnection } from "@atlair-mail/db/schema";
@@ -16,9 +19,11 @@ import {
 import {
   createProvider,
   type EventDeliveryMode,
+  type ProviderAccount,
   type ProviderConfig,
   type ProviderLogger,
 } from "@atlair-mail/providers";
+import { withAuthors } from "../lib/authors.ts";
 
 export const ProviderNotConnectedError = createError(
   "ATL_PROVIDER_NOT_CONNECTED",
@@ -97,15 +102,21 @@ const toPublicConnection = (connection: ProviderConnection) => ({
   updatedAt: connection.updatedAt,
 });
 
+const accountTtlMs = 5 * 60_000;
+
 export const eventEndpoint = (eventsUrl: string, connectionId: string) =>
   `${eventsUrl}/webhooks/provider-events/${connectionId}`;
 
 export function createProviderConnectionService(db: Database, cipher: CredentialsCipher, logger: ProviderLogger) {
   const loadProvider = (organizationId: string) => loadStoredProvider(db, cipher, organizationId, { logger });
-
+  const accounts = new Map<string, { checkedAt: number; account: ProviderAccount | null }>();
+  const withConnectionAuthors = async (connection: ProviderConnection) => ({
+    ...toPublicConnection(connection),
+    ...(await withAuthors(db, connection)),
+  });
 
   return {
-    async save(organizationId: string, input: ProviderInput) {
+    async save(organizationId: string, input: ProviderInput, actor: Actor) {
       const config = toProviderConfig(input);
       const account = await createProvider(config, { logger }).verifyAccount();
       const { ciphertext, keyVersion } = await cipher.encrypt(JSON.stringify(config.secrets), organizationId);
@@ -115,11 +126,14 @@ export function createProviderConnectionService(db: Database, cipher: Credential
         settings: config.settings,
         credentialsEncrypted: ciphertext,
         encryptionKeyVersion: keyVersion,
+        ...creatorColumns(actor),
+        ...editorColumns(actor),
       });
-      return { ...toPublicConnection(connection), account };
+      accounts.set(organizationId, { checkedAt: Date.now(), account });
+      return { ...(await withConnectionAuthors(connection)), account };
     },
 
-    async setUpEvents(organizationId: string, input: EventsSetupInput) {
+    async setUpEvents(organizationId: string, input: EventsSetupInput, actor: Actor) {
       const mode = input.mode ?? "push";
       if ((mode === "push") !== (input.url !== undefined)) throw new InvalidEventsSetupError();
       const eventsUrl = mode === "push" ? normalizePublicUrl(input.url!) : null;
@@ -133,18 +147,28 @@ export function createProviderConnectionService(db: Database, cipher: Credential
           mode: "push",
           endpointUrl: eventEndpoint(eventsUrl, connection.id),
         });
-        const saved = await saveProviderEvents(db, connection.id, { mode: "push", settings, eventsUrl, active: false });
-        return toPublicConnection(saved ?? connection);
+        const saved = await saveProviderEvents(
+          db,
+          connection.id,
+          { mode: "push", settings, eventsUrl, active: false },
+          actor,
+        );
+        return withConnectionAuthors(saved ?? connection);
       }
 
       const { settings, subscriptionActive } = await provider.configureEvents(connection.id, { mode: "pull" });
-      const saved = await saveProviderEvents(db, connection.id, { mode: "pull", settings, active: subscriptionActive });
+      const saved = await saveProviderEvents(
+        db,
+        connection.id,
+        { mode: "pull", settings, active: subscriptionActive },
+        actor,
+      );
       if (subscriptionActive) {
         await provider.removeEventSubscriptions(connection.id, "push").catch((error: unknown) => {
           logger.warn({ connectionId: connection.id, err: error }, "could not remove the push subscription");
         });
       }
-      return toPublicConnection(saved ?? connection);
+      return withConnectionAuthors(saved ?? connection);
     },
 
     async redriveEvents(organizationId: string) {
@@ -160,10 +184,26 @@ export function createProviderConnectionService(db: Database, cipher: Credential
 
     async get(organizationId: string) {
       const connection = await findProviderConnectionByOrganization(db, organizationId);
-      return connection && toPublicConnection(connection);
+      return connection && withConnectionAuthors(connection);
     },
 
-    remove: (organizationId: string) => deleteProviderConnection(db, organizationId),
+    remove: (organizationId: string) => {
+      accounts.delete(organizationId);
+      return deleteProviderConnection(db, organizationId);
+    },
+
+    async account(organizationId: string) {
+      const cached = accounts.get(organizationId);
+      if (cached && Date.now() - cached.checkedAt < accountTtlMs) return cached.account;
+      const account = await loadProvider(organizationId)
+        .then((provider) => provider?.verifyAccount() ?? null)
+        .catch((error: unknown) => {
+          logger.warn({ organizationId, err: error }, "could not read the provider account");
+          return null;
+        });
+      accounts.set(organizationId, { checkedAt: Date.now(), account });
+      return account;
+    },
 
     loadProvider,
 

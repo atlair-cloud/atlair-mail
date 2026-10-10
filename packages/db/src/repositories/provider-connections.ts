@@ -2,6 +2,8 @@ import { and, asc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { Executor } from "../client.ts";
 import type { ProviderSettings } from "@atlair-mail/providers/types";
 import { providerConnections, type NewProviderConnection } from "../schema/index.ts";
+import type { Actor } from "../types.ts";
+import { editorColumns } from "./actors.ts";
 
 const disabledEvents = {
   eventsMode: null,
@@ -29,6 +31,8 @@ export async function upsertProviderConnection(db: Executor, values: NewProvider
         credentialsEncrypted: values.credentialsEncrypted,
         encryptionKeyVersion: values.encryptionKeyVersion,
         ...disabledEvents,
+        updatedBy: values.updatedBy ?? null,
+        updatedByApiKeyId: values.updatedByApiKeyId ?? null,
         updatedAt: sql`now()`,
       },
     })
@@ -62,7 +66,7 @@ export type ProviderEventsSetup =
   | { mode: "push"; settings: ProviderSettings; eventsUrl: string; active: boolean }
   | { mode: "pull"; settings: ProviderSettings; active: boolean };
 
-export async function saveProviderEvents(db: Executor, id: string, setup: ProviderEventsSetup) {
+export async function saveProviderEvents(db: Executor, id: string, setup: ProviderEventsSetup, actor: Actor) {
   const eventsUrl = setup.mode === "push" ? setup.eventsUrl : null;
   const unchanged = and(
     sql`${providerConnections.eventsMode} is not distinct from ${setup.mode}`,
@@ -82,6 +86,7 @@ export async function saveProviderEvents(db: Executor, id: string, setup: Provid
         eventsFailures: 0,
         eventsLastError: null,
       }),
+      ...editorColumns(actor),
       updatedAt: sql`now()`,
     })
     .where(eq(providerConnections.id, id))
@@ -92,7 +97,7 @@ export async function saveProviderEvents(db: Executor, id: string, setup: Provid
 export async function markProviderEventsConfirmed(db: Executor, id: string) {
   const [connection] = await db
     .update(providerConnections)
-    .set({ eventsConfirmedAt: sql`now()`, updatedAt: sql`now()` })
+    .set({ eventsConfirmedAt: sql`now()`, updatedAt: sql`${providerConnections.updatedAt}` })
     .where(and(eq(providerConnections.id, id), isNotNull(providerConnections.eventsMode)))
     .returning({ id: providerConnections.id, eventsMode: providerConnections.eventsMode });
   return connection ?? null;
@@ -109,7 +114,7 @@ export async function claimDueEventPolls(db: Executor, options: { limit: number;
 
   return db
     .update(providerConnections)
-    .set({ eventsPollAfter: options.leaseUntil })
+    .set({ eventsPollAfter: options.leaseUntil, updatedAt: sql`${providerConnections.updatedAt}` })
     .where(inArray(providerConnections.id, due))
     .returning();
 }
@@ -137,6 +142,7 @@ export async function finishEventPoll(db: Executor, result: EventPollResult) {
         eventsDeadLetters: result.stats.deadLetters,
         eventsStatsAt: sql`now()`,
       }),
+      updatedAt: sql`${providerConnections.updatedAt}`,
     })
     .where(and(eq(providerConnections.id, result.id), eq(providerConnections.eventsPollAfter, result.leaseUntil)))
     .returning({ id: providerConnections.id, eventsFailures: providerConnections.eventsFailures });

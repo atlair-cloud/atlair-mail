@@ -11,9 +11,10 @@ import { sendTestEmail } from '../api/send-test-email'
 import AttentionList from '../components/AttentionList.vue'
 import DomainsPanel from '../components/DomainsPanel.vue'
 import FirstSendBanner from '../components/FirstSendBanner.vue'
-import HealthStrip from '../components/HealthStrip.vue'
 import OverviewHeader from '../components/OverviewHeader.vue'
 import RecentEmails from '../components/RecentEmails.vue'
+import SendingLimits from '../components/SendingLimits.vue'
+import SendingSummary from '../components/SendingSummary.vue'
 import SetupGuide from '../components/SetupGuide.vue'
 import { setupSteps } from '../lib/setup'
 
@@ -49,14 +50,12 @@ watch(
 const stepsDone = computed(() => (overview.value ? setupSteps(overview.value).filter((step) => step.done).length : 0))
 
 const testSentTo = ref<string | null>(null)
-const testSentAt = ref<string | null>(null)
 const testMutation = useMutation({
   mutationFn: (to: string) => {
     testSentTo.value = to
     return sendTestEmail(organizationId.value, { from: `test@${sendingDomain.value}`, to })
   },
   async onSuccess() {
-    testSentAt.value = new Date().toISOString()
     await queryClient.invalidateQueries({ queryKey: overviewQueryKey(organizationId.value) })
   },
 })
@@ -64,7 +63,6 @@ const testError = computed(() => {
   const failure = testMutation.error.value
   return failure ? failure.message || 'Couldn’t send the test email. Please try again.' : ''
 })
-const canSendTest = computed(() => !!sendingDomain.value && !!me.value && !!overview.value?.setup.provider.connected)
 
 const loadError = computed(() => (isError.value ? describeLoadError(error.value, 'the overview') : null))
 </script>
@@ -73,19 +71,13 @@ const loadError = computed(() => (isError.value ? describeLoadError(error.value,
   <div>
     <OverviewHeader :organization-name="organization?.name ?? 'Overview'" :overview="overview ?? null" :steps-done="stepsDone" :steps-total="4">
       <template #action>
-        <div v-if="overview && !isSetup && canSendTest" class="flex flex-col items-end gap-1">
-          <UButton
-            type="button"
-            size="md"
-            :loading="testMutation.isPending.value"
-            class="h-9 rounded-sm bg-atlair-950 px-3.5 text-sm font-medium text-canvas shadow-sm hover:bg-atlair-900"
-            @click="testMutation.mutate(me!.email)"
-          >
-            <Send v-if="!testMutation.isPending.value" aria-hidden="true" class="size-4" />Send test email
-          </UButton>
-          <span v-if="testSentAt" role="status" class="text-xs text-slate-500">Sent to {{ testSentTo }}</span>
-          <span v-else-if="testError" role="alert" class="text-xs text-red-600">{{ testError }}</span>
-        </div>
+        <RouterLink
+          v-if="overview && !isSetup"
+          :to="{ name: 'playground', params: { organizationId } }"
+          class="inline-flex h-9 items-center gap-2 rounded-sm bg-atlair-950 px-3.5 text-sm font-medium text-canvas shadow-sm hover:bg-atlair-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-atlair-950"
+        >
+          <Send aria-hidden="true" class="size-4" />Send a test email
+        </RouterLink>
       </template>
     </OverviewHeader>
 
@@ -122,14 +114,17 @@ const loadError = computed(() => (isError.value ? describeLoadError(error.value,
       />
       <template v-else>
         <FirstSendBanner v-if="justFinishedSetup" class="mt-8" @dismiss="justFinishedSetup = false" />
-        <HealthStrip :overview="overview" class="mt-8" />
+        <SendingSummary :overview="overview" :organization-id="organizationId" class="mt-8" />
       </template>
 
-      <AttentionList v-if="overview.attention.length" :items="overview.attention" :organization-id="organizationId" class="mt-8" />
+      <AttentionList v-if="overview.attention.length" :items="overview.attention" :organization-id="organizationId" :region="overview.setup.provider.region" class="mt-8" />
 
       <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <RecentEmails :emails="overview.recentEmails" :organization-id="organizationId" :live="live" />
-        <DomainsPanel :overview="overview" :organization-id="organizationId" />
+        <RecentEmails :emails="overview.recentEmails" :organization-id="organizationId" :live="live" :sandbox="overview.setup.provider.account?.sandbox ?? false" />
+        <aside class="grid gap-4 self-start lg:sticky lg:top-6">
+          <DomainsPanel :overview="overview" :organization-id="organizationId" />
+          <SendingLimits :overview="overview" :organization-id="organizationId" />
+        </aside>
       </div>
     </template>
   </div>

@@ -1,7 +1,8 @@
 import { and, asc, eq, gt, inArray } from "drizzle-orm";
 import type { Executor } from "../client.ts";
 import { suppressedAddresses } from "../schema/index.ts";
-import type { SuppressionReason } from "../types.ts";
+import type { Actor, SuppressionReason } from "../types.ts";
+import { creatorColumns } from "./actors.ts";
 
 export async function findSuppressedAddresses(db: Executor, organizationId: string, addresses: string[]) {
   if (addresses.length === 0) return [];
@@ -30,12 +31,13 @@ export async function suppressAddresses(
   organizationId: string,
   entries: SuppressionInput[],
   sourceEmailId: string | null,
+  actor: Actor | null = null,
 ) {
   if (entries.length === 0) return [];
   const ordered = [...entries].sort((a, b) => (a.address < b.address ? -1 : a.address > b.address ? 1 : 0));
   return db
     .insert(suppressedAddresses)
-    .values(ordered.map(({ address, reason }) => ({ organizationId, address, reason, sourceEmailId })))
+    .values(ordered.map(({ address, reason }) => ({ organizationId, address, reason, sourceEmailId, ...creatorColumns(actor) })))
     .onConflictDoNothing({ target: [suppressedAddresses.organizationId, suppressedAddresses.address] })
     .returning();
 }

@@ -82,13 +82,17 @@ describe("/service/web/domains", { skip: !hasDatabase }, () => {
     ]);
     assert.deepEqual(Object.keys(body).sort(), [
       "createdAt",
+      "createdBy",
       "id",
       "lastCheckedAt",
       "name",
       "records",
       "status",
+      "updatedAt",
+      "updatedBy",
       "verifiedAt",
     ]);
+    assert.equal(body.createdBy.type, "api_key");
     assert.equal(ses.commandCalls(CreateEmailIdentityCommand)[0]!.args[0].input.EmailIdentity, body.name);
   });
 

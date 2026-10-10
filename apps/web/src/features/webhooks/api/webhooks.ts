@@ -1,3 +1,4 @@
+import type { Authorship } from '../../../lib/api/actors'
 import { apiFetch } from '../../../lib/api/client'
 
 export type WebhookEventType =
@@ -11,14 +12,12 @@ export type WebhookEventType =
   | 'email.clicked'
   | 'email.failed'
 
-export type Webhook = {
+export type Webhook = Authorship & {
   id: string
   url: string
   eventTypes: WebhookEventType[]
   enabled: boolean
   previousSecretExpiresAt: string | null
-  createdAt: string
-  updatedAt: string
 }
 
 export type WebhookWithSecret = Webhook & { signingSecret: string }

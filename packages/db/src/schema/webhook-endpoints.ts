@@ -3,6 +3,7 @@ import { check, index, integer, pgTable, text } from "drizzle-orm/pg-core";
 import { emailEventTypes, type EmailEventType } from "../types.ts";
 import { encryptionKeyVersion, id, isSubsetOf, timestamps, timestamptz } from "./_columns.ts";
 import { organizationId } from "./organizations.ts";
+import { authorship } from "./_authorship.ts";
 
 export const webhookEndpoints = pgTable(
   "webhook_endpoints",
@@ -17,6 +18,7 @@ export const webhookEndpoints = pgTable(
     previousEncryptionKeyVersion: integer("previous_encryption_key_version"),
     previousSecretExpiresAt: timestamptz("previous_secret_expires_at"),
     disabledAt: timestamptz("disabled_at"),
+    ...authorship(),
     ...timestamps,
   },
   (t) => [

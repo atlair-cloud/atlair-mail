@@ -1,6 +1,8 @@
 import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import type { Executor } from "../client.ts";
 import { apiKeys, type NewApiKey } from "../schema/index.ts";
+import type { Actor } from "../types.ts";
+import { editorColumns } from "./actors.ts";
 
 export async function insertApiKey(db: Executor, values: NewApiKey) {
   const [key] = await db.insert(apiKeys).values(values).returning();
@@ -42,10 +44,10 @@ export async function findApiKeyInOrganization(
   return row ?? null;
 }
 
-export async function revokeApiKey(db: Executor, key: { id: string; organizationId: string }) {
+export async function revokeApiKey(db: Executor, key: { id: string; organizationId: string }, actor: Actor) {
   const [row] = await db
     .update(apiKeys)
-    .set({ revokedAt: sql`now()` })
+    .set({ revokedAt: sql`now()`, ...editorColumns(actor) })
     .where(
       and(
         eq(apiKeys.id, key.id),

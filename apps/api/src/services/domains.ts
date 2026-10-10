@@ -1,12 +1,15 @@
 import createError from "@fastify/error";
 import {
+  creatorColumns,
   deleteDomain,
+  editorColumns,
   findDomainInOrganization,
   hasPgErrorCode,
   insertDomain,
   listDomainsByOrganization,
   pgErrorCodes,
   updateDomainVerification,
+  type Actor,
   type Database,
 } from "@atlair-mail/db";
 import type { Domain } from "@atlair-mail/db/schema";
@@ -16,6 +19,7 @@ import {
   type DomainVerification,
   type EmailProvider,
 } from "@atlair-mail/providers";
+import { loadAuthors, withAuthors } from "../lib/authors.ts";
 import type { ProviderConnectionService } from "./provider-connections.ts";
 
 export const InvalidDomainNameError = createError(
@@ -34,7 +38,13 @@ export const DomainInUseError = createError(
 
 export function withDnsRecords(domain: Domain) {
   return {
-    ...domain,
+    id: domain.id,
+    name: domain.name,
+    status: domain.status,
+    lastCheckedAt: domain.lastCheckedAt,
+    verifiedAt: domain.verifiedAt,
+    createdAt: domain.createdAt,
+    updatedAt: domain.updatedAt,
     records: [
       ...domain.dnsRecords.map((record) => ({ ...record, status: record.status ?? null })),
       {
@@ -62,8 +72,10 @@ async function withReturnPath(provider: EmailProvider, name: string, verificatio
 }
 
 export function createDomainService(db: Database, providerConnections: ProviderConnectionService) {
+  const toPublicDomain = async (domain: Domain) => ({ ...withDnsRecords(domain), ...(await withAuthors(db, domain)) });
+
   return {
-    async create(organizationId: string, input: { name: string }) {
+    async create(organizationId: string, input: { name: string }, actor: Actor) {
       const name = normalizeDomainName(input.name);
       if (!name) throw new InvalidDomainNameError();
       const provider = await providerConnections.requireProvider(organizationId);
@@ -75,29 +87,33 @@ export function createDomainService(db: Database, providerConnections: ProviderC
         dnsRecords: verification.dnsRecords,
         lastCheckedAt: new Date(),
         verifiedAt: verification.status === "verified" ? new Date() : null,
+        ...creatorColumns(actor),
+        ...editorColumns(actor),
       });
       if (!domain) throw new DomainExistsError(name);
-      return withDnsRecords(domain);
+      return toPublicDomain(domain);
     },
 
     async list(organizationId: string) {
-      return (await listDomainsByOrganization(db, organizationId)).map(withDnsRecords);
+      const domains = await listDomainsByOrganization(db, organizationId);
+      const authors = await loadAuthors(db, domains);
+      return domains.map((domain) => ({ ...withDnsRecords(domain), ...authors(domain) }));
     },
 
     async get(organizationId: string, id: string) {
       const domain = await findDomainInOrganization(db, { id, organizationId });
-      return domain && withDnsRecords(domain);
+      return domain && toPublicDomain(domain);
     },
 
-    async verify(organizationId: string, id: string) {
+    async verify(organizationId: string, id: string, actor: Actor) {
       const key = { id, organizationId };
       const domain = await findDomainInOrganization(db, key);
       if (!domain) return null;
       const provider = await providerConnections.requireProvider(organizationId);
       const found = await provider.getDomain(domain.name);
       const verification = found && (await withReturnPath(provider, domain.name, found));
-      const updated = await updateDomainVerification(db, key, verification ?? { status: "failed" });
-      return updated && withDnsRecords(updated);
+      const updated = await updateDomainVerification(db, key, verification ?? { status: "failed" }, actor);
+      return updated && toPublicDomain(updated);
     },
 
     async remove(organizationId: string, id: string) {

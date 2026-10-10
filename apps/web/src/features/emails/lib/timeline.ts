@@ -24,6 +24,25 @@ const failureReasons: Record<string, string> = {
   ATL_WORKER_ERROR: 'The worker hit an unexpected error while sending.',
 }
 
+const shortReasons: Record<string, string> = {
+  ATL_RECIPIENT_SUPPRESSED: 'Recipient suppressed',
+  ATL_PROVIDER_REJECTED: 'Refused by Amazon SES',
+  ATL_PROVIDER_NOT_CONNECTED: 'No provider connected',
+  ATL_DOMAIN_NOT_VERIFIED: 'Domain not verified',
+  ATL_INVALID_ADDRESS: 'Invalid address',
+  ATL_PROVIDER_THROTTLED: 'Over the SES sending rate',
+  ATL_PROVIDER_TIMEOUT: 'Amazon SES timed out',
+  ATL_PROVIDER_UNAVAILABLE: 'Amazon SES unavailable',
+  ATL_WORKER_ERROR: 'Worker error',
+}
+
+export function shortFailureReason(error: string | null | undefined, sandbox = false) {
+  if (!error) return 'Failed'
+  const [code = '', reason = ''] = error.split(':').map((part) => part.trim())
+  if (code === 'ATL_PROVIDER_REJECTED' && reason === 'MessageRejected' && sandbox) return 'Sandbox: recipient not verified in SES'
+  return shortReasons[code] ?? code
+}
+
 export function explainFailure(error: string | null | undefined) {
   if (!error) return undefined
   const code = error.split(':')[0]?.trim() ?? ''

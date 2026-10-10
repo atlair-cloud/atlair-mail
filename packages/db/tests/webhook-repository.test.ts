@@ -19,7 +19,7 @@ import {
 } from "../src/index.ts";
 import { emailEvents, emails, webhookDeliveries, webhookEndpoints } from "../src/schema/index.ts";
 import type { EmailEventType, WebhookPayload } from "../src/types.ts";
-import { CHECK_VIOLATION, databaseUrl, newEmail, pgError, useTestDb } from "./helpers.ts";
+import { CHECK_VIOLATION, databaseUrl, newEmail, pgError, system, useTestDb } from "./helpers.ts";
 
 describe("webhook repositories", { skip: !databaseUrl }, () => {
   const t = useTestDb();
@@ -85,12 +85,12 @@ describe("webhook repositories", { skip: !databaseUrl }, () => {
     const created = await endpoint(organization.id);
 
     assert.equal(await findWebhookEndpoint(t.db, other.id, created.id), null);
-    assert.equal(await updateWebhookEndpoint(t.db, other.id, created.id, { url: "https://evil.example" }), null);
+    assert.equal(await updateWebhookEndpoint(t.db, other.id, created.id, { url: "https://evil.example" }, system), null);
     assert.equal(await deleteWebhookEndpoint(t.db, other.id, created.id), null);
     assert.equal((await listWebhookEndpoints(t.db, other.id)).length, 0);
     assert.equal(await countWebhookEndpoints(t.db, organization.id), 1);
 
-    const updated = await updateWebhookEndpoint(t.db, organization.id, created.id, { eventTypes: ["bounced"] });
+    const updated = await updateWebhookEndpoint(t.db, organization.id, created.id, { eventTypes: ["bounced"] }, system);
     assert.deepEqual(updated?.eventTypes, ["bounced"]);
     assert.deepEqual(await deleteWebhookEndpoint(t.db, organization.id, created.id), { id: created.id });
     assert.equal(await findWebhookEndpoint(t.db, organization.id, created.id), null);
@@ -104,7 +104,7 @@ describe("webhook repositories", { skip: !databaseUrl }, () => {
       ciphertext: "ciphertext-2",
       keyVersion: 2,
       overlapSeconds: 3_600,
-    });
+    }, system);
 
     assert.equal(rotated?.signingSecretEncrypted, "ciphertext-2");
     assert.equal(rotated?.encryptionKeyVersion, 2);
@@ -118,7 +118,7 @@ describe("webhook repositories", { skip: !databaseUrl }, () => {
     const organization = await t.newOrganization();
     const created = await endpoint(organization.id);
     const rotate = (ciphertext: string, overlapSeconds: number) =>
-      rotateWebhookSigningSecret(t.db, organization.id, created.id, { ciphertext, keyVersion: 1, overlapSeconds });
+      rotateWebhookSigningSecret(t.db, organization.id, created.id, { ciphertext, keyVersion: 1, overlapSeconds }, system);
 
     await rotate("ciphertext-2", 3_600);
     const again = await rotate("ciphertext-3", 3_600);
@@ -140,7 +140,7 @@ describe("webhook repositories", { skip: !databaseUrl }, () => {
       ciphertext: "stolen",
       keyVersion: 1,
       overlapSeconds: 60,
-    });
+    }, system);
 
     assert.equal(rotated, null);
     const unchanged = await findWebhookEndpoint(t.db, organization.id, created.id);
@@ -166,7 +166,7 @@ describe("webhook repositories", { skip: !databaseUrl }, () => {
     const expired = await endpoint(organization.id);
     const active = await endpoint(organization.id);
     const rotate = (id: string) =>
-      rotateWebhookSigningSecret(t.db, organization.id, id, { ciphertext: "next", keyVersion: 1, overlapSeconds: 3_600 });
+      rotateWebhookSigningSecret(t.db, organization.id, id, { ciphertext: "next", keyVersion: 1, overlapSeconds: 3_600 }, system);
     await rotate(expired.id);
     await rotate(active.id);
     await t.db

@@ -55,7 +55,7 @@ export default fp(
       emailEvents,
       members: createMemberService(fastify.db),
       organizations: createOrganizationService(fastify.db),
-      overview: createOverviewService(fastify.db, emails),
+      overview: createOverviewService(fastify.db, emails, providerConnections),
       providerConnections,
       providerEvents: createProviderEventService(
         fastify.db,

@@ -1,7 +1,8 @@
 import { and, asc, count, eq, lte, sql } from "drizzle-orm";
 import type { Executor } from "../client.ts";
 import { webhookEndpoints, type NewWebhookEndpoint } from "../schema/index.ts";
-import type { EmailEventType } from "../types.ts";
+import type { Actor, EmailEventType } from "../types.ts";
+import { editorColumns } from "./actors.ts";
 
 export async function createWebhookEndpoint(db: Executor, values: NewWebhookEndpoint) {
   const [endpoint] = await db.insert(webhookEndpoints).values(values).returning();
@@ -43,10 +44,11 @@ export async function updateWebhookEndpoint(
   organizationId: string,
   id: string,
   changes: WebhookEndpointChanges,
+  actor: Actor,
 ) {
   const [endpoint] = await db
     .update(webhookEndpoints)
-    .set(changes)
+    .set({ ...changes, ...editorColumns(actor) })
     .where(inOrganization(organizationId, id))
     .returning();
   return endpoint ?? null;
@@ -71,6 +73,7 @@ export async function rotateWebhookSigningSecret(
   organizationId: string,
   id: string,
   rotation: SigningSecretRotation,
+  actor: Actor,
 ) {
   const keepPrevious = rotation.overlapSeconds > 0;
   const [endpoint] = await db
@@ -81,6 +84,7 @@ export async function rotateWebhookSigningSecret(
       previousSigningSecretEncrypted: keepPrevious ? sql`${webhookEndpoints.signingSecretEncrypted}` : null,
       previousEncryptionKeyVersion: keepPrevious ? sql`${webhookEndpoints.encryptionKeyVersion}` : null,
       previousSecretExpiresAt: keepPrevious ? sql`now() + make_interval(secs => ${rotation.overlapSeconds})` : null,
+      ...editorColumns(actor),
     })
     .where(inOrganization(organizationId, id))
     .returning();
@@ -90,7 +94,12 @@ export async function rotateWebhookSigningSecret(
 export async function clearExpiredPreviousSecrets(db: Executor) {
   const cleared = await db
     .update(webhookEndpoints)
-    .set({ previousSigningSecretEncrypted: null, previousEncryptionKeyVersion: null, previousSecretExpiresAt: null })
+    .set({
+      previousSigningSecretEncrypted: null,
+      previousEncryptionKeyVersion: null,
+      previousSecretExpiresAt: null,
+      updatedAt: sql`${webhookEndpoints.updatedAt}`,
+    })
     .where(lte(webhookEndpoints.previousSecretExpiresAt, sql`now()`))
     .returning({ id: webhookEndpoints.id });
   return cleared.length;

@@ -31,12 +31,16 @@ describe("POST /service/web/organizations", { skip: !hasDatabase }, () => {
     assert.equal(body.name, "Acme");
     assert.deepEqual(Object.keys(body.apiKey).sort(), [
       "createdAt",
+      "createdBy",
       "id",
       "name",
       "permission",
       "token",
       "tokenPrefix",
+      "updatedAt",
+      "updatedBy",
     ]);
+    assert.equal(body.apiKey.createdBy, null);
     assert.equal(body.apiKey.permission, "full_access");
     assert.ok(body.apiKey.token.startsWith(body.apiKey.tokenPrefix));
   });

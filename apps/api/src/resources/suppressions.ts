@@ -50,6 +50,7 @@ export const suppressionRoutes =
         const { suppression, created } = await fastify.services.suppressions.add(
           scope.organizationId(request),
           request.body.address,
+          scope.actor(request),
         );
         return reply.code(created ? 201 : 200).send(suppression);
       },

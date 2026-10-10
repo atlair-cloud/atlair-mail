@@ -23,7 +23,7 @@ const { copy, copied, isSupported } = useClipboard({ copiedDuring: 1500 })
     v-else-if="isSupported"
     type="button"
     class="inline-flex shrink-0 items-center gap-1.5 rounded-sm px-2 py-1 text-xs font-medium focus-visible:outline-2"
-    :class="tone === 'dark' ? 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white focus-visible:outline-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-atlair-950'"
+    :class="tone === 'dark' ? 'bg-[#262b30] text-[#c4cad1] hover:bg-[#30363c] hover:text-[#f1f3f5] focus-visible:outline-[#d6dbe0]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-atlair-950'"
     :aria-label="copied ? 'Copied' : label"
     @click="copy(props.value)"
   >

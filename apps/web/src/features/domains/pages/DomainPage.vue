@@ -5,10 +5,12 @@ import { useToast } from '@nuxt/ui/composables'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
+import FactsRow from '../../../components/shared/FactsRow.vue'
 import LoadErrorCard from '../../../components/shared/LoadErrorCard.vue'
 import NotFound from '../../../components/shared/NotFound.vue'
 import SettingsCard from '../../../components/shared/SettingsCard.vue'
 import { ApiError } from '../../../lib/api/client'
+import { authorshipFacts } from '../../../lib/format/authorship'
 import { formatRelativeTime } from '../../../lib/format/relative-time'
 import { useCurrentOrganization } from '../../organizations'
 import { getProvider, providerQueryKey } from '../../settings'
@@ -51,11 +53,10 @@ const check = useMutation({
   onError: (error) => toast.add({ title: 'Couldn’t check the domain', description: error.message, color: 'error' }),
 })
 
-const absolute = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 const facts = computed(() =>
   domain.value
     ? [
-        { label: 'Added', value: absolute.format(new Date(domain.value.createdAt)) },
+        ...authorshipFacts(domain.value, 'Added'),
         { label: 'Region', value: provider.value?.region ?? '—', mono: true },
         { label: 'Last checked', value: domain.value.lastCheckedAt ? formatRelativeTime(domain.value.lastCheckedAt) : 'Not yet' },
       ]
@@ -112,12 +113,7 @@ const remove = useMutation({
         </UButton>
       </header>
 
-      <dl class="m-0 mt-6 grid grid-cols-2 gap-x-10 gap-y-4 border-y border-slate-200 py-4 sm:flex sm:flex-wrap">
-        <div v-for="fact in facts" :key="fact.label">
-          <dt class="font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-slate-500">{{ fact.label }}</dt>
-          <dd class="m-0 mt-1 text-sm text-slate-900" :class="fact.mono && 'font-mono'">{{ fact.value }}</dd>
-        </div>
-      </dl>
+      <FactsRow class="mt-6" :facts="facts" />
 
       <p v-if="domain.status === 'failed'" role="alert" class="m-0 mt-6 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200">
         Amazon SES couldn’t find the records. Check they match exactly, then check again.

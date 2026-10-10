@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { schema, type DomainStatus, type EmailStatus } from "@atlair-mail/db";
 import {
@@ -71,7 +72,13 @@ describe("panel overview", { skip: !hasDatabase }, () => {
     assert.equal(res.statusCode, 200);
     const body = res.json();
     assert.equal(body.health, "setup");
-    assert.deepEqual(body.setup.provider, { connected: false, provider: null, region: null, eventsConnected: false });
+    assert.deepEqual(body.setup.provider, {
+      connected: false,
+      provider: null,
+      region: null,
+      eventsConnected: false,
+      account: null,
+    });
     assert.deepEqual(body.setup.domains, { total: 0, verified: 0, pending: 0, failed: 0 });
     assert.equal(body.setup.apiKeys, 0);
     assert.equal(body.setup.members, 1);
@@ -79,6 +86,7 @@ describe("panel overview", { skip: !hasDatabase }, () => {
     assert.equal(body.metrics.daily.length, 7);
     assert.equal(body.metrics.last7d.total, 0);
     assert.deepEqual(body.metrics.rates, { delivery: null, bounce: null, complaint: null });
+    assert.deepEqual(body.metrics.volume, { accepted: 0, finished: 0, minimumForRates: 50 });
     assert.deepEqual(body.attention, []);
     assert.deepEqual(body.recentEmails, []);
   });
@@ -94,7 +102,13 @@ describe("panel overview", { skip: !hasDatabase }, () => {
     const body = (await app.inject({ method: "GET", url: overviewUrl(organizationId), headers: owner.headers })).json();
 
     assert.equal(body.health, "ok");
-    assert.deepEqual(body.setup.provider, { connected: true, provider: "ses", region: "eu-west-1", eventsConnected: true });
+    assert.deepEqual(body.setup.provider, {
+      connected: true,
+      provider: "ses",
+      region: "eu-west-1",
+      eventsConnected: true,
+      account: null,
+    });
     assert.equal(body.setup.firstEmailSent, true);
     assert.equal(body.metrics.last24h.total, 100);
     assert.equal(body.metrics.last24h.delivered, 98);
@@ -122,6 +136,49 @@ describe("panel overview", { skip: !hasDatabase }, () => {
     assert.equal(body.attention[0].severity, "critical");
     assert.match(body.attention[0].title, /10\.0%/);
     assert.ok(body.attention.some((item: { kind: string }) => item.kind === "emails_failed"));
+  });
+
+  it("counts failed emails against the delivery rate", async () => {
+    const app = await buildPanelTestApp();
+    const { owner, organizationId } = await setUpOrganization(app);
+    await connectProvider(app, organizationId, true);
+    const domain = await addDomain(app, organizationId, "verified");
+    await addEmails(app, organizationId, domain.id, ["delivered", "failed", "failed", "failed", "failed", "queued"]);
+
+    const body = (await app.inject({ method: "GET", url: overviewUrl(organizationId), headers: owner.headers })).json();
+
+    assert.equal(body.metrics.rates.delivery, 1 / 5);
+    assert.deepEqual(body.metrics.volume, { accepted: 1, finished: 5, minimumForRates: 50 });
+  });
+
+  it("explains failures by reason and links the latest one", async () => {
+    const app = await buildPanelTestApp();
+    const { owner, organizationId } = await setUpOrganization(app);
+    await connectProvider(app, organizationId, true);
+    const domain = await addDomain(app, organizationId, "verified");
+    const rejected = await addEmails(app, organizationId, domain.id, ["failed", "failed"]);
+    const suppressed = await addEmails(app, organizationId, domain.id, ["failed"]);
+    for (const email of rejected) {
+      await app.db.update(schema.emails).set({ lastError: "ATL_PROVIDER_REJECTED: MessageRejected" }).where(eq(schema.emails.id, email.id));
+    }
+    await app.db.update(schema.emails).set({ lastError: "ATL_RECIPIENT_SUPPRESSED" }).where(eq(schema.emails.id, suppressed[0]!.id));
+    app.services.providerConnections.account = async () => ({
+      sendingEnabled: true,
+      sandbox: true,
+      dailyQuota: 200,
+      maxSendRate: 1,
+      sentLast24h: 170,
+    });
+
+    const body = (await app.inject({ method: "GET", url: overviewUrl(organizationId), headers: owner.headers })).json();
+    const byKind = Object.fromEntries(body.attention.map((item: { kind: string }) => [item.kind, item]));
+
+    assert.match(byKind.emails_sandbox.title, /^2 emails refused: your Amazon SES account is in the sandbox/);
+    assert.equal(byKind.emails_sandbox.targetId, rejected.map((email) => email.id).sort().at(-1));
+    assert.match(byKind.emails_suppressed.title, /^1 email skipped/);
+    assert.match(byKind.quota_near.title, /^170 of 200/);
+    assert.equal(body.setup.provider.account.sandbox, true);
+    assert.equal(body.recentEmails.find((email: { id: string }) => email.id === suppressed[0]!.id).lastError, "ATL_RECIPIENT_SUPPRESSED");
   });
 
   it("ignores rates below the minimum volume", async () => {

@@ -4,6 +4,7 @@ import type { DnsRecord } from "@atlair-mail/providers/types";
 import { domainStatuses, type DomainStatus } from "../types.ts";
 import { id, isOneOf, timestamps, timestamptz } from "./_columns.ts";
 import { organizationId } from "./organizations.ts";
+import { authorship } from "./_authorship.ts";
 
 export const domains = pgTable(
   "domains",
@@ -15,6 +16,7 @@ export const domains = pgTable(
     dnsRecords: jsonb("dns_records").$type<DnsRecord[]>().notNull().default([]),
     lastCheckedAt: timestamptz("last_checked_at"),
     verifiedAt: timestamptz("verified_at"),
+    ...authorship(),
     ...timestamps,
   },
   (t) => [

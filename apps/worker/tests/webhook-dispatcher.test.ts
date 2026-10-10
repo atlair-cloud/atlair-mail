@@ -158,7 +158,7 @@ describe("webhook dispatcher", { skip: !databaseUrl }, () => {
       ciphertext: encrypted.ciphertext,
       keyVersion: encrypted.keyVersion,
       overlapSeconds,
-    });
+    }, { userId: null, apiKeyId: null });
   };
 
   it("signs with both secrets during a rotation overlap, so either one verifies", async () => {

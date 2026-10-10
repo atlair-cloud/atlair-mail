@@ -9,7 +9,7 @@ import {
   touchApiKeyLastUsed,
 } from "../src/repositories/api-keys.ts";
 import { apiKeys } from "../src/schema/index.ts";
-import { databaseUrl, newKey, useTestDb } from "./helpers.ts";
+import { databaseUrl, newKey, system, useTestDb } from "./helpers.ts";
 
 describe("api key lifecycle repositories", { skip: !databaseUrl }, () => {
   const t = useTestDb();
@@ -36,11 +36,11 @@ describe("api key lifecycle repositories", { skip: !databaseUrl }, () => {
     const elsewhere = { id: key.id, organizationId: other.id };
 
     assert.equal(await findApiKeyInOrganization(t.db, elsewhere), null);
-    assert.equal(await revokeApiKey(t.db, elsewhere), null);
+    assert.equal(await revokeApiKey(t.db, elsewhere, system), null);
 
-    const revoked = await revokeApiKey(t.db, { id: key.id, organizationId: organization.id });
+    const revoked = await revokeApiKey(t.db, { id: key.id, organizationId: organization.id }, system);
     assert.ok(revoked?.revokedAt);
-    assert.equal(await revokeApiKey(t.db, { id: key.id, organizationId: organization.id }), null);
+    assert.equal(await revokeApiKey(t.db, { id: key.id, organizationId: organization.id }, system), null);
   });
 
   test("touchApiKeyLastUsed writes at most once a minute and leaves updated_at alone", async () => {

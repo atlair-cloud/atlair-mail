@@ -3,6 +3,7 @@ import { Globe, Plus } from '@iconoir/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
+import ActorName from '../../../components/shared/ActorName.vue'
 import EmptyState from '../../../components/shared/EmptyState.vue'
 import FramedModal from '../../../components/shared/FramedModal.vue'
 import LoadErrorCard from '../../../components/shared/LoadErrorCard.vue'
@@ -69,6 +70,7 @@ function opened(domain: Domain) {
             <th scope="col" class="px-4 py-2.5 font-medium">Domain</th>
             <th scope="col" class="w-40 px-4 py-2.5 font-medium">Status</th>
             <th scope="col" class="hidden w-36 px-4 py-2.5 font-medium sm:table-cell">Region</th>
+            <th scope="col" class="hidden w-44 px-4 py-2.5 font-medium lg:table-cell">Added by</th>
             <th scope="col" class="hidden w-36 px-4 py-2.5 font-medium md:table-cell">Added</th>
           </tr>
         </thead>
@@ -86,7 +88,8 @@ function opened(domain: Domain) {
               </span>
             </td>
             <td class="hidden px-4 py-3 font-mono text-xs text-slate-600 sm:table-cell">{{ provider?.region ?? '—' }}</td>
-            <td class="hidden px-4 py-3 text-slate-600 md:table-cell">{{ formatRelativeTime(domain.createdAt) }}</td>
+            <td class="hidden px-4 py-3 text-slate-700 lg:table-cell"><ActorName :actor="domain.createdBy" /></td>
+            <td class="hidden px-4 py-3 text-slate-600 md:table-cell" :title="new Date(domain.createdAt).toLocaleString()">{{ formatRelativeTime(domain.createdAt) }}</td>
           </tr>
         </tbody>
       </table>

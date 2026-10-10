@@ -48,7 +48,7 @@ describe("SES provider", () => {
     ses.on(GetAccountCommand).resolves({
       SendingEnabled: true,
       ProductionAccessEnabled: false,
-      SendQuota: { Max24HourSend: 200, MaxSendRate: 1 },
+      SendQuota: { Max24HourSend: 200, MaxSendRate: 1, SentLast24Hours: 12 },
     });
 
     assert.deepEqual(await provider.verifyAccount(), {
@@ -56,6 +56,7 @@ describe("SES provider", () => {
       sandbox: true,
       dailyQuota: 200,
       maxSendRate: 1,
+      sentLast24h: 12,
     });
   });
 

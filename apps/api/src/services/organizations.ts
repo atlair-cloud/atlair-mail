@@ -60,7 +60,7 @@ export function createOrganizationService(db: Database) {
       return withSlugCheck(slug, () =>
         db.transaction(async (tx) => {
           const { organization } = await insertWithRoles(tx, { name: input.name, slug, createdBy: null });
-          const apiKey = await createApiKey(tx, organization.id, { name: "Default" });
+          const apiKey = await createApiKey(tx, organization.id, { name: "Default" }, null);
           return { ...organization, apiKey };
         }),
       );

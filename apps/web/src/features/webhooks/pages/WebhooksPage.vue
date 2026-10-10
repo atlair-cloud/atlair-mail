@@ -3,6 +3,7 @@ import { BellNotification, NavArrowRight, Plus } from '@iconoir/vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
+import ActorName from '../../../components/shared/ActorName.vue'
 import EmptyState from '../../../components/shared/EmptyState.vue'
 import FramedModal from '../../../components/shared/FramedModal.vue'
 import LoadErrorCard from '../../../components/shared/LoadErrorCard.vue'
@@ -88,7 +89,10 @@ function summary(eventTypes: WebhookEventType[]) {
               :to="{ name: 'webhook', params: { organizationId, webhookId: webhook.id } }"
               class="block truncate font-mono text-sm font-medium text-slate-900 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:after:outline-2 focus-visible:after:outline-atlair-950"
             >{{ webhook.url }}</RouterLink>
-            <p class="m-0 mt-1 truncate text-xs text-slate-500">{{ summary(webhook.eventTypes) }} · added {{ formatRelativeTime(webhook.createdAt) }}</p>
+            <p class="m-0 mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500">
+              <span class="truncate">{{ summary(webhook.eventTypes) }} · added {{ formatRelativeTime(webhook.createdAt) }}</span>
+              <template v-if="webhook.createdBy"><span class="shrink-0">by</span><ActorName :actor="webhook.createdBy" class="text-slate-700" /></template>
+            </p>
           </div>
           <span class="inline-flex items-center gap-1.5 text-sm text-slate-700">
             <span aria-hidden="true" class="size-2 rounded-full" :class="webhook.enabled ? 'bg-status-live' : 'bg-slate-300'" />{{ webhook.enabled ? 'Enabled' : 'Disabled' }}

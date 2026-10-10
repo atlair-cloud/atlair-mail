@@ -26,6 +26,15 @@ export async function countEmailsByStatus(db: Executor, organizationId: string, 
   return rows;
 }
 
+export async function countFailuresByError(db: Executor, organizationId: string, since: Date) {
+  return db
+    .select({ error: emails.lastError, count: count(), latestEmailId: sql<string>`max(${emails.id}::text)` })
+    .from(emails)
+    .where(and(eq(emails.organizationId, organizationId), eq(emails.status, "failed"), gte(emails.createdAt, since)))
+    .groupBy(emails.lastError)
+    .orderBy(desc(count()));
+}
+
 export interface DailyEmailCount extends EmailStatusCount {
   day: string;
 }

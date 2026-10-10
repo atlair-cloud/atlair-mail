@@ -4,6 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-que
 import { useToast } from '@nuxt/ui/composables'
 import { refDebounced } from '@vueuse/core'
 import { computed, ref } from 'vue'
+import ActorName from '../../../components/shared/ActorName.vue'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
 import EmptyState from '../../../components/shared/EmptyState.vue'
 import FramedModal from '../../../components/shared/FramedModal.vue'
@@ -109,6 +110,7 @@ function openAdd() {
             <tr class="font-mono text-[10.5px] uppercase tracking-[0.12em] text-slate-500">
               <th scope="col" class="px-4 py-2.5 font-medium">Address</th>
               <th scope="col" class="hidden w-56 px-4 py-2.5 font-medium sm:table-cell">Reason</th>
+              <th scope="col" class="hidden w-44 px-4 py-2.5 font-medium lg:table-cell">Added by</th>
               <th scope="col" class="hidden w-36 px-4 py-2.5 font-medium md:table-cell">Added</th>
               <th scope="col" class="w-28 px-4 py-2.5"><span class="sr-only">Actions</span></th>
             </tr>
@@ -122,7 +124,8 @@ function openAdd() {
               <td class="hidden px-4 py-3 sm:table-cell" :title="SUPPRESSION_REASON[entry.reason].description">
                 <span class="inline-flex items-center gap-1.5 text-slate-700"><span aria-hidden="true" class="size-2 rounded-full" :class="SUPPRESSION_REASON[entry.reason].dot" />{{ SUPPRESSION_REASON[entry.reason].label }}</span>
               </td>
-              <td class="hidden px-4 py-3 text-slate-600 md:table-cell">{{ formatRelativeTime(entry.createdAt) }}</td>
+              <td class="hidden px-4 py-3 text-slate-700 lg:table-cell"><ActorName :actor="entry.createdBy" :fallback="entry.reason === 'manual' ? '—' : 'Automatic'" /></td>
+              <td class="hidden px-4 py-3 text-slate-600 md:table-cell" :title="new Date(entry.createdAt).toLocaleString()">{{ formatRelativeTime(entry.createdAt) }}</td>
               <td class="px-4 py-3 text-right">
                 <TextButton v-if="canManage" @click="remove.reset(); removing = entry">Remove</TextButton>
               </td>

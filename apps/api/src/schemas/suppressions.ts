@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import { suppressionReasons } from "@atlair-mail/db";
-import { DateTime, Uuid } from "../lib/schemas.ts";
+import { Uuid } from "../lib/schemas.ts";
+import { CreatedBySchema } from "./authors.ts";
 import { maxSuppressionPageSize } from "../services/suppressions.ts";
 
 const Address = Type.String({
@@ -19,7 +20,7 @@ export const SuppressionSchema = Type.Object({
   sourceEmailId: Type.Union([Uuid(), Type.Null()], {
     description: "The email whose bounce or complaint caused this entry.",
   }),
-  createdAt: DateTime(),
+  ...CreatedBySchema,
 });
 
 export const SuppressionListQuerySchema = Type.Object({
