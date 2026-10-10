@@ -30,6 +30,7 @@ open http://localhost:8080/docs/        # API reference
 atlair-mail/
 ├── apps/
 │   ├── api/              Fastify HTTP API (organizations, API keys, provider, domains)
+│   ├── web/              panel UI (Vue, Nuxt UI), a static build
 │   └── worker/           sends queued emails through each organization's provider
 ├── packages/
 │   ├── core/             credentials cipher (AWS Encryption SDK)
@@ -61,6 +62,7 @@ routes/        HTTP routes, loaded automatically; folders become URL prefixes
 - [docs/design-patterns.md](docs/design-patterns.md): the design patterns this codebase uses and where.
 - [docs/webhooks.md](docs/webhooks.md): customer webhooks, payloads, signature verification and retries.
 - [docs/panel-auth.md](docs/panel-auth.md): panel sign-in, organizations, members, roles, and API versioning.
+- [docs/web.md](docs/web.md): the panel UI in `apps/web`.
 - [AGENTS.md](AGENTS.md): conventions for AI coding agents.
 
 ## License

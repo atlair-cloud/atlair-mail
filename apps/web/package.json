@@ -1,0 +1,31 @@
+{
+  "name": "@atlair-mail/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@iconoir/vue": "^7.12.1",
+    "@nuxt/ui": "^4.11.2",
+    "@tanstack/vue-query": "^5.103.2",
+    "@vueuse/core": "^13.9.0",
+    "better-auth": "1.7.4",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.43",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3",
+    "vite": "^6.4.3",
+    "vue-tsc": "^2.2.12"
+  }
+}

@@ -1,0 +1,37 @@
+.frame-gloss {
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgb(255 255 255 / 0.7), transparent 60%),
+    linear-gradient(180deg, transparent 50%, rgb(0 0 0 / 0.03));
+}
+
+.shell-panel {
+  box-shadow:
+    0 0 0 1px #d6d2cc,
+    0 1px 2px rgb(28 25 23 / 0.04),
+    0 16px 40px -20px rgb(28 25 23 / 0.18);
+}
+
+.frame-chrome {
+  --color-white: #1c1917;
+}
+
+html.panel-dark {
+  --color-frame: #18191c;
+}
+
+html.panel-dark .frame-gloss {
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgb(255 255 255 / 0.07), transparent 55%),
+    linear-gradient(180deg, transparent 40%, rgb(0 0 0 / 0.25));
+}
+
+html.panel-dark .shell-panel {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 24px 56px -24px rgb(0 0 0 / 0.7);
+}
+
+html.panel-dark .frame-chrome {
+  --color-white: #ffffff;
+}
