@@ -30,7 +30,8 @@
     "fastify": "^5.12.5",
     "fastify-plugin": "^6.0.0",
     "safe-stable-stringify": "^2.5.0",
-    "typebox": "^1.0.13"
+    "typebox": "^1.0.13",
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
     "@aws-sdk/client-sesv2": "^3.1147.0",
@@ -40,7 +41,6 @@
     "@types/node": "^24.0.0",
     "aws-sdk-client-mock": "^4.1.0",
     "drizzle-orm": "^0.45.2",
-    "typescript": "^7.0.2",
-    "uuid": "^14.0.2"
+    "typescript": "^7.0.2"
   }
 }

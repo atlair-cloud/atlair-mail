@@ -15,22 +15,17 @@ COPY packages/db/package.json         packages/db/
 COPY packages/providers/package.json  packages/providers/
 COPY packages/templates/package.json  packages/templates/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile \
-      --filter @atlair-mail/api... \
-      --filter @atlair-mail/worker...
+    pnpm install --frozen-lockfile --prod --filter @atlair-mail/api...
 
-FROM deps AS app
-ENV NODE_ENV=production
-COPY . .
-USER node
-
-FROM app AS api
-ENV PORT=8080 \
+FROM base
+ENV NODE_ENV=production \
+    PORT=8080 \
     HOST=0.0.0.0
+COPY --from=deps /app /app
+COPY packages packages
+COPY apps/api apps/api
+USER node
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||'8080')+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "apps/api/src/server.ts"]
-
-FROM app AS worker
-CMD ["node", "apps/worker/src/main.ts"]
