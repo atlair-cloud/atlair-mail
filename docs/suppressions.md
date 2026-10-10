@@ -9,7 +9,7 @@ providers penalize repeated mail to dead addresses and to people who reported sp
 | --- | --- | --- |
 | Permanent bounce | `hard_bounce` | The provider reports the address does not exist or refuses mail for good. |
 | Complaint | `complaint` | The recipient marked an email as spam. Reports with feedback type `not-spam` are corrections and do not suppress. |
-| You | `manual` | `POST /v1/suppressions`. |
+| You | `manual` | `POST /service/web/suppressions`. |
 
 Never suppressed: transient bounces (mailbox full, out-of-office replies, provider gave up for now)
 and undetermined bounces. These still show in the email's events and status.
@@ -24,7 +24,7 @@ did not complain.
 
 ## Enforcement
 
-- `POST /v1/emails` rejects any suppressed recipient in `to`, `cc` or `bcc` with
+- `POST /service/web/emails` rejects any suppressed recipient in `to`, `cc` or `bcc` with
   `422 ATL_RECIPIENT_SUPPRESSED` and lists the addresses.
 - The worker checks again just before sending, so an address suppressed after the email was queued
   fails it with `ATL_RECIPIENT_SUPPRESSED` instead of sending.
@@ -37,9 +37,9 @@ All routes need a `full_access` key and only see the caller's organization.
 
 | Route | |
 | --- | --- |
-| `GET /v1/suppressions` | Oldest first. `limit` (1–100, default 50) and `after` (the last `id` of the previous page); the response has `hasMore`. `?address=` looks up one address. |
-| `POST /v1/suppressions` `{ "address": "ada@example.com" }` | Adds a `manual` entry: `201`, or `200` with the existing entry. One plain address only: no display name, lists or control characters. |
-| `DELETE /v1/suppressions/:id` | Removes the entry: `204`, or `404`. |
+| `GET /service/web/suppressions` | Oldest first. `limit` (1–100, default 50) and `after` (the last `id` of the previous page); the response has `hasMore`. `?address=` looks up one address. |
+| `POST /service/web/suppressions` `{ "address": "ada@example.com" }` | Adds a `manual` entry: `201`, or `200` with the existing entry. One plain address only: no display name, lists or control characters. |
+| `DELETE /service/web/suppressions/:id` | Removes the entry: `204`, or `404`. |
 
 Remove an entry only after fixing the cause: the address is valid again, or the recipient asked to
 receive your email. Sending again to an address that hard-bounced or complained harms delivery for

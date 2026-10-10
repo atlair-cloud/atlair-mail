@@ -1,12 +1,12 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
-import { Uuid } from "../../../lib/schemas.ts";
+import { Uuid } from "../../../../lib/schemas.ts";
 import {
   ApiKeyPermissionSchema,
   ApiKeySchema,
   CreatedApiKeySchema,
   CurrentApiKeySchema,
-} from "../../../schemas/api-keys.ts";
+} from "../../../../schemas/api-keys.ts";
 
 const apiKeyRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
   fastify.post(

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
-import { DateTime, Uuid } from "../../../lib/schemas.ts";
-import { CreatedApiKeySchema } from "../../../schemas/api-keys.ts";
+import { DateTime, Uuid } from "../../../../lib/schemas.ts";
+import { CreatedApiKeySchema } from "../../../../schemas/api-keys.ts";
 
 const OrganizationSchema = Type.Object({
   id: Uuid(),

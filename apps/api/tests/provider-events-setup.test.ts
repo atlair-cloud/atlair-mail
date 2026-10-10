@@ -69,13 +69,13 @@ beforeEach(() => {
 
 async function connectedKey(app: TestApp) {
   const key = await createTestKey(app);
-  const saved = await app.inject({ method: "PUT", url: "/v1/provider", headers: auth(key.token), payload: input });
+  const saved = await app.inject({ method: "PUT", url: "/service/web/provider", headers: auth(key.token), payload: input });
   assert.equal(saved.statusCode, 200);
   return { ...key, connectionId: saved.json().id as string };
 }
 
 const setUp = (app: TestApp, token: string, payload?: object) =>
-  app.inject({ method: "POST", url: "/v1/provider/events", headers: auth(token), ...(payload && { payload }) });
+  app.inject({ method: "POST", url: "/service/web/provider/events", headers: auth(token), ...(payload && { payload }) });
 
 const confirm = (app: TestApp, connectionId: string) =>
   app.inject({
@@ -93,12 +93,12 @@ const confirm = (app: TestApp, connectionId: string) =>
     ),
   });
 
-describe("POST /v1/provider/events", { skip: !hasDatabase }, () => {
+describe("POST /service/web/provider/events", { skip: !hasDatabase }, () => {
   it("connecting a provider leaves events off", async () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app);
 
-    const saved = await app.inject({ method: "PUT", url: "/v1/provider", headers: auth(token), payload: input });
+    const saved = await app.inject({ method: "PUT", url: "/service/web/provider", headers: auth(token), payload: input });
 
     assert.deepEqual(saved.json().events, disabledEvents);
     assert.equal(sns.commandCalls(SubscribeCommand).length, 0);
@@ -135,7 +135,7 @@ describe("POST /v1/provider/events", { skip: !hasDatabase }, () => {
     await setUp(app, token, { url: "https://a.example.com" });
 
     const confirmation = await confirm(app, connectionId);
-    const confirmed = (await app.inject({ method: "GET", url: "/v1/provider", headers: auth(token) })).json();
+    const confirmed = (await app.inject({ method: "GET", url: "/service/web/provider", headers: auth(token) })).json();
     const rerun = (await setUp(app, token, { url: "https://a.example.com/" })).json();
     const moved = (await setUp(app, token, { url: "https://b.example.com" })).json();
 
@@ -161,7 +161,7 @@ describe("POST /v1/provider/events", { skip: !hasDatabase }, () => {
     const { token } = await connectedKey(app);
     await setUp(app, token, { url: "https://a.example.com" });
 
-    const replaced = await app.inject({ method: "PUT", url: "/v1/provider", headers: auth(token), payload: input });
+    const replaced = await app.inject({ method: "PUT", url: "/service/web/provider", headers: auth(token), payload: input });
 
     assert.equal(replaced.json().events.status, "disabled");
   });
@@ -203,7 +203,7 @@ describe("POST /v1/provider/events", { skip: !hasDatabase }, () => {
     const forbidden = await setUp(app, sending.token, { url: "https://mail.example.com" });
     sns.on(CreateTopicCommand).rejects(new AuthorizationErrorException({ message: "denied", $metadata: {} }));
     const denied = await setUp(app, token, { url: "https://mail.example.com" });
-    const after = (await app.inject({ method: "GET", url: "/v1/provider", headers: auth(token) })).json();
+    const after = (await app.inject({ method: "GET", url: "/service/web/provider", headers: auth(token) })).json();
 
     assert.equal(noUrl.statusCode, 400);
     assert.equal(noUrl.json().code, "FST_ERR_VALIDATION");
@@ -216,7 +216,7 @@ describe("POST /v1/provider/events", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("POST /v1/provider/events in pull mode", { skip: !hasDatabase }, () => {
+describe("POST /service/web/provider/events in pull mode", { skip: !hasDatabase }, () => {
   const account = "123456789012";
   const queueFor = (connectionId: string) => {
     const name = `atlair-mail-events-${connectionId}`;
@@ -302,7 +302,7 @@ describe("POST /v1/provider/events in pull mode", { skip: !hasDatabase }, () => 
       .set({ eventsLastError: "ATL_PROVIDER_REJECTED: AccessDenied", eventsDeadLetters: 3, eventsBacklog: 7 })
       .where(eq(schema.providerConnections.id, connectionId));
 
-    const events = (await app.inject({ method: "GET", url: "/v1/provider", headers: auth(token) })).json().events;
+    const events = (await app.inject({ method: "GET", url: "/service/web/provider", headers: auth(token) })).json().events;
 
     assert.equal(events.status, "failing");
     assert.equal(events.lastError, "ATL_PROVIDER_REJECTED: AccessDenied");
@@ -330,7 +330,7 @@ describe("POST /v1/provider/events in pull mode", { skip: !hasDatabase }, () => 
     const { token, connectionId, organizationId } = await connectedKey(app);
     const sending = await createTestKey(app, { permission: "sending_access" });
     const redrive = (key: string) =>
-      app.inject({ method: "POST", url: "/v1/provider/events/redrive", headers: auth(key) });
+      app.inject({ method: "POST", url: "/service/web/provider/events/redrive", headers: auth(key) });
 
     const beforePull = await redrive(token);
     listing(connectionId);

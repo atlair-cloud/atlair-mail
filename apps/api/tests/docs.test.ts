@@ -11,7 +11,7 @@ describe("API docs", { skip: !hasDatabase }, () => {
 
     assert.equal(res.statusCode, 200);
     assert.ok(spec.paths["/health"]);
-    assert.ok(spec.paths["/v1/api-keys/current"]);
+    assert.ok(spec.paths["/service/web/api-keys/current"]);
   });
 
   it("keeps paths, tags and descriptions provider-neutral", async () => {

@@ -11,9 +11,9 @@ import {
   TEST_ROOT_KEY,
 } from "./helpers.ts";
 
-const url = "/v1/organizations";
+const url = "/service/web/organizations";
 
-describe("POST /v1/organizations", { skip: !hasDatabase }, () => {
+describe("POST /service/web/organizations", { skip: !hasDatabase }, () => {
   it("creates an organization and its first key with the root key", async () => {
     const app = await buildMigratedTestApp();
 
@@ -50,7 +50,7 @@ describe("POST /v1/organizations", { skip: !hasDatabase }, () => {
 
     const res = await app.inject({
       method: "GET",
-      url: "/v1/api-keys/current",
+      url: "/service/web/api-keys/current",
       headers: auth(created.apiKey.token),
     });
 
@@ -101,7 +101,7 @@ describe("POST /v1/organizations", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("GET /v1/organizations/:id", { skip: !hasDatabase }, () => {
+describe("GET /service/web/organizations/:id", { skip: !hasDatabase }, () => {
   it("returns the organization to the root key without internal fields", async () => {
     const app = await buildTestApp();
     const { organizationId } = await createTestKey(app);
@@ -155,7 +155,7 @@ describe("organization-scoped routes", { skip: !hasDatabase }, () => {
 
     const res = await app.inject({
       method: "GET",
-      url: "/v1/api-keys/current",
+      url: "/service/web/api-keys/current",
       headers: auth(TEST_ROOT_KEY),
     });
 

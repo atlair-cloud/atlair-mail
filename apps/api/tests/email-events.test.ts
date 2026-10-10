@@ -188,7 +188,7 @@ describe("recording provider events", { skip: !hasDatabase }, () => {
       .where(eq(schema.suppressedAddresses.organizationId, organizationId));
     const blocked = await app.inject({
       method: "POST",
-      url: "/v1/emails",
+      url: "/service/web/emails",
       headers: auth(token),
       payload: { from: email.fromAddress, to: ["bob@example.org"], subject: "Again", text: "Hi" },
     });
@@ -303,7 +303,7 @@ describe("recording provider events", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("GET /v1/emails/:id/events", { skip: !hasDatabase }, () => {
+describe("GET /service/web/emails/:id/events", { skip: !hasDatabase }, () => {
   it("returns the timeline oldest first with per-recipient detail", async () => {
     const app = await buildTestApp();
     const { organizationId, token, email } = await sentEmail(app);
@@ -325,7 +325,7 @@ describe("GET /v1/emails/:id/events", { skip: !hasDatabase }, () => {
       providerEvent(id, "delivered", { smtpResponse: "250 2.0.0 OK" }, new Date("2026-10-09T10:00:01.000Z")),
     );
 
-    const res = await app.inject({ method: "GET", url: `/v1/emails/${email.id}/events`, headers: auth(token) });
+    const res = await app.inject({ method: "GET", url: `/service/web/emails/${email.id}/events`, headers: auth(token) });
     const { data } = res.json();
 
     assert.equal(res.statusCode, 200);
@@ -355,7 +355,7 @@ describe("GET /v1/emails/:id/events", { skip: !hasDatabase }, () => {
       payload: { recipients: [], error: "ATL_RECIPIENT_SUPPRESSED" },
     });
 
-    const res = await app.inject({ method: "GET", url: `/v1/emails/${email.id}/events`, headers: auth(token) });
+    const res = await app.inject({ method: "GET", url: `/service/web/emails/${email.id}/events`, headers: auth(token) });
 
     assert.deepEqual(res.json().data[0], {
       id: res.json().data[0].id,
@@ -371,16 +371,16 @@ describe("GET /v1/emails/:id/events", { skip: !hasDatabase }, () => {
     const { token, email } = await sentEmail(app);
     const other = await createTestKey(app);
 
-    const empty = await app.inject({ method: "GET", url: `/v1/emails/${email.id}/events`, headers: auth(token) });
+    const empty = await app.inject({ method: "GET", url: `/service/web/emails/${email.id}/events`, headers: auth(token) });
     const crossOrg = await app.inject({
       method: "GET",
-      url: `/v1/emails/${email.id}/events`,
+      url: `/service/web/emails/${email.id}/events`,
       headers: auth(other.token),
     });
     const sendingKey = await createTestKey(app, { permission: "sending_access" });
     const unknown = await app.inject({
       method: "GET",
-      url: `/v1/emails/${uuidv7()}/events`,
+      url: `/service/web/emails/${uuidv7()}/events`,
       headers: auth(sendingKey.token),
     });
 

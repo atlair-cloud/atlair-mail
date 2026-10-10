@@ -6,9 +6,9 @@ import { v7 as uuidv7 } from "uuid";
 import { hashApiKeyToken } from "../src/lib/api-key-tokens.ts";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
-const url = "/v1/api-keys";
+const url = "/service/web/api-keys";
 
-describe("/v1/api-keys lifecycle", { skip: !hasDatabase }, () => {
+describe("/service/web/api-keys lifecycle", { skip: !hasDatabase }, () => {
   it("shows the token once at creation and stores only its hash", async () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app);
@@ -110,7 +110,7 @@ describe("/v1/api-keys lifecycle", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("/v1/api-keys permissions and isolation", { skip: !hasDatabase }, () => {
+describe("/service/web/api-keys permissions and isolation", { skip: !hasDatabase }, () => {
   it("lets a sending_access key identify itself but not manage keys", async () => {
     const app = await buildTestApp();
     const { token } = await createTestKey(app, { permission: "sending_access" });

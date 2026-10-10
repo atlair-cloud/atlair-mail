@@ -2,9 +2,9 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 
-const url = "/v1/api-keys/current";
+const url = "/service/web/api-keys/current";
 
-describe("/v1 auth", { skip: !hasDatabase }, () => {
+describe("/service/web auth", { skip: !hasDatabase }, () => {
   it("rejects a missing key", async () => {
     const app = await buildTestApp();
 
@@ -43,7 +43,7 @@ describe("/v1 auth", { skip: !hasDatabase }, () => {
   });
 });
 
-describe("/v1 rate limit", { skip: !hasDatabase }, () => {
+describe("/service/web rate limit", { skip: !hasDatabase }, () => {
   it("returns 429 once a key exceeds RATE_LIMIT_MAX", async () => {
     const app = await buildTestApp({ RATE_LIMIT_MAX: 2 });
     const { token } = await createTestKey(app);

@@ -7,7 +7,7 @@ import { providerEventKey } from "@atlair-mail/providers";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
 import { maxSecretOverlapHours, maxWebhookEndpoints } from "../src/services/webhooks.ts";
 
-const url = "/v1/webhooks";
+const url = "/service/web/webhooks";
 type TestApp = Awaited<ReturnType<typeof buildTestApp>>;
 
 const create = (app: TestApp, token: string, payload: Record<string, unknown>) =>
@@ -18,7 +18,7 @@ const hook = {
   eventTypes: ["email.delivered", "email.bounced", "email.failed"],
 };
 
-describe("/v1/webhooks", { skip: !hasDatabase }, () => {
+describe("/service/web/webhooks", { skip: !hasDatabase }, () => {
   it("creates an endpoint and shows its signing secret only once, stored encrypted", async () => {
     const app = await buildTestApp();
     const { token, organizationId } = await createTestKey(app);
