@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { AlignCenter, AlignLeft, AlignRight, Copy, Trash } from '@iconoir/vue'
 import type { Editor } from '@tiptap/core'
-import type { Node as PMNode } from '@tiptap/pm/model'
 import { computed, ref, watch } from 'vue'
-import { currentBlock } from '../editor/useTemplateEditor'
-import ColorField from './ColorField.vue'
+import type { TemplateTheme } from '../api/templates'
+import { currentBlock, setNodeAttrs, type LocatedNode as Located } from '../editor/useTemplateEditor'
+import { isSafeImage, isSafeLink } from '../lib/links'
+import ButtonSettings from './ButtonSettings.vue'
 import PanelField from './PanelField.vue'
+import SectionSettings from './SectionSettings.vue'
 import SegmentedControl from './SegmentedControl.vue'
+import SocialLinksSettings from './SocialLinksSettings.vue'
+import TextLinkField from './TextLinkField.vue'
 
-const props = defineProps<{ editor: Editor; revision: number; readonly: boolean }>()
-
-type Located = { pos: number; node: PMNode }
+const props = defineProps<{ editor: Editor; revision: number; readonly: boolean; theme: Required<TemplateTheme> }>()
 
 const BLOCK_NAMES: Record<string, string> = {
   paragraph: 'Text',
@@ -22,11 +24,10 @@ const BLOCK_NAMES: Record<string, string> = {
   button: 'Button',
   image: 'Image',
   spacer: 'Spacer',
+  socialLinks: 'Social links',
   columns: 'Columns',
   section: 'Section',
 }
-
-const SECTION_SWATCHES = ['#f4f4f5', '#f8fafc', '#eef2ff', '#ecfdf5', '#fff7ed', '#fef2f2', '#111827', '#243041']
 
 const alignOptions = [
   { value: 'left', label: 'Align left', icon: AlignLeft },
@@ -55,11 +56,7 @@ const type = computed(() => block.value?.node.type.name ?? null)
 const attrs = computed(() => (block.value?.node.attrs ?? {}) as Record<string, unknown>)
 
 function setAttrs(target: Located | null, patch: Record<string, unknown>) {
-  if (!target || props.readonly) return
-  const { state, view } = props.editor
-  const node = state.doc.nodeAt(target.pos)
-  if (!node) return
-  view.dispatch(state.tr.setNodeMarkup(target.pos, undefined, { ...node.attrs, ...patch }))
+  if (!props.readonly) setNodeAttrs(props.editor, target, patch)
 }
 
 const textStyle = computed({
@@ -77,12 +74,9 @@ const textAlign = computed({
   set: (value: string) => setAttrs(block.value, { textAlign: value }),
 })
 
-const buttonText = ref('')
-const buttonHref = ref('')
 const imageSrc = ref('')
 const imageAlt = ref('')
 const imageHref = ref('')
-const linkError = ref<string | null>(null)
 const srcError = ref<string | null>(null)
 const imageHrefError = ref<string | null>(null)
 
@@ -90,8 +84,6 @@ watch(
   block,
   (current) => {
     const value = (current?.node.attrs ?? {}) as Record<string, unknown>
-    buttonText.value = String(value.text ?? '')
-    buttonHref.value = String(value.href ?? '')
     imageSrc.value = String(value.src ?? '')
     imageAlt.value = String(value.alt ?? '')
     imageHref.value = String(value.href ?? '')
@@ -102,42 +94,20 @@ watch(
 watch(
   () => block.value?.pos,
   () => {
-    linkError.value = null
     srcError.value = null
     imageHrefError.value = null
   },
 )
 
-const singleVariable = /^\{\{\s*[A-Za-z0-9_]{1,50}\s*\}\}$/
-
-function checkLink(value: string, allowEmpty: boolean) {
-  const trimmed = value.trim()
-  if (!trimmed) return allowEmpty ? null : 'Add a link so the button goes somewhere'
-  if (singleVariable.test(trimmed)) return null
-  const filled = trimmed.replace(/\{\{\s*[A-Za-z0-9_]{1,50}\s*\}\}/g, 'x')
-  return /^(https?:\/\/|mailto:)\S+$/.test(filled) ? null : 'Start with https://, http:// or mailto:, or use a {{variable}}'
-}
-
-function commitButtonText() {
-  const text = buttonText.value.trim()
-  if (text) setAttrs(block.value, { text })
-  else buttonText.value = String(attrs.value.text ?? '')
-}
-
-function commitButtonHref() {
-  linkError.value = checkLink(buttonHref.value, true)
-  if (!linkError.value) setAttrs(block.value, { href: buttonHref.value.trim() })
-}
-
 function commitImageSrc() {
   const value = imageSrc.value.trim()
-  const filled = value.replace(/\{\{\s*[A-Za-z0-9_]{1,50}\s*\}\}/g, 'x')
-  srcError.value = !value || singleVariable.test(value) || /^https?:\/\/\S+$/.test(filled) ? null : 'Use an https:// image address, or a {{variable}}'
+  srcError.value = !value || isSafeImage(value) ? null : 'Use an https:// image address, or a {{variable}}'
   if (!srcError.value) setAttrs(block.value, { src: value })
 }
 
 function commitImageHref() {
-  imageHrefError.value = checkLink(imageHref.value, true)
+  const value = imageHref.value.trim()
+  imageHrefError.value = !value || isSafeLink(value) ? null : 'Start with https://, http:// or mailto:, or use a {{variable}}'
   if (!imageHrefError.value) setAttrs(block.value, { href: imageHref.value.trim() || null })
 }
 
@@ -152,14 +122,6 @@ const spacerHeight = computed({
 })
 
 const sectionTarget = computed(() => (type.value === 'section' ? block.value : located.value.section))
-const sectionColor = computed({
-  get: () => String(sectionTarget.value?.node.attrs.backgroundColor ?? '#f4f4f5'),
-  set: (value: string) => setAttrs(sectionTarget.value, { backgroundColor: value }),
-})
-const sectionPadding = computed({
-  get: () => Number(sectionTarget.value?.node.attrs.padding ?? 16),
-  set: (value: number) => setAttrs(sectionTarget.value, { padding: value }),
-})
 
 const columnsTarget = computed(() => (type.value === 'columns' ? block.value : located.value.columns))
 const columnCount = computed({
@@ -229,23 +191,16 @@ const inputClass =
       <PanelField label="Alignment">
         <SegmentedControl v-model="textAlign" label="Alignment" icon-only :disabled="readonly" :options="alignOptions" />
       </PanelField>
-      <p class="m-0 text-xs leading-relaxed text-slate-500">Select text for bold, italic and links.</p>
+      <TextLinkField :editor="editor" :revision="revision" :readonly="readonly" :input-class="inputClass" />
     </template>
 
     <template v-else-if="type === 'bulletList' || type === 'orderedList' || type === 'blockquote'">
+      <TextLinkField :editor="editor" :revision="revision" :readonly="readonly" :input-class="inputClass" />
       <p class="m-0 text-xs leading-relaxed text-slate-500">Press <kbd class="font-mono">Tab</kbd> to indent a list item, <kbd class="font-mono">⇧Tab</kbd> to outdent. Use the ⋮⋮ handle to turn it into something else.</p>
     </template>
 
-    <template v-else-if="type === 'button'">
-      <PanelField label="Label" for="block-button-text">
-        <input id="block-button-text" v-model="buttonText" :class="inputClass" maxlength="200" :disabled="readonly" @blur="commitButtonText" @keydown.enter.prevent="commitButtonText" />
-      </PanelField>
-      <PanelField label="Link" for="block-button-href" :error="linkError" hint="A web address, mailto:, or a {{variable}} such as {{reset_url}}.">
-        <input id="block-button-href" v-model="buttonHref" :class="[inputClass, 'font-mono text-xs']" placeholder="https://" spellcheck="false" :disabled="readonly" @blur="commitButtonHref" @keydown.enter.prevent="commitButtonHref" />
-      </PanelField>
-      <PanelField label="Alignment">
-        <SegmentedControl v-model="textAlign" label="Alignment" icon-only :disabled="readonly" :options="alignOptions" />
-      </PanelField>
+    <template v-else-if="type === 'button' && block">
+      <ButtonSettings :editor="editor" :target="block" :theme="theme" :readonly="readonly" :input-class="inputClass" />
     </template>
 
     <template v-else-if="type === 'image'">
@@ -267,6 +222,13 @@ const inputClass =
       <PanelField label="Link" for="block-image-href" :error="imageHrefError" hint="Optional. Where the image goes when clicked.">
         <input id="block-image-href" v-model="imageHref" :class="[inputClass, 'font-mono text-xs']" placeholder="https://" spellcheck="false" :disabled="readonly" @blur="commitImageHref" @keydown.enter.prevent="commitImageHref" />
       </PanelField>
+      <PanelField label="Alignment">
+        <SegmentedControl v-model="textAlign" label="Alignment" icon-only :disabled="readonly" :options="alignOptions" />
+      </PanelField>
+    </template>
+
+    <template v-else-if="type === 'socialLinks' && block">
+      <SocialLinksSettings :editor="editor" :target="block" :readonly="readonly" :input-class="inputClass" />
       <PanelField label="Alignment">
         <SegmentedControl v-model="textAlign" label="Alignment" icon-only :disabled="readonly" :options="alignOptions" />
       </PanelField>
@@ -298,13 +260,7 @@ const inputClass =
     <template v-if="sectionTarget">
       <div class="grid gap-4" :class="type !== 'section' && 'border-t border-slate-100 pt-4'">
         <p v-if="type !== 'section'" class="m-0 font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-slate-500">Section</p>
-        <ColorField v-model="sectionColor" label="Background" :swatches="SECTION_SWATCHES" :disabled="readonly" />
-        <PanelField label="Padding">
-          <div class="flex items-center gap-3">
-            <USlider v-model="sectionPadding" :min="0" :max="64" :step="4" size="sm" class="flex-1" :disabled="readonly" aria-label="Section padding" />
-            <span class="w-12 text-right font-mono text-xs tabular-nums text-slate-600">{{ sectionPadding }}px</span>
-          </div>
-        </PanelField>
+        <SectionSettings :editor="editor" :target="sectionTarget" :theme="theme" :readonly="readonly" />
       </div>
     </template>
   </div>

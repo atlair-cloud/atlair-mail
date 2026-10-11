@@ -154,7 +154,8 @@ server's (`packages/templates`), so anything you can build can be saved; see
 - **What you see is the email**: the canvas uses the template's own colors, font and width with fixed
   hex values, so it doesn't change with the panel's dark mode. Desktop/Phone switches the canvas to
   375px and stacks columns; the same choice carries into Preview.
-- **Sidebar**: Block (settings for the selected block, or its section and columns), Style (theme) and
+- **Sidebar**: Block (settings for the selected block, or its section and columns: `ButtonSettings`,
+  `SectionSettings`, `SocialLinksSettings`, and `TextLinkField` to add or edit a link on the selected text), Style (theme) and
   Variables (type, fallback, sample value, usage count; undeclared ones are declared as required text
   on save).
 - **Preview** renders through `POST /templates/preview` in a sandboxed iframe, with HTML or text and

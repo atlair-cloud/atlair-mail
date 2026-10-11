@@ -1,4 +1,5 @@
 import { mergeAttributes, Node } from '@tiptap/core'
+import { sectionTone } from '../../lib/theme'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -64,6 +65,7 @@ export const Section = Node.create({
   addAttributes() {
     return {
       backgroundColor: { default: '#f4f4f5' },
+      textColor: { default: null },
       padding: { default: 16 },
     }
   },
@@ -73,12 +75,15 @@ export const Section = Node.create({
   },
 
   renderHTML({ node, HTMLAttributes }) {
+    const background = node.attrs.backgroundColor ?? '#f4f4f5'
+    const textColor = node.attrs.textColor ? `; --tpl-section-text: ${node.attrs.textColor}` : ''
     return [
       'div',
       mergeAttributes(HTMLAttributes, {
         'data-type': 'section',
+        'data-tone': sectionTone(background),
         class: 'tpl-section',
-        style: `background-color: ${node.attrs.backgroundColor ?? 'transparent'}; padding-block: ${node.attrs.padding ?? 16}px`,
+        style: `background-color: ${background}; padding-block: ${node.attrs.padding ?? 16}px${textColor}`,
       }),
       0,
     ]

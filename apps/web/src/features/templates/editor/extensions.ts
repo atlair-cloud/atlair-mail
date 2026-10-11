@@ -7,11 +7,11 @@ import StarterKit from '@tiptap/starter-kit'
 import { Button } from './nodes/Button'
 import { Image } from './nodes/Image'
 import { Column, Columns, Section } from './nodes/Layout'
+import { SocialLinks } from './nodes/SocialLinks'
 import { Spacer } from './nodes/Spacer'
 import { Variable } from './nodes/Variable'
 import { SlashCommand, VariableSuggestion, type VariableMenuOptions } from './menus/suggestions'
-
-const safeLink = /^(https?:\/\/|mailto:)\S+$|^\{\{\s*[A-Za-z0-9_]{1,50}\s*\}\}$/
+import { isSafeLink } from '../lib/links'
 
 const placeholderFor = ({ node }: { node: { type: { name: string }; attrs: Record<string, unknown> } }) => {
   if (node.type.name === 'heading') return `Heading ${node.attrs.level}`
@@ -32,7 +32,7 @@ export function templateExtensions(variables: VariableMenuOptions) {
         autolink: true,
         defaultProtocol: 'https',
         protocols: ['mailto'],
-        isAllowedUri: (url) => safeLink.test(url),
+        isAllowedUri: (url) => isSafeLink(url),
         HTMLAttributes: { rel: null, target: null },
       },
       dropcursor: { color: '#5eb7e6', width: 2 },
@@ -47,6 +47,7 @@ export function templateExtensions(variables: VariableMenuOptions) {
     Button,
     Image,
     Spacer,
+    SocialLinks,
     Columns,
     Column,
     Section,

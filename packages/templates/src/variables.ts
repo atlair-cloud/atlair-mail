@@ -7,6 +7,15 @@ export const maxVariableValueLength = 2_000;
 
 export const variablePattern = () => /\{\{\s*([A-Za-z0-9_]{1,50})\s*\}\}/g;
 
+export const builtInVariables = {
+  current_year: (now: Date) => String(now.getUTCFullYear()),
+} as const;
+
+const isBuiltIn = (key: string): key is keyof typeof builtInVariables => Object.hasOwn(builtInVariables, key);
+
+export const builtInValues = (now: Date) =>
+  new Map(Object.entries(builtInVariables).map(([key, value]) => [key, value(now)]));
+
 export function parseVariables(input: unknown): VariableDefinition[] {
   if (input === undefined || input === null) return [];
   if (!Array.isArray(input)) throw new InvalidTemplateError("variables", "must be an array");
@@ -20,6 +29,7 @@ export function parseVariables(input: unknown): VariableDefinition[] {
       throw new InvalidTemplateError(`${path}.key`, "must be letters, numbers and underscores, up to 50 characters");
     }
     if (seen.has(key)) throw new InvalidTemplateError(`${path}.key`, `${key} is declared twice`);
+    if (isBuiltIn(key)) throw new InvalidTemplateError(`${path}.key`, `${key} is built in and filled automatically, so it can't be declared`);
     seen.add(key);
     if (typeof type !== "string" || !(variableTypes as readonly string[]).includes(type)) {
       throw new InvalidTemplateError(`${path}.type`, "must be string or number");
@@ -59,7 +69,7 @@ export function usedVariables(subject: string, content: TemplateDocument | Block
 
 export function checkDeclared(used: string[], declared: VariableDefinition[]) {
   const keys = new Set(declared.map((definition) => definition.key));
-  const undeclared = used.filter((key) => !keys.has(key));
+  const undeclared = used.filter((key) => !keys.has(key) && !isBuiltIn(key));
   if (undeclared.length > 0) {
     throw new InvalidTemplateError("variables", `declare ${undeclared.join(", ")}, used in the template`);
   }

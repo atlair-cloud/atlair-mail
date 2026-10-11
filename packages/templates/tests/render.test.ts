@@ -90,6 +90,44 @@ describe("validateTemplate", () => {
     );
   });
 
+  it("fills {{current_year}} without declaring it, and refuses to declare it", async () => {
+    const source = validateTemplate({ subject: "© {{current_year}}", content: doc(paragraph(text("© {{ current_year }} Atlair"), { type: "variable", attrs: { name: "current_year" } })) });
+    const rendered = await renderTemplate(source, {}, "send", { now: new Date("2031-06-01T00:00:00Z") });
+    assert.equal(rendered.subject, "© 2031");
+    assert.equal(rendered.text, "© 2031 Atlair2031");
+    await assert.rejects(renderTemplate(source, { current_year: "1999" }), TemplateVariablesError);
+    assert.throws(
+      () => validateTemplate({ subject: "Hi", content: doc(), variables: [{ key: "current_year", type: "string" }] }),
+      fails("ATL_TEMPLATE_INVALID", /built in/),
+    );
+  });
+
+  it("rejects bad section and button colors", () => {
+    assert.throws(
+      () => validateTemplate({ subject: "Hi", content: doc({ type: "section", attrs: { textColor: "white" }, content: [paragraph()] }) }),
+      fails("ATL_TEMPLATE_INVALID", /textColor/),
+    );
+    assert.throws(
+      () => validateTemplate({ subject: "Hi", content: doc({ type: "button", attrs: { text: "Go", href: "https://a.b", variant: "ghost" } }) }),
+      fails("ATL_TEMPLATE_INVALID", /variant/),
+    );
+    assert.throws(
+      () => validateTemplate({ subject: "Hi", content: doc({ type: "button", attrs: { text: "Go", href: "https://a.b", fullWidth: "yes" } }) }),
+      fails("ATL_TEMPLATE_INVALID", /fullWidth/),
+    );
+    assert.throws(
+      () => validateTemplate({ subject: "Hi", content: doc({ type: "button", attrs: { text: "Go", href: "https://a.b", size: "huge" } }) }),
+      fails("ATL_TEMPLATE_INVALID", /size/),
+    );
+  });
+
+  it("rejects unknown social networks and unsafe social links", () => {
+    const social = (links: unknown[]) => ({ subject: "Hi", content: doc({ type: "socialLinks", attrs: { links } }) });
+    assert.throws(() => validateTemplate(social([{ network: "myspace", href: "https://a.b" }])), fails("ATL_TEMPLATE_INVALID", /network/));
+    assert.throws(() => validateTemplate(social([{ network: "x", href: "javascript:alert(1)" }])), fails("ATL_TEMPLATE_INVALID", /links\[0\].href/));
+    assert.doesNotThrow(() => validateTemplate(social([])));
+  });
+
   it("rejects a multi-line subject and bad theme values", () => {
     assert.throws(() => validateTemplate({ subject: "Hi\r\nBcc: x@y.z", content: doc() }), fails("ATL_TEMPLATE_INVALID", /subject/));
     assert.throws(
@@ -205,5 +243,72 @@ describe("renderTemplate", () => {
     assert.match(rendered.html, /src="https:\/\/atlair.cloud\/logo.png"/);
     assert.match(rendered.html, /max-width:640px/);
     assert.equal(rendered.text, "Left\n\n[Atlair]");
+  });
+
+  it("picks readable text and link colors inside a dark section", async () => {
+    const link = text("Read more", [{ type: "link", attrs: { href: "https://atlair.cloud" } }]);
+    const rendered = await renderTemplate(
+      validateTemplate({
+        subject: "Dark",
+        content: doc(
+          { type: "section", attrs: { backgroundColor: "#111827" }, content: [{ type: "heading", attrs: { level: 2 }, content: [text("Night")] }, paragraph(link)] },
+          paragraph(text("Outside")),
+        ),
+        theme: { brandColor: "#243041" },
+      }),
+    );
+
+    assert.match(rendered.html, /<h2 style="[^"]*color:#ffffff">Night/);
+    assert.match(rendered.html, /<a href="https:\/\/atlair.cloud" style="color:#ffffff;/);
+    assert.match(rendered.html, /color:#1f2937[^>]*>[^]*?Outside/);
+  });
+
+  it("uses a section's own text color, and keeps the brand color for links when it reads well", async () => {
+    const link = text("Docs", [{ type: "link", attrs: { href: "https://atlair.cloud/docs" } }]);
+    const rendered = await renderTemplate(
+      validateTemplate({
+        subject: "Custom",
+        content: doc({ type: "section", attrs: { backgroundColor: "#fff7ed", textColor: "#7c2d12" }, content: [{ type: "blockquote", content: [paragraph(text("Quoted"))] }, paragraph(link)] }),
+        theme: { brandColor: "#2563eb" },
+      }),
+    );
+
+    assert.match(rendered.html, /<blockquote style="[^"]*color:#7c2d12">/);
+    assert.match(rendered.html, /<a href="https:\/\/atlair.cloud\/docs" style="color:#2563eb;/);
+  });
+
+  it("renders social icons from the API's assets, light on dark sections, and text links without them", async () => {
+    const social = { type: "socialLinks", attrs: { links: [{ network: "github", href: "https://github.com/atlair" }, { network: "email", href: "mailto:hi@atlair.cloud" }] } };
+    const source = validateTemplate({
+      subject: "Social",
+      content: doc(social, { type: "section", attrs: { backgroundColor: "#111827" }, content: [social] }),
+    });
+
+    const withIcons = await renderTemplate(source, {}, "send", { assetsUrl: "https://mail.example.com/assets/" });
+    assert.match(withIcons.html, /src="https:\/\/mail.example.com\/assets\/social\/github-dark.png"/);
+    assert.match(withIcons.html, /src="https:\/\/mail.example.com\/assets\/social\/github-light.png"/);
+    assert.match(withIcons.html, /href="mailto:hi@atlair.cloud"/);
+    assert.equal(withIcons.text, "GitHub: https://github.com/atlair\nEmail: mailto:hi@atlair.cloud\n\nGitHub: https://github.com/atlair\nEmail: mailto:hi@atlair.cloud");
+
+    const withoutIcons = await renderTemplate(source);
+    assert.doesNotMatch(withoutIcons.html, /<img[^>]*social/);
+    assert.match(withoutIcons.html, /<a href="https:\/\/github.com\/atlair"[^>]*>GitHub<\/a> &middot; <a href="mailto:hi@atlair.cloud"/);
+  });
+
+  it("colors buttons, with readable text on a light brand color and an outline style", async () => {
+    const button = (attrs: object) => ({ type: "button", attrs: { text: "Go", href: "https://atlair.cloud", ...attrs } });
+    const rendered = await renderTemplate(
+      validateTemplate({
+        subject: "Buttons",
+        content: doc(button({}), button({ color: "#16a34a", variant: "outline", fullWidth: true }), button({ size: "large" })),
+        theme: { brandColor: "#fde68a" },
+      }),
+    );
+
+    assert.match(rendered.html, /background:#fde68a[^>]*>[^]*?color:#111827/);
+    assert.match(rendered.html, /border:2px solid #16a34a/);
+    assert.match(rendered.html, /color:#16a34a/);
+    assert.match(rendered.html, /width:100%[^>]*>[^]*?border:2px solid #16a34a/);
+    assert.match(rendered.html, /font-size:17px[^"]*padding:16px 28px|padding:16px 28px[^"]*font-size:17px/);
   });
 });

@@ -6,9 +6,12 @@ import type {
   ListNode,
   Mark,
   ParagraphNode,
+  SocialLinksNode,
   TemplateDocument,
   TemplateTheme,
 } from "./document.ts";
+import { socialNetworkNames } from "./document.ts";
+import { buttonLook, sectionPalette, themePalette, type Palette } from "./colors.ts";
 import type { Fill } from "./variables.ts";
 
 export const defaultTheme = {
@@ -36,7 +39,11 @@ export interface RenderContext {
   fill: Fill;
   checkLink: (url: string, kind: "link" | "image") => string;
   theme: Required<TemplateTheme>;
+  palette?: Palette;
+  assetsUrl?: string | null;
 }
+
+const paletteOf = (context: RenderContext) => context.palette ?? themePalette(context.theme);
 
 const attributes = (values: Record<string, string | number | null | undefined>) =>
   Object.entries(values)
@@ -55,10 +62,10 @@ function wrapMark(html: string, mark: Mark, context: RenderContext) {
     case "strike":
       return `<s>${html}</s>`;
     case "code":
-      return `<code style="font-family:${escapeHtml(fontStacks.mono)};background:#f4f4f5;padding:1px 4px;border-radius:3px;font-size:0.9em">${html}</code>`;
+      return `<code style="font-family:${escapeHtml(fontStacks.mono)};background:${paletteOf(context).codeBackground};padding:1px 4px;border-radius:3px;font-size:0.9em">${html}</code>`;
     case "link": {
       const href = context.checkLink(context.fill(mark.attrs?.href ?? ""), "link");
-      return `<a href="${escapeHtml(href)}" style="color:${context.theme.brandColor};text-decoration:underline">${html}</a>`;
+      return `<a href="${escapeHtml(href)}" style="color:${paletteOf(context).link};text-decoration:underline">${html}</a>`;
     }
   }
 }
@@ -96,27 +103,38 @@ const textPadding = `0 ${gutter}px 12px`;
 
 function flowMjml(node: FlowNode, context: RenderContext): string {
   const { theme } = context;
+  const palette = paletteOf(context);
   switch (node.type) {
     case "paragraph":
-      return `<mj-text${attributes({ align: node.attrs?.textAlign, padding: textPadding })}>${paragraphHtml(node, context)}</mj-text>`;
+      return `<mj-text${attributes({ align: node.attrs?.textAlign, color: palette.text, padding: textPadding })}>${paragraphHtml(node, context)}</mj-text>`;
     case "heading": {
       const size = headingSizes[node.attrs.level];
       const tag = `h${node.attrs.level}`;
-      const style = `margin:0;font-size:${size}px;line-height:1.25;font-weight:700;color:${theme.textColor}`;
-      return `<mj-text${attributes({ align: node.attrs.textAlign, padding: `8px ${gutter}px 12px` })}><${tag} style="${style}">${inlineHtml(node.content, context) || "&nbsp;"}</${tag}></mj-text>`;
+      const style = `margin:0;font-size:${size}px;line-height:1.25;font-weight:700;color:${palette.heading}`;
+      return `<mj-text${attributes({ align: node.attrs.textAlign, color: palette.text, padding: `8px ${gutter}px 12px` })}><${tag} style="${style}">${inlineHtml(node.content, context) || "&nbsp;"}</${tag}></mj-text>`;
     }
     case "bulletList":
     case "orderedList":
-      return `<mj-text${attributes({ padding: textPadding })}>${listHtml(node, context)}</mj-text>`;
+      return `<mj-text${attributes({ color: palette.text, padding: textPadding })}>${listHtml(node, context)}</mj-text>`;
     case "blockquote": {
       const quote = node.content.map((paragraph) => paragraphHtml(paragraph, context, "margin:0 0 8px")).join("");
-      return `<mj-text${attributes({ padding: textPadding })}><blockquote style="margin:0;padding:0 0 0 16px;border-left:3px solid #e5e7eb;color:#4b5563">${quote}</blockquote></mj-text>`;
+      return `<mj-text${attributes({ color: palette.text, padding: textPadding })}><blockquote style="margin:0;padding:0 0 0 16px;border-left:3px solid ${palette.quoteBorder};color:${palette.quote}">${quote}</blockquote></mj-text>`;
     }
     case "horizontalRule":
-      return `<mj-divider />`;
+      return `<mj-divider${attributes({ "border-color": palette.divider })} />`;
     case "button": {
       const href = context.checkLink(context.fill(node.attrs.href), "link");
-      return `<mj-button${attributes({ href, align: node.attrs.textAlign ?? "left" })}>${escapeHtml(context.fill(node.attrs.text))}</mj-button>`;
+      const look = buttonLook(node, theme);
+      return `<mj-button${attributes({
+        href,
+        align: node.attrs.textAlign ?? "left",
+        "background-color": look.background,
+        color: look.text,
+        border: look.border,
+        "inner-padding": look.padding,
+        "font-size": look.fontSize,
+        width: node.attrs.fullWidth ? "100%" : null,
+      })}>${escapeHtml(context.fill(node.attrs.text))}</mj-button>`;
     }
     case "image": {
       const src = context.checkLink(context.fill(node.attrs.src), "image");
@@ -132,7 +150,40 @@ function flowMjml(node: FlowNode, context: RenderContext): string {
     }
     case "spacer":
       return `<mj-spacer height="${node.attrs.height}px" />`;
+    case "socialLinks":
+      return socialMjml(node, context);
   }
+}
+
+function socialMjml(node: SocialLinksNode, context: RenderContext) {
+  const palette = paletteOf(context);
+  const links = node.attrs.links.map((link) => ({
+    name: socialNetworkNames[link.network],
+    network: link.network,
+    href: context.checkLink(context.fill(link.href), "link"),
+  }));
+  if (links.length === 0) return "";
+  const align = node.attrs.textAlign ?? "left";
+  if (!context.assetsUrl) {
+    const html = links
+      .map((link) => `<a href="${escapeHtml(link.href)}" style="color:${palette.link};text-decoration:underline">${link.name}</a>`)
+      .join(" &middot; ");
+    return `<mj-text${attributes({ align, color: palette.text, padding: textPadding })}>${html}</mj-text>`;
+  }
+  const elements = links
+    .map(
+      (link) =>
+        `<mj-social-element${attributes({
+          src: `${context.assetsUrl}/social/${link.network}-${palette.icons}.png`,
+          href: link.href,
+          alt: link.name,
+          title: link.name,
+          "background-color": "transparent",
+          padding: "0 6px",
+        })} />`,
+    )
+    .join("");
+  return `<mj-social${attributes({ align, mode: "horizontal", "icon-size": "24px", "inner-padding": "0", padding: `4px ${gutter - 6}px 16px` })}>${elements}</mj-social>`;
 }
 
 interface SectionPadding {
@@ -188,7 +239,8 @@ export function documentMjml(doc: TemplateDocument, context: RenderContext, titl
         "background-color": run.attrs?.backgroundColor ?? theme.contentColor,
         padding: `${inner + edges.top}px 0 ${inner + edges.bottom}px`,
       });
-      return `<mj-wrapper${wrapper}>${groupMjml(run.content, context, null, { top: 0, bottom: 0 })}</mj-wrapper>`;
+      const sectionContext = { ...context, palette: sectionPalette(run, theme) };
+      return `<mj-wrapper${wrapper}>${groupMjml(run.content, sectionContext, null, { top: 0, bottom: 0 })}</mj-wrapper>`;
     })
     .join("");
 
@@ -197,7 +249,7 @@ export function documentMjml(doc: TemplateDocument, context: RenderContext, titl
     "<mj-attributes>",
     `<mj-all font-family="${escapeHtml(font)}" />`,
     `<mj-text font-size="16px" line-height="1.6" color="${theme.textColor}" />`,
-    `<mj-button background-color="${theme.brandColor}" color="#ffffff" border-radius="4px" font-size="15px" font-weight="600" inner-padding="12px 20px" padding="8px ${gutter}px 16px" />`,
+    `<mj-button border-radius="4px" font-weight="600" padding="8px ${gutter}px 16px" />`,
     `<mj-image padding="8px ${gutter}px 16px" />`,
     `<mj-divider border-color="#e5e7eb" border-width="1px" padding="12px ${gutter}px" />`,
     "</mj-attributes>",

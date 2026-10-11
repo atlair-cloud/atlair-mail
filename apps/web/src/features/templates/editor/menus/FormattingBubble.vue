@@ -5,6 +5,7 @@ import { NodeSelection } from '@tiptap/pm/state'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 import { useEventListener } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, useTemplateRef, type Component } from 'vue'
+import { linkProblem, normalizeLink } from '../../lib/links'
 
 const props = defineProps<{ editor: Editor }>()
 
@@ -62,19 +63,10 @@ async function openLink() {
   linkInput.value?.select()
 }
 
-function normalize(value: string) {
-  const trimmed = value.trim()
-  if (/^\{\{\s*[A-Za-z0-9_]{1,50}\s*\}\}$/.test(trimmed)) return trimmed
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return `mailto:${trimmed}`
-  if (/^(https?:\/\/|mailto:)\S+$/.test(trimmed)) return trimmed
-  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(trimmed)) return `https://${trimmed}`
-  return null
-}
-
 function applyLink() {
-  const value = normalize(href.value)
+  const value = normalizeLink(href.value)
   if (!value) {
-    linkError.value = 'Use a web address, an email, or a {{variable}}'
+    linkError.value = linkProblem
     return
   }
   props.editor.chain().focus().extendMarkRange('link').setLink({ href: value }).run()

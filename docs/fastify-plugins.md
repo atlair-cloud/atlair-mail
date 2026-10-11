@@ -14,6 +14,7 @@ For each one: what it's for, where it's set up, and how to use it when writing c
 | [`@fastify/under-pressure`](#fastifyunder-pressure) | `src/plugins/under-pressure.ts` | Changing load-shedding thresholds or `/health` |
 | [`@fastify/swagger`](#fastifyswagger--scalarfastify-api-reference) + `@scalar/fastify-api-reference` | `src/plugins/swagger.ts` | Documenting a route |
 | [`@fastify/helmet`](#fastifyhelmet) | `src/app.ts` | Rarely |
+| [`@fastify/static`](#fastifystatic) | `src/plugins/static-assets.ts` | Adding an image that emails load |
 | [`@fastify/cors`](#fastifycors) | `src/plugins/auth.ts` | Adding a panel origin |
 | [`better-auth`](#better-auth) | `src/lib/auth.ts`, `src/plugins/auth.ts` | Changing sign-in, sessions or auth rate limits |
 | [API versioning](#api-versioning) | `src/lib/api-version.ts`, `src/plugins/api-version.ts`, `src/routes/service/autohooks.ts` | Adding a version of a route |
@@ -435,6 +436,16 @@ schema: {
 ## `@fastify/helmet`
 
 Sets standard security headers (`X-Content-Type-Options`, `Strict-Transport-Security`, and others) on every response. The Content Security Policy is turned off because the `/docs` page runs an inline script that it would block. A CSP adds almost nothing to JSON responses, which is everything else this API serves.
+
+---
+
+## `@fastify/static`
+
+Serves `apps/api/assets` at `/assets/`: today the social icons that templates link to (see
+[templates.md](templates.md)). Only `.png` files are served, with no directory listing and a 7-day
+cache. Helmet's `Cross-Origin-Resource-Policy: same-origin` would stop webmail and the panel's
+preview from loading them, so these responses send `cross-origin`. Keep file names stable: sent emails
+point at them for as long as someone might open the email.
 
 ---
 

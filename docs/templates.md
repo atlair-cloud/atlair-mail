@@ -36,6 +36,10 @@ Declare each variable once: `{ key, type: "string" | "number", fallback? }`. Use
 `variable` node in text, or as `{{key}}` in the subject, text, button and link addresses, image
 addresses and alt text.
 
+`{{current_year}}` is built in: it's filled with the year (UTC) when the email is rendered, so it
+needs no declaration and no value, and it can't be declared or passed. Use it for a footer such as
+`© {{current_year}} Acme`.
+
 | Rule | Limit |
 | --- | --- |
 | Variables per template | 50 |
@@ -59,16 +63,29 @@ link (`{{reset_url}}`), so a value can't turn a link into `javascript:`.
 | `bulletList`, `orderedList` > `listItem` | nested lists allowed |
 | `blockquote` | paragraphs |
 | `horizontalRule` | |
-| `button` | `text`, `href`, `textAlign` |
+| `button` | `text`, `href`, `textAlign`, `color` (default: brand), `variant` (`filled`, `outline`), `size` (`small`, `medium`, `large`), `fullWidth` |
 | `image` | `src`, `alt`, `width` (16-1200), `href`, `textAlign` |
 | `spacer` | `height` (4-160) |
+| `socialLinks` | `links` (up to 12 of `{ network, href }`; networks: `x`, `linkedin`, `github`, `instagram`, `facebook`, `youtube`, `tiktok`, `discord`, `threads`, `mastodon`, `website`, `email`), `textAlign` |
 | `columns` > `column` (2-3) | flow blocks only |
-| `section` | `backgroundColor`, `padding` (0-64); top level only |
+| `section` | `backgroundColor`, `textColor` (default: automatic), `padding` (0-64); top level only |
 
 Inline: `text` with `bold`, `italic`, `underline`, `strike`, `code` and `link` marks, `hardBreak`,
 and `variable { name }`. `theme` sets `brandColor`, `textColor`, `backgroundColor`, `contentColor`,
 `fontFamily` (`sans`, `serif`, `mono`) and `width` (480-720). A document can have up to 5,000 nodes,
 nested 12 deep. Errors name the exact path, for example `content.content[3].attrs.href`.
+
+Colors inside a section follow its background (`src/colors.ts`). Without a `textColor`, text uses the
+theme's text color when it suits the background, and otherwise white on dark or `#111827` on light.
+Headings and quotes use the section's text color. Links keep the brand color unless it is the same
+tone as the background (both dark or both light), then they use the text color, underlined. A filled
+button picks white or `#111827` text for its color; an outline button is a 2px border and text in its
+color. The editor's canvas (`editor.css`, `lib/theme.ts`) applies the same rules.
+
+Social icons are 24px PNGs served by the API at `/assets/social/<network>-<dark|light>.png`
+(`apps/api/assets`, from Iconoir, MIT, and LinkedIn from Lucide, ISC). Light icons go on dark backgrounds. Rendering builds their
+address from `BETTER_AUTH_URL`, so the API has to be reachable from the internet for icons to show in
+inboxes. Without `BETTER_AUTH_URL` the block renders as text links (`GitHub · Email`).
 
 Columns stack on phones (MJML's responsive layout). Rendering runs with `mj-include` disabled and
 no remote fonts.

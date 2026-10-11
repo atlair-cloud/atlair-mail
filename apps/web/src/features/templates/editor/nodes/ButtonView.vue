@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
-import { readableOn } from '../../lib/theme'
+import { buttonLook } from '../../lib/theme'
 import { useTemplateEditorContext } from '../context'
 
 const props = defineProps(nodeViewProps)
@@ -12,6 +12,7 @@ const draft = ref('')
 const input = useTemplateRef<HTMLInputElement>('input')
 
 const align = computed(() => props.node.attrs.textAlign ?? 'left')
+const colors = computed(() => buttonLook(props.node.attrs, theme.value))
 const hasLink = computed(() => String(props.node.attrs.href ?? '').trim() !== '')
 
 async function startEditing() {
@@ -32,10 +33,10 @@ function finish(save: boolean) {
 </script>
 
 <template>
-  <NodeViewWrapper class="tpl-block tpl-button" :class="{ 'is-selected': selected }" :style="{ textAlign: align }" data-type="button">
+  <NodeViewWrapper class="tpl-block tpl-button" :class="{ 'is-selected': selected, 'is-full': node.attrs.fullWidth }" :style="{ textAlign: align }" data-type="button">
     <span
       class="tpl-button-face"
-      :style="{ backgroundColor: theme.brandColor, color: readableOn(theme.brandColor) }"
+      :style="colors"
       contenteditable="false"
       @dblclick="startEditing"
     >
@@ -44,7 +45,7 @@ function finish(save: boolean) {
         ref="input"
         v-model="draft"
         class="tpl-button-input"
-        :style="{ width: `${Math.max(draft.length, 4) + 1}ch`, color: readableOn(theme.brandColor) }"
+        :style="{ width: `${Math.max(draft.length, 4) + 1}ch`, color: colors.color }"
         aria-label="Button label"
         maxlength="200"
         @keydown.enter.prevent="finish(true)"

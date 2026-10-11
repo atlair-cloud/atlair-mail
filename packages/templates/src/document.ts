@@ -57,14 +57,56 @@ export interface HorizontalRuleNode {
   type: "horizontalRule";
 }
 
+export const buttonVariants = ["filled", "outline"] as const;
+export type ButtonVariant = (typeof buttonVariants)[number];
+
+export const buttonSizes = ["small", "medium", "large"] as const;
+export type ButtonSize = (typeof buttonSizes)[number];
+
 export interface ButtonNode {
   type: "button";
-  attrs: { text: string; href: string; textAlign?: TextAlign | null };
+  attrs: { text: string; href: string; textAlign?: TextAlign | null; color?: string | null; variant?: ButtonVariant | null; size?: ButtonSize | null; fullWidth?: boolean | null };
 }
 
 export interface ImageNode {
   type: "image";
   attrs: { src: string; alt?: string | null; width?: number | null; href?: string | null; textAlign?: TextAlign | null };
+}
+
+export const socialNetworks = [
+  "x",
+  "linkedin",
+  "github",
+  "instagram",
+  "facebook",
+  "youtube",
+  "tiktok",
+  "discord",
+  "threads",
+  "mastodon",
+  "website",
+  "email",
+] as const;
+export type SocialNetwork = (typeof socialNetworks)[number];
+
+export const socialNetworkNames: Record<SocialNetwork, string> = {
+  x: "X",
+  linkedin: "LinkedIn",
+  github: "GitHub",
+  instagram: "Instagram",
+  facebook: "Facebook",
+  youtube: "YouTube",
+  tiktok: "TikTok",
+  discord: "Discord",
+  threads: "Threads",
+  mastodon: "Mastodon",
+  website: "Website",
+  email: "Email",
+};
+
+export interface SocialLinksNode {
+  type: "socialLinks";
+  attrs: { links: { network: SocialNetwork; href: string }[]; textAlign?: TextAlign | null };
 }
 
 export interface SpacerNode {
@@ -80,6 +122,7 @@ export type FlowNode =
   | HorizontalRuleNode
   | ButtonNode
   | ImageNode
+  | SocialLinksNode
   | SpacerNode;
 
 export interface ColumnNode {
@@ -94,7 +137,7 @@ export interface ColumnsNode {
 
 export interface SectionNode {
   type: "section";
-  attrs?: { backgroundColor?: string | null; padding?: number | null };
+  attrs?: { backgroundColor?: string | null; textColor?: string | null; padding?: number | null };
   content: (FlowNode | ColumnsNode)[];
 }
 
