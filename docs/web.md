@@ -34,7 +34,8 @@ Vite reads these at build time; set them when running `pnpm --filter @atlair-mai
 `WORKERS_CI_COMMIT_SHA`. `vite build` runs before `vue-tsc` because it regenerates `components.d.ts` and
 `auto-imports.d.ts`, whose imports name pnpm's hashed store folders; type-checking the committed copies on a
 fresh install fails whenever the dependency graph has moved since they were generated.
-`.env.atlair` holds that build's settings (`VITE_API_URL=https://api.atlair.cloud/mail`), so a plain
+`.env.atlair` holds that build's settings (`VITE_API_URL=https://api.atlair.cloud/mail`, and `VITE_DOCS_URL=https://docs.atlair.cloud`
+for the API docs links, which otherwise point at `<VITE_API_URL>/docs/`), so a plain
 `vite build` never points at Atlair. `wrangler.jsonc` serves `build/` on Workers static assets at
 `mail.atlair.cloud`, with single-page-app fallback so deep links load, and `public/_headers` caches the
 hashed `assets/` for a year and sets `nosniff`, `X-Frame-Options: DENY` and a referrer policy. Self-hosters

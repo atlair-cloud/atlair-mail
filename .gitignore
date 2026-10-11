@@ -7,3 +7,4 @@ build
 *.tfstate.*
 *.tfvars
 .terraform
+.wrangler

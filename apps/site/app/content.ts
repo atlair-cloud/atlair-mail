@@ -1,7 +1,7 @@
 export const PRODUCT = 'Atlair Post'
 
 export const APP_URL = import.meta.env.VITE_APP_URL ?? 'http://localhost:5173'
-export const DOCS_URL = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080'}/docs/`
+export const DOCS_URL = import.meta.env.VITE_DOCS_URL ?? `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080'}/docs/`
 export const SITE_URL = import.meta.env.VITE_SITE_URL ?? 'https://post.atlair.cloud'
 export const GITHUB_URL = 'https://github.com/atlair-cloud/atlair-mail'
 export const HELP_EMAIL = 'hello@atlair.cloud'
