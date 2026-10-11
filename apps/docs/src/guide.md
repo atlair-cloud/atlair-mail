@@ -49,6 +49,8 @@ SES is separate in every AWS region. Verified identities, sandbox status and sen
 
 Choose the region closest to your users, for example `us-east-1` (N. Virginia), `eu-west-1` (Ireland) or `ap-south-1` (Mumbai). Switch to it with the region selector at the top right of the AWS console before you open SES, and note its **code**, such as `ap-south-1`. You enter that exact code when you connect.
 
+New SES accounts start on the **Essentials** plan, at $0.16 per 1,000 emails. Atlair Mail needs only plain sending, so you can switch to **à la carte** pricing, at $0.10 per 1,000 emails with no monthly fee. See [SES pricing](https://aws.amazon.com/ses/pricing/) for the current rates.
+
 ## 2. Verify your email address and domain
 
 In the SES console, open **Configuration → Identities → Create identity** and create two identities:
