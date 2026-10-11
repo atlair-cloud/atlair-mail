@@ -1,4 +1,76 @@
 export const art = {
+  "bento-domains-night": {
+    "width": 1536,
+    "height": 1024,
+    "color": "#182848",
+    "widths": [
+      640,
+      1280
+    ]
+  },
+  "bento-domains": {
+    "width": 1536,
+    "height": 1024,
+    "color": "#f8f8e8",
+    "widths": [
+      640,
+      1280
+    ]
+  },
+  "bento-once-night": {
+    "width": 1536,
+    "height": 1024,
+    "color": "#182848",
+    "widths": [
+      640,
+      1280
+    ]
+  },
+  "bento-once": {
+    "width": 1536,
+    "height": 1024,
+    "color": "#f8f8e8",
+    "widths": [
+      640,
+      1280
+    ]
+  },
+  "bento-templates-night": {
+    "width": 2048,
+    "height": 1024,
+    "color": "#988888",
+    "widths": [
+      640,
+      1280,
+      1920
+    ]
+  },
+  "bento-templates": {
+    "width": 2048,
+    "height": 1024,
+    "color": "#f8e8d8",
+    "widths": [
+      640,
+      1280,
+      1920
+    ]
+  },
+  "bento-webhooks-night": {
+    "width": 1024,
+    "height": 1536,
+    "color": "#081838",
+    "widths": [
+      640
+    ]
+  },
+  "bento-webhooks": {
+    "width": 1024,
+    "height": 1536,
+    "color": "#e8e8e8",
+    "widths": [
+      640
+    ]
+  },
   "cta-postbox-night": {
     "width": 2048,
     "height": 1152,
@@ -39,42 +111,24 @@ export const art = {
       1920
     ]
   },
-  "hero-post-night": {
+  "source-garden-night": {
     "width": 2560,
-    "height": 1440,
-    "color": "#182848",
+    "height": 1280,
+    "color": "#183868",
     "widths": [
       640,
       1280,
       1920
     ]
   },
-  "hero-post": {
+  "source-garden": {
     "width": 2560,
-    "height": 1440,
+    "height": 1280,
     "color": "#f8f8e8",
     "widths": [
       640,
       1280,
       1920
-    ]
-  },
-  "open-door-night": {
-    "width": 1536,
-    "height": 864,
-    "color": "#081828",
-    "widths": [
-      640,
-      1280
-    ]
-  },
-  "open-door": {
-    "width": 1536,
-    "height": 864,
-    "color": "#f8f8e8",
-    "widths": [
-      640,
-      1280
     ]
   },
   "vignette-bell-night": {

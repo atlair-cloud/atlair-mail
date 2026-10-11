@@ -26,23 +26,6 @@ keep its exact shape, colours and eyes. It is small in the frame and gentle.
 `
 
 const scenes = {
-  'hero-post': {
-    size: '2560x1440',
-    prompt: `Wide panoramic landscape used behind a website hero. The left and right edges are framed by leafy trees,
-flowering hydrangeas and wildflowers. On a small hill on the far right stands a tiny cosy village post office cottage
-with a warm lit window and a round-topped pink postbox by its gate. The mascot floats beside the postbox holding a
-small sealed envelope. A few folded paper envelopes drift across the sky toward the cottage like birds.
-The centre is an open, softly lit meadow fading into warm cream haze so a product window can sit on top of it.
-The top half is almost empty pale cream sky. Keep the centre calm and uncluttered.`,
-  },
-  'hero-post-night': {
-    size: '2560x1440',
-    night: 'hero-post',
-    prompt: `Repaint the second reference image, the same wide landscape, at night. Keep the exact composition: trees and
-hydrangeas framing the edges, the open meadow in the centre, the post office cottage and pink postbox on the right hill
-with the mascot holding its envelope. The cottage window glows warm. The drifting envelopes catch the moonlight.
-The centre and top half stay calm and dark so a product window can sit on top.`,
-  },
   'cta-postbox': {
     size: '2048x1152',
     prompt: `A garden path in late morning. On the right side, a wooden garden gate in a low stone wall with climbing roses,
@@ -75,11 +58,41 @@ Centred composition with soft cream haze around the edges.`,
 envelopes that drift down from the sky. The mascot floats beside the bell, ringing it gently to say a letter has arrived.
 Centred composition with soft cream haze around the edges.`,
   },
-  'open-door': {
-    size: '1536x864',
-    prompt: `A cosy workshop shed in a garden with its double doors wide open, showing neatly hung tools, labelled wooden
-drawers and a workbench with a half-assembled wooden postbox. Morning light pours in. The mascot floats in the doorway,
-welcoming the viewer inside. Centred composition with soft cream haze around the edges.`,
+  'bento-templates': {
+    size: '2048x1024',
+    prompt: `A sunny wooden writing desk seen from slightly above. Along the left and right edges: a stack of cream letter
+paper, an ink pot, a jar of pencils, a sprig of blossom in a glass, and a little line of string above with three blank
+paper drafts pegged to it. The mascot floats at the right edge holding a small paintbrush, as if it just finished a letter.
+The centre of the image is an empty, calm stretch of warm cream paper and soft haze with no objects, so a small card
+can be placed on top of it.`,
+  },
+  'bento-webhooks': {
+    size: '1024x1536',
+    prompt: `A tall, narrow garden scene. At the bottom, a wooden porch step with a woven basket. Paper envelopes flutter
+back down from the sky toward the basket like returning birds, each closed with a small pink wax seal. The mascot floats
+near the top right, pressing a brass seal onto an envelope. Climbing roses frame the left and right edges. The middle of
+the image is calm, soft sky blue and cream haze with no objects, so a narrow list can be placed on top of it.`,
+  },
+  'bento-domains': {
+    size: '1536x1024',
+    prompt: `A small cottage gate in a low stone wall, with a blank wooden name board hanging on the gate post and a little
+brass lock. The mascot floats beside the board, proudly hanging it straight. Hydrangeas and leafy shrubs frame the left and
+right edges. The centre is calm, open cream haze over a soft lawn with no objects, so a small card can be placed on top.`,
+  },
+  'bento-once': {
+    size: '1536x1024',
+    prompt: `A cosy front door with a brass letter slot and a woven doormat. A single sealed envelope rests neatly on the
+doormat. The mascot floats nearby holding a second, identical envelope behind its back, gently deciding not to post it.
+Potted flowers frame the left and right edges. The centre is calm cream haze with no objects, so a small card can be
+placed on top.`,
+  },
+  'source-garden': {
+    size: '2560x1280',
+    prompt: `A wide garden scene at the open double doors of a small wooden workshop on the far left edge, warm light
+inside showing neatly hung tools. On the far right edge, the mascot floats beside a round-topped pink postbox, waving
+hello. Climbing roses, hydrangeas and soft trees frame both edges. A few paper envelopes drift lightly in the sky.
+The whole centre (the middle 50 percent) is calm, open warm cream haze over a soft lawn with no objects at all, so a
+large envelope can be placed on top of it.`,
   },
   'vignette-key-night': {
     size: '1536x864',
@@ -102,12 +115,41 @@ the paper; moonlight through the window. Soft dark haze around the edges.`,
 the basket catching envelopes and the mascot ringing the bell. A small lantern on the gate post glows warm; the drifting
 envelopes catch the moonlight. Soft dark haze around the edges.`,
   },
-  'open-door-night': {
-    size: '1536x864',
-    night: 'open-door',
-    prompt: `Repaint the second reference image at night, keeping its exact composition: the workshop shed with doors wide
-open, the hung tools, drawers and workbench with the wooden postbox, and the mascot in the doorway. Warm lamplight pours out
-of the shed onto the moonlit garden. Soft dark haze around the edges.`,
+  'bento-templates-night': {
+    size: '2048x1024',
+    night: 'bento-templates',
+    prompt: `Repaint the second reference image at night, keeping its exact composition: the writing desk, paper stack,
+ink pot, pegged drafts and the mascot with its brush. A warm desk lamp glows; moonlight through a window. The centre stays
+calm and dark with no objects so a small card can sit on top.`,
+  },
+  'bento-webhooks-night': {
+    size: '1024x1536',
+    night: 'bento-webhooks',
+    prompt: `Repaint the second reference image at night, keeping its exact composition: the porch step and basket, the
+envelopes fluttering down with pink wax seals, the mascot pressing its seal, the roses on the edges. A porch lantern glows
+warm and the envelopes catch the moonlight. The middle stays calm and dark with no objects so a list can sit on top.`,
+  },
+  'bento-domains-night': {
+    size: '1536x1024',
+    night: 'bento-domains',
+    prompt: `Repaint the second reference image at night, keeping its exact composition: the cottage gate, the blank name
+board, the brass lock, the mascot and the hydrangeas. A small lantern on the gate post glows warm. The centre stays calm
+and dark with no objects so a small card can sit on top.`,
+  },
+  'bento-once-night': {
+    size: '1536x1024',
+    night: 'bento-once',
+    prompt: `Repaint the second reference image at night, keeping its exact composition: the front door, brass letter slot,
+doormat with one envelope, the mascot holding the second envelope behind its back, and the potted flowers. A porch light
+glows warm. The centre stays calm and dark with no objects so a small card can sit on top.`,
+  },
+  'source-garden-night': {
+    size: '2560x1280',
+    night: 'source-garden',
+    prompt: `Repaint the second reference image at night, keeping its exact composition: the open workshop on the left
+with warm lamplight pouring out, the mascot waving beside the pink postbox on the right, the roses and hydrangeas, the
+drifting envelopes catching moonlight. The whole centre stays calm and dark with no objects so a large envelope can sit
+on top.`,
   },
 }
 

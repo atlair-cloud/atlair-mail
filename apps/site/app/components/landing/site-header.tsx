@@ -46,7 +46,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 bg-frame px-2 sm:px-3">
       <FrameGrid className="absolute inset-0" />
-      <Container className="relative flex h-16 items-center justify-between gap-6">
+      <Container className="relative flex h-14 items-center justify-between gap-3 sm:h-16 sm:gap-6">
         <Brand className="text-frame-fg-strong" />
         <nav aria-label="Main" className="hidden items-center gap-7 text-[15px] text-frame-fg lg:flex">
           {nav.map((item) => (
@@ -79,7 +79,7 @@ export function SiteHeader() {
           </button>
           <a
             href={APP_URL}
-            className="ml-1 inline-flex h-10 items-center rounded-md bg-frame-cta px-4 text-sm font-semibold text-frame-cta-fg transition-opacity hover:opacity-90"
+            className="ml-1 inline-flex h-9 items-center rounded-md bg-frame-cta px-3 text-[13px] font-semibold whitespace-nowrap text-frame-cta-fg transition-opacity hover:opacity-90 sm:h-10 sm:px-4 sm:text-sm"
           >
             Start sending
           </a>

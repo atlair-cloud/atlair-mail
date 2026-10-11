@@ -7,24 +7,38 @@ export const GITHUB_URL = 'https://github.com/atlair-cloud/atlair-mail'
 export const HELP_EMAIL = 'hello@atlair.cloud'
 
 export const nav = [
+  { label: 'How it works', href: '/#how' },
   { label: 'Product', href: '/#product' },
-  { label: 'Panel', href: '/#tour' },
+  { label: 'Use cases', href: '/#use-cases' },
   { label: 'Open source', href: '/#open-source' },
   { label: 'FAQ', href: '/#faq' },
 ]
 
 export const hero = {
-  eyebrow: `${PRODUCT} · Open source`,
-  title: 'Every email, accounted for.',
-  dek: 'Open-source email for your product. Send with one request, follow it to the inbox, and keep the keys.',
-  facts: ['Your cloud account', 'Signed webhooks', 'Never sends twice', 'AGPL-3.0'],
+  eyebrow: 'Open source · AGPL-3.0',
+  title: 'The post office is open.',
+  dek: 'The open-source way to send product email from your own cloud. Follow every message from request to inbox.',
+  facts: ['Your cloud account', 'Signed webhooks', 'Never sends twice', 'Self-hostable'],
 }
 
-export const features = [
-  { art: 'vignette-key', title: 'Your SES.', body: 'Your AWS account, your price, your reputation.' },
-  { art: 'vignette-desk', title: 'Templates anyone can edit.', body: 'Write, preview on a phone, publish.' },
-  { art: 'vignette-bell', title: 'Every event, signed.', body: 'Delivered, bounced or complained, straight to your webhook.' },
-] as const
+export const flow = {
+  beat: 'How it flows',
+  title: ['One request out.', 'Every step back.'],
+}
+
+export const cases = {
+  beat: 'Use cases',
+  title: ['Every email', 'your product sends.'],
+}
+
+export const features = {
+  beat: 'What’s inside',
+  title: ['Built in.', 'Not bolted on.'],
+  templates: { title: 'Templates anyone can edit.', body: 'Publish, roll back, pin a version.' },
+  webhooks: { title: 'Every event, signed.', body: 'Retried for a day if you miss one.' },
+  domains: { title: 'Your domain, verified.', body: 'DKIM, SPF and DMARC, checked for you.' },
+  once: { title: 'Never sends twice.', body: 'Same key, same email.' },
+}
 
 export const tour = {
   title: 'One panel for the whole team.',
@@ -38,15 +52,28 @@ export const tour = {
 } as const
 
 export const openSource = {
-  title: 'Open source. Yours to host.',
-  dek: 'Postgres and two Node processes. No Redis.',
+  beat: 'Open source',
+  title: ['Nothing sealed.', 'Every line is yours.'],
   command: 'git clone https://github.com/atlair-cloud/atlair-mail',
 }
 
 export const faq = {
-  title: 'Questions, answered.',
+  beat: 'FAQ',
+  title: ['Questions.', 'Answered.'],
   items: [
-    { q: 'Why my own SES account?', a: 'You pay AWS directly, and your sending reputation stays yours.' },
+    {
+      q: 'What is Atlair Post?',
+      a: 'Atlair Post is Atlair’s open-source email app. It sends your product’s email, like password resets, receipts and sign-in links, from your own cloud account, and shows you each one reach the inbox.',
+    },
+    {
+      q: 'Is Atlair the same as Altair?',
+      a: 'No. Atlair (A-T-L-A-I-R) makes Atlair Post. Altair Engineering is a different company that makes simulation software and is part of Siemens. Atlair Post has no connection to Altair or Siemens.',
+    },
+    {
+      q: 'How do I contact Atlair Post support?',
+      a: `Email ${HELP_EMAIL}, or open an issue on GitHub at github.com/atlair-cloud/atlair-mail.`,
+    },
+    { q: 'Why send from my own AWS account?', a: 'You pay AWS directly, and your sending reputation stays yours.' },
     { q: 'Can I host it myself?', a: 'Yes. It’s AGPL-3.0. You need Postgres, the API and the worker.' },
     { q: 'Which languages work?', a: 'Anything that can make an HTTP request. A Node SDK is coming.' },
     { q: 'Are my AWS keys safe?', a: 'They’re encrypted, tied to your organization, and never shown again.' },
@@ -56,7 +83,7 @@ export const faq = {
 }
 
 export const closing = {
-  title: 'Go on. Send the first one.',
+  title: ['Go on.', 'Send the first one.'],
   dek: 'Four steps from AWS keys to a delivered email.',
 }
 

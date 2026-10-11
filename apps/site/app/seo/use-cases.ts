@@ -3,7 +3,7 @@ export type UseCase = {
   name: string
   title: string
   dek: string
-  art: 'vignette-key' | 'vignette-desk' | 'vignette-bell' | 'open-door'
+  art: 'vignette-key' | 'vignette-desk' | 'vignette-bell'
   points: { title: string; body: string }[]
   request: Record<string, unknown>
   headers?: Record<string, string>

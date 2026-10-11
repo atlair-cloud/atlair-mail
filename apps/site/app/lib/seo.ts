@@ -1,4 +1,4 @@
-import { faq, GITHUB_URL, PRODUCT, SITE_URL, social } from '~/content'
+import { faq, GITHUB_URL, HELP_EMAIL, PRODUCT, SITE_URL, social } from '~/content'
 import { alternatives, checkedOn, findAlternative, type Alternative } from '~/seo/alternatives'
 import { findUseCase, useCases, type UseCase } from '~/seo/use-cases'
 
@@ -14,7 +14,7 @@ export const home: Page = {
   path: '/',
   title: `${PRODUCT}: Open-Source Email API and Resend Alternative`,
   description:
-    'Open-source transactional email API and panel. Send through your own Amazon SES, edit templates, get signed webhooks. A self-hostable Resend and SendGrid alternative.',
+    'Atlair Post is Atlair’s open-source email API (not Altair). Send product email from your own cloud, edit templates, get signed webhooks. A self-hostable Resend alternative.',
   image: '/og/home.jpg',
 }
 
@@ -92,6 +92,8 @@ function breadcrumbs(items: { name: string; path: string }[]) {
 const software = {
   '@type': 'SoftwareApplication',
   name: PRODUCT,
+  alternateName: ['Atlair email', 'Atlair Mail', 'atlair-mail'],
+  disambiguatingDescription: 'Open-source email API made by Atlair. Not related to Altair Engineering or Siemens.',
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Linux, macOS, Docker',
   description: home.description,
@@ -100,7 +102,15 @@ const software = {
   codeRepository: GITHUB_URL,
   isAccessibleForFree: true,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'Free to host yourself under AGPL-3.0.' },
-  publisher: { '@type': 'Organization', name: 'Atlair', url: 'https://atlair.cloud', sameAs: social.map((s) => s.href) },
+  publisher: {
+    '@type': 'Organization',
+    name: 'Atlair',
+    url: 'https://atlair.cloud',
+    email: HELP_EMAIL,
+    disambiguatingDescription: 'Atlair (A-T-L-A-I-R) is not Altair Engineering and is not part of Siemens.',
+    contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', email: HELP_EMAIL, url: `${GITHUB_URL}/issues` },
+    sameAs: social.map((s) => s.href),
+  },
 }
 
 function graph(...nodes: object[]) {

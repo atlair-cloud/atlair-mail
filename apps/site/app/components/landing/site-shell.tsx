@@ -36,8 +36,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <FrameGrid className="fixed inset-x-0 bottom-0 h-2 sm:h-3" />
       <SiteHeader />
       <div className="relative px-2 pb-2 sm:px-3 sm:pb-3">
-        <div className="canvas-shadow overflow-clip rounded-2xl border border-canvas-edge bg-paper">
-          <div aria-hidden className="airmail h-1.5" />
+        <div className="canvas-shadow paper overflow-clip rounded-2xl border border-canvas-edge">
           <main id="main">{children}</main>
           <SiteFooter />
         </div>

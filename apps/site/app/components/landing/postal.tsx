@@ -95,14 +95,14 @@ export function Postcard({
 }) {
   return (
     <div
-      className={cn('postcard group relative rounded-[6px] p-3 transition-transform duration-500 hover:rotate-0 sm:p-4', className)}
+      className={cn('postcard group relative rounded-[6px] p-2.5 transition-transform duration-500 hover:rotate-0 max-sm:rotate-0! sm:p-4', className)}
       style={{ rotate: `${tilt}deg` }}
     >
       <div className="overflow-hidden rounded-[3px]">
         <Art name={art} sizes={sizes} className="aspect-[16/10] w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]" />
       </div>
-      <MascotStamp value={stamp} tint={tint} className="absolute -top-3 -right-3 rotate-[6deg]" />
-      <Postmark center={mark} className="pointer-events-none absolute top-6 right-14 h-14 w-auto -rotate-[10deg] opacity-80" />
+      <MascotStamp value={stamp} tint={tint} className="absolute -top-2.5 right-1 w-12 rotate-[6deg] sm:-top-3 sm:-right-3 sm:w-16" />
+      <Postmark center={mark} className="pointer-events-none absolute top-5 right-12 h-10 w-auto -rotate-[10deg] opacity-80 sm:top-6 sm:right-14 sm:h-14" />
       {children && <div className="px-1 pt-4 pb-1">{children}</div>}
     </div>
   )

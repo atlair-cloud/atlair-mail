@@ -49,27 +49,40 @@
   --color-fail-soft: #fbeeee;
   --color-stamp: #c2413c;
 
-  --color-airmail-red: #d9658f;
-  --color-airmail-blue: #1f7fb5;
-
   --color-app-frame: #e7e4df;
-  --color-app-edge: #d6d2cc;
-  --color-app-canvas: #ffffff;
-  --color-app-line: #e2e8f0;
-  --color-app-subtle: #f1f5f9;
-  --color-app-text: #0f172a;
-  --color-app-muted: #56657a;
-  --color-app-faint: #7d8a9c;
-  --color-app-ink: #243041;
 
-  --color-frame: #14243a;
-  --color-frame-fg: #c3d2e4;
-  --color-frame-fg-strong: #faf8f2;
-  --color-frame-divider: #2c4466;
-  --color-frame-cta: #faf8f2;
+  --color-frame: #1f3a2b;
+  --color-frame-fg: #c9d8c6;
+  --color-frame-fg-strong: #fffefb;
+  --color-frame-divider: #3d5a49;
+  --color-frame-cta: #fffefb;
   --color-frame-cta-fg: #14243a;
-  --color-frame-grid: #7fb6d9;
-  --color-canvas-edge: #0e1a2b;
+  --color-frame-grid: #9cc5a4;
+  --color-canvas-edge: #16291f;
+
+  --animate-shiny-text: shiny-text 8s infinite;
+  --animate-marquee: marquee var(--duration) infinite linear;
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(calc(-100% - var(--gap)));
+    }
+  }
+
+  @keyframes shiny-text {
+    0%,
+    90%,
+    100% {
+      background-position: calc(-100% - var(--shiny-width)) 0;
+    }
+    30%,
+    60% {
+      background-position: calc(100% + var(--shiny-width)) 0;
+    }
+  }
 
   --color-background: var(--color-card);
   --color-foreground: var(--color-ink);
@@ -113,14 +126,6 @@ html.dark {
   --color-stamp: #f07a7a;
 
   --color-app-frame: #18191c;
-  --color-app-edge: #2a2d31;
-  --color-app-canvas: #111315;
-  --color-app-line: #26292e;
-  --color-app-subtle: #1d2024;
-  --color-app-text: #f1f3f5;
-  --color-app-muted: #a3acb7;
-  --color-app-faint: #7b8590;
-  --color-app-ink: #eef0f2;
 }
 
 @layer base {
@@ -163,16 +168,14 @@ html.dark .app-frame {
   background-image: radial-gradient(rgb(255 255 255 / 0.09) 1px, transparent 1.2px);
 }
 
-.airmail {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    var(--color-airmail-red) 0 10px,
-    transparent 10px 16px,
-    var(--color-airmail-blue) 16px 26px,
-    transparent 26px 32px
-  );
+.paper {
+  background-color: var(--color-paper);
+  background-image: radial-gradient(rgb(20 36 58 / 0.035) 1px, transparent 1.2px);
+  background-size: 7px 7px;
 }
-
+html.dark .paper {
+  background-image: radial-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1.2px);
+}
 
 .faq {
   interpolate-size: allow-keywords;
