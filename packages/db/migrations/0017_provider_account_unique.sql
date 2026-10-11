@@ -1,2 +1,0 @@
-ALTER TABLE "provider_connections" ADD COLUMN "account_id" text;--> statement-breakpoint
-CREATE UNIQUE INDEX "provider_connections_provider_account_id_unique" ON "provider_connections" USING btree ("provider","account_id");

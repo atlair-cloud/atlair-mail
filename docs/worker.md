@@ -101,7 +101,7 @@ The worker doesn't poll on a fixed interval. An idle system runs about one query
 
 ```
 API inserts a queued email ─┐
-worker queues a retry ──────┼─ trigger (migration 0021) → pg_notify('atlair_work', 'email')
+worker queues a retry ──────┼─ trigger (migration 0000) → pg_notify('atlair_work', 'email')
                             │                                   │
                             │       worker LISTEN connection ◄──┘ (DATABASE_LISTEN_URL)
                             │                 └─ wake the email loop → claim now

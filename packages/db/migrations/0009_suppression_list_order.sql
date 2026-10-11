@@ -1,1 +1,0 @@
-CREATE INDEX "suppressed_addresses_organization_id_id_idx" ON "suppressed_addresses" USING btree ("organization_id","id");

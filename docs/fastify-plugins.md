@@ -474,7 +474,7 @@ request header and an exposed response header.
 
 ## `better-auth`
 
-`src/lib/auth.ts` builds the Better Auth instance (Drizzle adapter on the `auth` schema, UUIDv7 IDs);
+`src/lib/auth.ts` builds the Better Auth instance (Drizzle adapter on the `identity` schema, UUIDv7 IDs);
 `src/plugins/auth.ts` mounts it at `/api/auth/*` and decorates:
 
 - `fastify.auth`: the instance, or `null` when `BETTER_AUTH_SECRET` is empty.

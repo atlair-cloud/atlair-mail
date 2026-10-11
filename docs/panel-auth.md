@@ -97,14 +97,17 @@ The panel UI is a separate static deploy, so it must be same-site with the API (
 `mail.example.com` and `api.mail.example.com`). Browsers drop `SameSite=Lax` cookies across sites.
 The self-host docs say so.
 
-## Database (`packages/db`, migration `0014_panel_auth`)
+## Database (`packages/db`)
 
 Additive, one migration. All timestamps `timestamptz`; IDs UUIDv7 (Better Auth configured with
 `advanced.database.generateId` returning `uuidv7()`), stored as `uuid`.
 
-### `auth` schema (Better Auth core, no organization plugin)
+### `identity` schema (Better Auth core, no organization plugin)
 
-`auth.user`, `auth.session`, `auth.account`, `auth.verification`, `auth.rate_limit`, generated with
+The schema is `identity`, not `auth`, because hosted Postgres such as Supabase already owns an `auth`
+schema.
+
+`identity.user`, `identity.session`, `identity.account`, `identity.verification`, `identity.rate_limit`, generated with
 `npx auth@latest generate` and then edited to match `_columns.ts` (`id()`, `timestamptz`). Indexes:
 `user.email` unique, `session.token` unique, `session(user_id)`, `account(user_id)`,
 `account(provider_id, account_id)` unique, `verification(identifier)`.
@@ -135,7 +138,7 @@ org). Check `cardinality(permissions) > 0`. Seeded per org with `owner`, `admin`
 ### `audit_logs`
 
 `id`, `organization_id` (nullable, `set null`), `actor_user_id` (nullable, `set null`),
-`actor_api_key_id` (nullable, `set null`, migration 0022), `action`, `entity_type`, `entity_id`,
+`actor_api_key_id` (nullable, `set null`), `action`, `entity_type`, `entity_id`,
 `changes jsonb`, `created_at`. `index(organization_id, id)` for pagination (newest first,
 `before=<id>`, as elsewhere in this API), `index(entity_type, entity_id)`. Append-only: no `updated_at`.
 

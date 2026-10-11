@@ -122,6 +122,4 @@ rollback restores an old version into the draft and publishes it as a new versio
 | `POST /templates/:id/versions/:number/restore` | `template:update` | no |
 | `POST /templates/:id/versions/:number/publish` (roll back) | `template:update`, `template:publish` | no |
 
-Every role can view templates; owners and admins manage them. Migration `0019_email_templates`
-grants the new permissions to existing roles; `0020_template_versions` adds `template:publish` for
-owners and admins and backfills each existing template as its published v1.
+Every role can view templates; owners and admins manage them and publish.

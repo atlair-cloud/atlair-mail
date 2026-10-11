@@ -1,9 +1,9 @@
 import { bigint, boolean, index, integer, pgSchema, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { id, timestamps, timestamptz } from "./_columns.ts";
 
-export const authSchema = pgSchema("auth");
+export const identitySchema = pgSchema("identity");
 
-export const users = authSchema.table(
+export const users = identitySchema.table(
   "user",
   {
     id: id(),
@@ -16,7 +16,7 @@ export const users = authSchema.table(
   (t) => [uniqueIndex("user_email_unique").on(t.email)],
 );
 
-export const sessions = authSchema.table(
+export const sessions = identitySchema.table(
   "session",
   {
     id: id(),
@@ -32,7 +32,7 @@ export const sessions = authSchema.table(
   (t) => [uniqueIndex("session_token_unique").on(t.token), index("session_user_id_idx").on(t.userId)],
 );
 
-export const accounts = authSchema.table(
+export const accounts = identitySchema.table(
   "account",
   {
     id: id(),
@@ -56,7 +56,7 @@ export const accounts = authSchema.table(
   ],
 );
 
-export const verifications = authSchema.table(
+export const verifications = identitySchema.table(
   "verification",
   {
     id: id(),
@@ -68,7 +68,7 @@ export const verifications = authSchema.table(
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
 
-export const rateLimits = authSchema.table(
+export const rateLimits = identitySchema.table(
   "rate_limit",
   {
     id: id(),
