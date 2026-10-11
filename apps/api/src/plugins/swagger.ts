@@ -12,6 +12,7 @@ const versionHeaders = Type.Object({
 
 export default fp(
   async function swaggerPlugin(fastify) {
+    const servicePrefix = `${fastify.config.BASE_PATH}/service/`;
     await fastify.register(swagger, {
       openapi: {
         info: {
@@ -27,12 +28,12 @@ export default fp(
         security: [{ bearerAuth: [] }],
       },
       transform: ({ schema, url }) => {
-        if (!url.startsWith("/service/")) return { schema, url };
+        if (!url.startsWith(servicePrefix)) return { schema, url };
         return { schema: { ...schema, headers: versionHeaders }, url };
       },
     });
 
-    await fastify.register(apiReference, { routePrefix: "/docs" });
+    await fastify.register(apiReference, { routePrefix: `${fastify.config.BASE_PATH}/docs` as `/${string}` });
   },
   { name: "swagger" },
 );

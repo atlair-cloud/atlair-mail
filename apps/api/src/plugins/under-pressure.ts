@@ -8,7 +8,7 @@ export default fp(
       maxEventLoopUtilization: 0.98,
       retryAfter: 10,
       exposeStatusRoute: {
-        url: "/health",
+        url: `${fastify.config.BASE_PATH}/health`,
         routeOpts: { logLevel: "warn" },
         routeSchemaOpts: { security: [] },
         routeResponseSchemaOpts: { uptime: { type: "number" } },

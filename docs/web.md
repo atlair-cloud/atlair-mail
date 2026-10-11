@@ -20,7 +20,7 @@ pnpm --filter @atlair-mail/web dev           # http://localhost:5173
 
 | Variable | Default | Notes |
 |---|---|---|
-| `VITE_API_URL` | `http://localhost:8080` | API origin. Must be same-site with the web app so the session cookie is sent. |
+| `VITE_API_URL` | `http://localhost:8080` | API address, including the API's `BASE_PATH` if it has one (for example `https://api.example.com/mail`). Must be same-site with the web app so the session cookie is sent. |
 | `VITE_AUTH_SOCIAL_PROVIDERS` | `github,google` | Which sign-in buttons to show; match the providers configured on the API. |
 | `BUILD_SHA` | `local` | Shown in crash details. |
 

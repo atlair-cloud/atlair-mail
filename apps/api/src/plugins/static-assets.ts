@@ -8,7 +8,7 @@ export default fp(
   async function staticAssetsPlugin(fastify) {
     await fastify.register(staticFiles, {
       root: join(import.meta.dirname, "../../assets"),
-      prefix: assetsPrefix,
+      prefix: `${fastify.config.BASE_PATH}${assetsPrefix}`,
       decorateReply: false,
       index: false,
       list: false,

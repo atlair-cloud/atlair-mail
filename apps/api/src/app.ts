@@ -47,6 +47,7 @@ export async function buildApp(opts: BuildAppOptions = {}) {
     autoHooks: true,
     cascadeHooks: true,
     routeParams: true,
+    options: { prefix: app.config.BASE_PATH },
     ignoreFilter: (path) => !panelEnabled && path.includes("/service/panel/"),
   });
 

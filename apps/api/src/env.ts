@@ -16,6 +16,7 @@ const schema = Type.Object({
     ],
     { default: "info" },
   ),
+  BASE_PATH: Type.String({ default: "", pattern: "^(/[a-z0-9-]+)*$" }),
   DATABASE_URL: Type.String({ default: "postgres://atlair:atlair@localhost:5432/atlair_mail" }),
   ROOT_API_KEY: Type.String({ default: "" }),
   CREDENTIALS_ENCRYPTION_KEYS: Type.String({ minLength: 1 }),

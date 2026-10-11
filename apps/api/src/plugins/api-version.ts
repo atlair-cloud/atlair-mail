@@ -16,7 +16,7 @@ export default fp(
 
     fastify.setNotFoundHandler(async (request) => {
       const version = requestedApiVersion(request.headers);
-      if (request.url.startsWith("/service/") && !fastify.apiVersions.has(version)) {
+      if (request.url.startsWith(`${fastify.config.BASE_PATH}/service/`) && !fastify.apiVersions.has(version)) {
         const supported = [...fastify.apiVersions].sort().join(", ");
         throw fastify.httpErrors.badRequest(`Unsupported API version ${version}. Supported versions: ${supported}`);
       }

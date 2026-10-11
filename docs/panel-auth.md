@@ -87,7 +87,7 @@ not registered and atlair-mail stays API-only, as today.
 | Variable | Default | Notes |
 |---|---|---|
 | `BETTER_AUTH_SECRET` | empty (off) | 32+ chars, `openssl rand -base64 32`. Rejected if shorter. |
-| `BETTER_AUTH_URL` | required when on | Public API origin, `https://` in production. |
+| `BETTER_AUTH_URL` | required when on | Public API origin, `https://` in production. An origin only, no path: Better Auth would treat a path as the whole sign-in URL, so a prefix goes in `BASE_PATH` and sign-in moves to `${BASE_PATH}/api/auth`. |
 | `PANEL_ORIGINS` | required when on | Comma-separated origins, e.g. `https://mail.example.com`. Feeds CORS, Better Auth `trustedOrigins`, and the panel origin check. |
 | `AUTH_SIGNUP` | `open` | `open` or `disabled`. `disabled` stops a provider sign-in from creating a new account. |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | empty | Provider is offered only when both are set. At least one of GitHub or Google is required when the panel is on. |

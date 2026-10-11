@@ -13,6 +13,7 @@ const day = 60 * 60 * 24;
 export interface PanelAuthSettings {
   secret: string;
   baseURL: string;
+  basePath: string;
   panelOrigins: string[];
   signupDisabled: boolean;
   github: { clientId: string; clientSecret: string } | null;
@@ -28,6 +29,9 @@ export function panelAuthSettings(env: Env): PanelAuthSettings | null {
     throw new Error("BETTER_AUTH_SECRET must be at least 32 characters (openssl rand -base64 32)");
   }
   if (env.BETTER_AUTH_URL === "") throw new Error("BETTER_AUTH_URL is required when BETTER_AUTH_SECRET is set");
+  if (new URL(env.BETTER_AUTH_URL).origin !== env.BETTER_AUTH_URL) {
+    throw new Error("BETTER_AUTH_URL must be an origin like https://api.example.com; put a path prefix in BASE_PATH");
+  }
   const panelOrigins = env.PANEL_ORIGINS.split(",")
     .map((origin) => origin.trim())
     .filter((origin) => origin !== "");
@@ -43,6 +47,7 @@ export function panelAuthSettings(env: Env): PanelAuthSettings | null {
   return {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
+    basePath: `${env.BASE_PATH}${authBasePath}`,
     panelOrigins,
     signupDisabled: env.AUTH_SIGNUP === "disabled",
     github,
@@ -61,7 +66,7 @@ export function authOptions(db: Database, settings: PanelAuthSettings, log: Fast
     },
     secret: settings.secret,
     baseURL: settings.baseURL,
-    basePath: authBasePath,
+    basePath: settings.basePath,
     trustedOrigins: settings.panelOrigins,
     database: drizzleAdapter(db, {
       provider: "pg",

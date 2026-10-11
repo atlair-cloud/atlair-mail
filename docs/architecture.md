@@ -169,6 +169,10 @@ it keeps self-hosting to `docker compose up`.
 - `DATABASE_URL`, `ROOT_API_KEY`, `CREDENTIALS_ENCRYPTION_KEYS` (versioned AES-256 keys for the AWS
   Encryption SDK that encrypts SES secrets),
   `RATE_LIMIT_*`, and provider/SNS settings (topic ARN allowlist).
+- `BASE_PATH` (empty by default) serves every route under a prefix, for a gateway that forwards a path
+  such as `api.example.com/mail` without stripping it: `/mail/service/...`, `/mail/webhooks/...`,
+  `/mail/api/auth/...`, `/mail/docs`, `/mail/assets/...` and `/mail/health`. `BETTER_AUTH_URL` stays the
+  bare origin, and the panel's `VITE_API_URL` includes the prefix.
 - Secrets are never returned in responses or written to logs (pino `redact`).
 
 ## Open decisions

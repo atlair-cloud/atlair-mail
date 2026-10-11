@@ -4,7 +4,6 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Membership, Permission } from "@atlair-mail/db";
 import { apiVersionHeader } from "../lib/api-version.ts";
 import {
-  authBasePath,
   clientIpHeader,
   createAuth,
   panelAuthSettings,
@@ -31,8 +30,6 @@ declare module "fastify" {
 
 export const panelPrefix = "/service/panel";
 
-const usesPanelCors = (url: string) => url.startsWith(`${authBasePath}/`) || url.startsWith(`${panelPrefix}/`);
-
 function toWebHeaders(request: FastifyRequest) {
   const headers = new Headers();
   for (const [name, value] of Object.entries(request.headers)) {
@@ -57,6 +54,8 @@ export default fp(
     }
 
     const auth = createAuth(fastify.db, settings, fastify.log.child({ component: "auth" }));
+    const corsPrefixes = [`${settings.basePath}/`, `${fastify.config.BASE_PATH}${panelPrefix}/`];
+    const usesPanelCors = (url: string) => corsPrefixes.some((prefix) => url.startsWith(prefix));
     fastify.decorate("auth", auth);
 
     fastify.decorate("requireSession", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -87,7 +86,7 @@ export default fp(
 
     fastify.route({
       method: ["GET", "POST"],
-      url: `${authBasePath}/*`,
+      url: `${settings.basePath}/*`,
       schema: { hide: true },
       async handler(request, reply) {
         const response = await auth.handler(

@@ -50,7 +50,7 @@ export default fp(
     );
     const emailEvents = createEmailEventService(fastify.db);
     const publicUrl = fastify.config.BETTER_AUTH_URL.replace(/\/+$/, "");
-    const templates = createTemplateService(fastify.db, { assetsUrl: publicUrl ? `${publicUrl}${assetsPrefix}` : null });
+    const templates = createTemplateService(fastify.db, { assetsUrl: publicUrl ? `${publicUrl}${fastify.config.BASE_PATH}${assetsPrefix}` : null });
     const emails = createEmailService(fastify.db, templates);
     fastify.decorate("services", {
       apiKeys: createApiKeyService(fastify.db),
