@@ -4,7 +4,7 @@ import { InvalidTemplateError, TemplateError, TemplateVariablesError } from "./e
 import { defaultTheme, documentMjml, type RenderContext } from "./mjml.ts";
 import { documentText } from "./text.ts";
 import { parseDocument, parseTheme } from "./validate.ts";
-import { checkDeclared, filler, parseVariables, resolveValues, usedVariables } from "./variables.ts";
+import { builtInValues, checkDeclared, filler, parseVariables, resolveValues, usedVariables } from "./variables.ts";
 
 export const maxSubjectLength = 998;
 
@@ -45,9 +45,20 @@ export function validateTemplate(input: TemplateInput): TemplateSource {
 
 export type RenderMode = "send" | "preview";
 
-export async function renderTemplate(source: TemplateSource, values: VariableValues = {}, mode: RenderMode = "send"): Promise<RenderedTemplate> {
+export interface RenderOptions {
+  assetsUrl?: string | null;
+  now?: Date;
+}
+
+export async function renderTemplate(
+  source: TemplateSource,
+  values: VariableValues = {},
+  mode: RenderMode = "send",
+  options: RenderOptions = {},
+): Promise<RenderedTemplate> {
   const strict = mode === "send";
   const resolved = resolveValues(source.variables, values, strict);
+  for (const [key, value] of builtInValues(options.now ?? new Date())) resolved.set(key, value);
   const fill = filler(resolved);
   const filledByVariable = new Set<string>();
   const checkLink = (url: string, kind: "link" | "image") => {
@@ -56,7 +67,12 @@ export async function renderTemplate(source: TemplateSource, values: VariableVal
     filledByVariable.add(url);
     return url;
   };
-  const context: RenderContext = { fill, checkLink, theme: { ...defaultTheme, ...source.theme } };
+  const context: RenderContext = {
+    fill,
+    checkLink,
+    theme: { ...defaultTheme, ...source.theme },
+    assetsUrl: options.assetsUrl?.replace(/\/+$/, "") || null,
+  };
 
   const subject = fill(source.subject);
   if (subject.length > maxSubjectLength || controlCharacters.test(subject)) {

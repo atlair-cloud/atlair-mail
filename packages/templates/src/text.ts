@@ -1,4 +1,4 @@
-import type { BlockNode, FlowNode, InlineNode, ListNode, TemplateDocument } from "./document.ts";
+import { socialNetworkNames, type BlockNode, type FlowNode, type InlineNode, type ListNode, type TemplateDocument } from "./document.ts";
 import type { RenderContext } from "./mjml.ts";
 
 function inlineText(content: InlineNode[] | undefined, context: RenderContext) {
@@ -49,6 +49,10 @@ function flowText(node: FlowNode, context: RenderContext): string | null {
       return node.attrs.alt ? `[${context.fill(node.attrs.alt)}]` : null;
     case "spacer":
       return null;
+    case "socialLinks":
+      return node.attrs.links
+        .map((link) => `${socialNetworkNames[link.network]}: ${context.checkLink(context.fill(link.href), "link")}`)
+        .join("\n") || null;
   }
 }
 

@@ -2,7 +2,7 @@
 import { Plus, Trash, WarningTriangle } from '@iconoir/vue'
 import { computed, ref } from 'vue'
 import type { TemplateVariable, VariableType, VariableValues } from '../api/templates'
-import { suggestKey, variableKeyPattern } from '../lib/variables'
+import { BUILT_IN_VARIABLES, isBuiltInVariable, suggestKey, variableKeyPattern } from '../lib/variables'
 
 const props = defineProps<{ counts: Map<string, number>; undeclared: string[]; readonly: boolean; canInsert: boolean }>()
 const variables = defineModel<TemplateVariable[]>({ required: true })
@@ -22,6 +22,10 @@ function add() {
   if (!key) return
   if (!variableKeyPattern.test(key)) {
     error.value = 'Use letters, numbers and underscores'
+    return
+  }
+  if (isBuiltInVariable(key)) {
+    error.value = `${key} is built in, no need to add it`
     return
   }
   if (variables.value.some((variable) => variable.key === key)) {
@@ -131,6 +135,20 @@ const inputClass =
         />
       </li>
     </ul>
+
+    <div class="grid gap-1.5 border-t border-slate-100 pt-3">
+      <p class="m-0 font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-slate-500">Built in</p>
+      <div v-for="variable in BUILT_IN_VARIABLES" :key="variable.key" class="flex items-center gap-2">
+        <button
+          type="button"
+          class="tpl-variable !m-0 shrink-0 disabled:cursor-default"
+          :disabled="readonly || !canInsert"
+          :title="canInsert ? 'Insert at the cursor' : undefined"
+          @click="emit('insert', variable.key)"
+        >{{ braces(variable.key) }}</button>
+        <span class="min-w-0 text-xs text-slate-500">{{ variable.description }}</span>
+      </div>
+    </div>
 
     <form v-if="!readonly" class="grid gap-1" @submit.prevent="add">
       <div class="flex gap-1.5">

@@ -64,7 +64,7 @@ const Content = Type.Unsafe<TemplateDocument>(Type.Object(
   {
     additionalProperties: true,
     description:
-      "The design, as a TipTap (ProseMirror) document. Blocks: paragraph, heading (level 1-3), bulletList, orderedList, blockquote, horizontalRule, button { text, href }, image { src, alt, width, href }, spacer { height }, columns (2-3 column), section { backgroundColor, padding }. Inline: text with bold, italic, underline, strike, code and link marks; hardBreak; variable { name }. Text and links can also use {{variables}}.",
+      "The design, as a TipTap (ProseMirror) document. Blocks: paragraph, heading (level 1-3), bulletList, orderedList, blockquote, horizontalRule, button { text, href, color, variant: filled | outline, size: small | medium | large, fullWidth }, image { src, alt, width, href }, spacer { height }, socialLinks { links: [{ network, href }], textAlign }, columns (2-3 column), section { backgroundColor, textColor, padding }. Inline: text with bold, italic, underline, strike, code and link marks; hardBreak; variable { name }. Text and links can also use {{variables}}, and {{current_year}} is filled in automatically.",
     examples: [
       {
         type: "doc",

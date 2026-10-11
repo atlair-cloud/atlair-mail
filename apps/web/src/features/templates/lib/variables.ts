@@ -3,6 +3,10 @@ import type { TemplateVariable, VariableValues } from '../api/templates'
 
 export const variableKeyPattern = /^[A-Za-z0-9_]{1,50}$/
 
+export const BUILT_IN_VARIABLES = [{ key: 'current_year', description: 'The year when the email is sent' }]
+
+export const isBuiltInVariable = (key: string) => BUILT_IN_VARIABLES.some((variable) => variable.key === key)
+
 const variablePattern = () => /\{\{\s*([A-Za-z0-9_]{1,50})\s*\}\}/g
 
 function keysIn(text: string, counts: Map<string, number>) {
@@ -27,7 +31,7 @@ export function countVariables(subject: string, content: JSONContent) {
 
 export function undeclaredVariables(counts: Map<string, number>, declared: TemplateVariable[]) {
   const keys = new Set(declared.map((variable) => variable.key))
-  return [...counts.keys()].filter((key) => !keys.has(key)).sort()
+  return [...counts.keys()].filter((key) => !keys.has(key) && !isBuiltInVariable(key)).sort()
 }
 
 export function suggestKey(raw: string) {

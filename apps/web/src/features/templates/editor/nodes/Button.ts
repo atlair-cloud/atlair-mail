@@ -14,6 +14,10 @@ export const Button = Node.create({
       text: { default: 'Get started' },
       href: { default: '' },
       textAlign: { default: null },
+      color: { default: null },
+      variant: { default: null },
+      size: { default: null },
+      fullWidth: { default: null },
     }
   },
 

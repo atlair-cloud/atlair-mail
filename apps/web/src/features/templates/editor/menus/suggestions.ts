@@ -4,7 +4,7 @@ import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from '@
 import { VueRenderer } from '@tiptap/vue-3'
 import { BracesIcon } from './icons'
 import { availableBlocks, filterBlocks, type BlockItem } from '../../lib/blocks'
-import { variableKeyPattern } from '../../lib/variables'
+import { BUILT_IN_VARIABLES, isBuiltInVariable, variableKeyPattern } from '../../lib/variables'
 import SuggestionList, { type SuggestionItem } from './SuggestionList.vue'
 
 type ListExposed = { onKeyDown: (props: { event: KeyboardEvent }) => boolean }
@@ -105,10 +105,13 @@ export const VariableSuggestion = Extension.create<VariableMenuOptions>({
           const matches = declared
             .filter((key) => key.toLowerCase().includes(needle.toLowerCase()))
             .map((key): SuggestionItem => ({ id: key, label: key, group: 'Variables', icon: BracesIcon, mono: true }))
-          const creatable = needle && variableKeyPattern.test(needle) && !declared.includes(needle)
+          const builtIns = BUILT_IN_VARIABLES.filter((variable) => variable.key.includes(needle.toLowerCase())).map(
+            (variable): SuggestionItem => ({ id: variable.key, label: variable.key, hint: variable.description, group: 'Built in', icon: BracesIcon, mono: true }),
+          )
+          const creatable = needle && variableKeyPattern.test(needle) && !declared.includes(needle) && !isBuiltInVariable(needle)
           return creatable
-            ? [...matches, { id: `create:${needle}`, label: needle, hint: 'Create a new variable', group: 'New', icon: BracesIcon, mono: true }]
-            : matches
+            ? [...matches, ...builtIns, { id: `create:${needle}`, label: needle, hint: 'Create a new variable', group: 'New', icon: BracesIcon, mono: true }]
+            : [...matches, ...builtIns]
         },
         command: ({ editor, range, props }) => insertVariable(editor, range, props.id, options),
         render: renderList('Variables', 'Type a name, like first_name'),

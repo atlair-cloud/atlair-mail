@@ -8,7 +8,7 @@ import { templateEditorKey } from '../editor/context'
 import '../editor/editor.css'
 import BlockHandle from '../editor/menus/BlockHandle.vue'
 import FormattingBubble from '../editor/menus/FormattingBubble.vue'
-import { fontStacks } from '../lib/theme'
+import { fontStacks, sectionToneColors } from '../lib/theme'
 import SegmentedControl from './SegmentedControl.vue'
 
 const props = defineProps<{ editor: Editor | undefined; theme: Required<TemplateTheme>; declared: string[]; readonly: boolean }>()
@@ -32,6 +32,7 @@ const paperStyle = computed(() => ({
   '--tpl-content': props.theme.contentColor,
   '--tpl-font': fontStacks[props.theme.fontFamily],
   '--tpl-width': `${device.value === 'mobile' ? mobileWidth : props.theme.width}px`,
+  ...sectionToneColors(props.theme),
 }))
 
 onMounted(async () => {

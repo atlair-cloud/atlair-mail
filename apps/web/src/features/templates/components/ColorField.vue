@@ -28,7 +28,10 @@ const id = `color-${Math.random().toString(36).slice(2, 8)}`
 
 <template>
   <div>
-    <label :for="id" class="block text-xs font-medium text-slate-700">{{ label }}</label>
+    <div class="flex items-baseline justify-between gap-2">
+      <label :for="id" class="block text-xs font-medium text-slate-700">{{ label }}</label>
+      <slot name="aside" />
+    </div>
     <div class="mt-1.5 flex items-center gap-2">
       <label class="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-sm ring-1 ring-black/10" :style="{ backgroundColor: model }" :class="props.disabled && 'pointer-events-none opacity-60'">
         <span class="sr-only">Pick {{ label.toLowerCase() }}</span>
@@ -62,5 +65,6 @@ const id = `color-${Math.random().toString(36).slice(2, 8)}`
         @click="model = swatch"
       />
     </div>
+    <slot />
   </div>
 </template>

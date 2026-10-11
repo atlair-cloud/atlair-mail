@@ -22,6 +22,7 @@ import {
 import type { Template } from "@atlair-mail/db/schema";
 import {
   renderTemplate,
+  type RenderOptions,
   validateTemplate,
   type TemplateInput,
   type TemplateSource,
@@ -115,7 +116,7 @@ const publishedByOf = (version: { publishedBy: string | null; publishedByApiKeyI
   createdByApiKeyId: version.publishedByApiKeyId,
 });
 
-export function createTemplateService(db: Database) {
+export function createTemplateService(db: Database, renderOptions: RenderOptions = {}) {
   const toPublic = async (template: Template) => ({
     id: template.id,
     name: template.name,
@@ -218,7 +219,7 @@ export function createTemplateService(db: Database) {
       if (input.revision !== undefined && draft.revision !== input.revision) throw new TemplateChangedError(draft.revision);
       if (draft.publishedRevision === draft.revision) return toPublic(draft);
       const source = validateTemplate(draft);
-      await renderTemplate(source, {}, "preview");
+      await renderTemplate(source, {}, "preview", renderOptions);
       const published = await db.transaction(async (tx) => {
         const locked = await lockTemplate(tx, organizationId, id);
         if (!locked) return null;
@@ -316,24 +317,24 @@ export function createTemplateService(db: Database) {
         return removed;
       }),
 
-    previewDraft: (input: TemplateInput, values: VariableValues = {}) => renderTemplate(validateTemplate(input), values, "preview"),
+    previewDraft: (input: TemplateInput, values: VariableValues = {}) => renderTemplate(validateTemplate(input), values, "preview", renderOptions),
 
     async preview(organizationId: string, idOrAlias: string, values: VariableValues = {}, choice: TemplateVersionChoice = "draft") {
       if (choice === "draft") {
         const template = await findTemplate(db, organizationId, idOrAlias);
-        return template && renderTemplate(sourceOf(template), values, "preview");
+        return template && renderTemplate(sourceOf(template), values, "preview", renderOptions);
       }
       const row = await findSendableVersion(db, organizationId, idOrAlias, choice);
       if (!row) return null;
       if (row.number === null) throw new TemplateVersionNotFoundError(idOrAlias, choice);
-      return renderTemplate(versionSource(row), values, "preview");
+      return renderTemplate(versionSource(row), values, "preview", renderOptions);
     },
 
     async renderForSend(organizationId: string, idOrAlias: string, values: VariableValues = {}, choice?: TemplateVersionChoice) {
       if (choice === "draft") {
         const template = await findTemplate(db, organizationId, idOrAlias);
         if (!template) throw new TemplateNotFoundError(idOrAlias);
-        return { templateId: template.id, version: null, rendered: await renderTemplate(sourceOf(template), values, "send") };
+        return { templateId: template.id, version: null, rendered: await renderTemplate(sourceOf(template), values, "send", renderOptions) };
       }
       const row = await findSendableVersion(db, organizationId, idOrAlias, choice);
       if (!row) throw new TemplateNotFoundError(idOrAlias);
@@ -341,7 +342,7 @@ export function createTemplateService(db: Database) {
         if (choice === undefined) throw new TemplateNotPublishedError(idOrAlias);
         throw new TemplateVersionNotFoundError(idOrAlias, choice);
       }
-      const rendered = await renderTemplate(versionSource(row), values, "send");
+      const rendered = await renderTemplate(versionSource(row), values, "send", renderOptions);
       return { templateId: row.templateId, version: row.number, rendered };
     },
   };

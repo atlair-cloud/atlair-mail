@@ -5,7 +5,7 @@ import { useToast } from '@nuxt/ui/composables'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { useClipboard, useEventListener } from '@vueuse/core'
 import { NodeSelection } from '@tiptap/pm/state'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import ConfirmModal from '../../../components/shared/ConfirmModal.vue'
 import FramedModal from '../../../components/shared/FramedModal.vue'
@@ -27,6 +27,7 @@ import {
 } from '../api/templates'
 import { useTemplateEditor } from '../editor/useTemplateEditor'
 import { resolveTheme } from '../lib/theme'
+import { useFillPanel } from '../lib/useFillPanel'
 import { describeTemplateError } from '../lib/errors'
 import { lintTemplate, previewableContent } from '../lib/lint'
 import { countVariables, undeclaredVariables } from '../lib/variables'
@@ -77,6 +78,10 @@ const samples = ref<VariableValues>({})
 const counts = computed(() => countVariables(draft.value.subject, draft.value.content))
 const undeclared = computed(() => undeclaredVariables(counts.value, draft.value.variables))
 const effectiveVariables = computed<TemplateVariable[]>(() => [...draft.value.variables, ...undeclared.value.map((key) => ({ key, type: 'string' as const }))])
+const workspace = useTemplateRef<HTMLElement>('workspace')
+const workArea = useTemplateRef<HTMLElement>('workArea')
+const workAreaStyle = useFillPanel(workArea, workspace)
+
 const theme = computed(() => resolveTheme(draft.value.theme))
 
 const { editor, revision, replace } = useTemplateEditor({
@@ -360,7 +365,7 @@ const nameInputWidth = computed(() => `${Math.min(Math.max(draft.value.name.leng
 </script>
 
 <template>
-  <div>
+  <div ref="workspace">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-3">
       <RouterLink
         :to="{ name: 'templates', params: { organizationId } }"
@@ -515,8 +520,8 @@ const nameInputWidth = computed(() => `${Math.min(Math.max(draft.value.name.leng
       <span v-if="!draft.subject.trim() && !readonly" class="shrink-0 text-xs text-amber-700">Required</span>
     </div>
 
-    <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <div class="min-w-0">
+    <div ref="workArea" class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]" :style="workAreaStyle">
+      <div class="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:rounded-md lg:[scrollbar-width:thin]">
         <div v-show="mode === 'edit'">
           <TemplateCanvas v-model:device="device" :editor="editor" :theme="theme" :declared="draft.variables.map((variable) => variable.key)" :readonly="readonly" />
         </div>
@@ -532,14 +537,14 @@ const nameInputWidth = computed(() => `${Math.min(Math.max(draft.value.name.leng
         />
       </div>
 
-      <aside class="lg:sticky lg:top-4 lg:self-start" aria-label="Template settings">
-        <div class="overflow-hidden rounded-md bg-white ring-1 ring-slate-200">
+      <aside class="lg:min-h-0" aria-label="Template settings">
+        <div class="flex max-h-full flex-col overflow-hidden rounded-md bg-white ring-1 ring-slate-200">
           <div class="border-b border-slate-100 p-2">
             <SegmentedControl v-model="tab" label="Settings" :options="tabs" />
           </div>
-          <div class="max-h-[calc(100vh-14rem)] overflow-y-auto [scrollbar-width:thin]">
+          <div class="max-h-[70vh] overflow-y-auto [scrollbar-width:thin] lg:max-h-none lg:min-h-0 lg:flex-1">
             <template v-if="tab === 'block'">
-              <BlockPanel v-if="editor && mode === 'edit'" :editor="editor" :revision="revision" :readonly="readonly" />
+              <BlockPanel v-if="editor && mode === 'edit'" :editor="editor" :revision="revision" :readonly="readonly" :theme="theme" />
               <p v-else class="m-0 px-4 py-8 text-center text-xs text-slate-500">Switch to Edit to change blocks.</p>
             </template>
             <StylePanel v-else-if="tab === 'style'" v-model="themeModel" :readonly="readonly" />

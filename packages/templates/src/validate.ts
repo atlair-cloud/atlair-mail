@@ -1,6 +1,9 @@
 import {
+  buttonSizes,
+  buttonVariants,
   fontFamilies,
   markTypes,
+  socialNetworks,
   textAligns,
   type BlockNode,
   type TemplateDocument,
@@ -30,8 +33,11 @@ const flowTypes = new Set([
   "horizontalRule",
   "button",
   "image",
+  "socialLinks",
   "spacer",
 ]);
+
+export const maxSocialLinks = socialNetworks.length;
 
 const isObject = (value: unknown): value is Json => typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -68,6 +74,10 @@ class Checker {
       this.fail(path, `must be a whole number from ${min} to ${max}`);
     }
     return value;
+  }
+
+  boolean(value: unknown, path: string) {
+    if (typeof value !== "boolean") this.fail(path, "must be true or false");
   }
 
   oneOf(value: unknown, path: string, allowed: readonly string[]) {
@@ -187,6 +197,10 @@ class Checker {
       case "button":
         this.string(attrs.text, `${path}.attrs.text`, 1, 200);
         this.link(attrs.href, `${path}.attrs.href`, safeLink, "an http, https or mailto link");
+        this.optional(attrs, "color", `${path}.attrs`, (color, at) => this.color(color, at));
+        this.optional(attrs, "variant", `${path}.attrs`, (variant, at) => this.oneOf(variant, at, buttonVariants));
+        this.optional(attrs, "size", `${path}.attrs`, (size, at) => this.oneOf(size, at, buttonSizes));
+        this.optional(attrs, "fullWidth", `${path}.attrs`, (fullWidth, at) => this.boolean(fullWidth, at));
         return this.textAlign(attrs, path);
       case "image":
         this.link(attrs.src, `${path}.attrs.src`, safeImage, "an http or https image address");
@@ -197,6 +211,14 @@ class Checker {
       case "spacer":
         this.integer(attrs.height, `${path}.attrs.height`, 4, 160);
         return;
+      case "socialLinks":
+        this.array(attrs.links, `${path}.attrs.links`, 0, maxSocialLinks).forEach((value, index) => {
+          const at = `${path}.attrs.links[${index}]`;
+          const link = this.object(value, at);
+          this.oneOf(link.network, `${at}.network`, socialNetworks);
+          this.link(link.href, `${at}.href`, safeLink, "an http, https or mailto link");
+        });
+        return this.textAlign(attrs, path);
     }
   }
 
@@ -219,6 +241,7 @@ class Checker {
     if (type === "section" && allowed === "top") {
       const attrs = this.attrs(node, path);
       this.optional(attrs, "backgroundColor", `${path}.attrs`, (color, at) => this.color(color, at));
+      this.optional(attrs, "textColor", `${path}.attrs`, (color, at) => this.color(color, at));
       this.optional(attrs, "padding", `${path}.attrs`, (padding, at) => this.integer(padding, at, 0, 64));
       return this.array(node.content, `${path}.content`).forEach((child, index) =>
         this.block(child, `${path}.content[${index}]`, depth + 1, "section"),

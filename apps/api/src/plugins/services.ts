@@ -10,6 +10,7 @@ import { createOverviewService, type OverviewService } from "../services/overvie
 import { createProviderEventService, type ProviderEventService } from "../services/provider-events.ts";
 import { createRoleService, type RoleService } from "../services/roles.ts";
 import { createSuppressionService, type SuppressionService } from "../services/suppressions.ts";
+import { assetsPrefix } from "./static-assets.ts";
 import { createTemplateService, type TemplateService } from "../services/templates.ts";
 import { createWebhookService, type WebhookService } from "../services/webhooks.ts";
 import {
@@ -48,7 +49,8 @@ export default fp(
       fastify.log.child({ component: "provider" }),
     );
     const emailEvents = createEmailEventService(fastify.db);
-    const templates = createTemplateService(fastify.db);
+    const publicUrl = fastify.config.BETTER_AUTH_URL.replace(/\/+$/, "");
+    const templates = createTemplateService(fastify.db, { assetsUrl: publicUrl ? `${publicUrl}${assetsPrefix}` : null });
     const emails = createEmailService(fastify.db, templates);
     fastify.decorate("services", {
       apiKeys: createApiKeyService(fastify.db),

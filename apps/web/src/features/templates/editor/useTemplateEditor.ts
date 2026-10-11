@@ -1,4 +1,5 @@
 import { Extension, type Editor } from '@tiptap/core'
+import type { Node as PMNode } from '@tiptap/pm/model'
 import { useEditor } from '@tiptap/vue-3'
 import { shallowRef, watch, type Ref } from 'vue'
 import type { TemplateDocument } from '../api/templates'
@@ -6,10 +7,20 @@ import { templateExtensions } from './extensions'
 
 const blockParents = new Set(['doc', 'column', 'section'])
 
-export function currentBlock(editor: Editor) {
+export type LocatedNode = { pos: number; node: PMNode }
+
+export function setNodeAttrs(editor: Editor, target: LocatedNode | null, patch: Record<string, unknown>) {
+  if (!target) return
+  const { state, view } = editor
+  const node = state.doc.nodeAt(target.pos)
+  if (!node) return
+  view.dispatch(state.tr.setNodeMarkup(target.pos, undefined, { ...node.attrs, ...patch }))
+}
+
+export function currentBlock(editor: Editor): LocatedNode | null {
   const { selection } = editor.state
   const $from = selection.$from
-  if ('node' in selection && selection.node) return { pos: selection.from, node: selection.node as NonNullable<ReturnType<typeof editor.state.doc.nodeAt>> }
+  if ('node' in selection && selection.node) return { pos: selection.from, node: selection.node as PMNode }
   for (let depth = $from.depth; depth > 0; depth--) {
     if (blockParents.has($from.node(depth - 1).type.name)) return { pos: $from.before(depth), node: $from.node(depth) }
   }
