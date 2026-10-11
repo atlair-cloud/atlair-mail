@@ -4,7 +4,6 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [tailwindcss(), reactRouter()],
-  base: "/mail",
   resolve: {
     tsconfigPaths: true,
   },
