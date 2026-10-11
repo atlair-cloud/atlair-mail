@@ -1,0 +1,2 @@
+ALTER TABLE "audit_logs" ADD COLUMN "actor_api_key_id" uuid;--> statement-breakpoint
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_actor_api_key_id_api_keys_id_fk" FOREIGN KEY ("actor_api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE set null ON UPDATE no action;

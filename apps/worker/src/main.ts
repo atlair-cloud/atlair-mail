@@ -24,7 +24,12 @@ const worker = createWorker({
 });
 
 const webhooks = createWebhookDispatcher({ db, cipher, logger: logger.child({ component: "webhooks" }) });
-const events = createEventPoller({ db, cipher, logger: logger.child({ component: "provider-events" }) });
+const events = createEventPoller({
+  db,
+  cipher,
+  logger: logger.child({ component: "provider-events" }),
+  emptyPollDelaySeconds: env.EVENT_POLL_INTERVAL_SECONDS,
+});
 const loops = { email: worker, webhook: webhooks, events } as const;
 const listener = createWorkListener({
   url: env.DATABASE_LISTEN_URL ?? env.DATABASE_URL,

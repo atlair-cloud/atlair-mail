@@ -146,6 +146,28 @@ describe("provider event poller", { skip: !databaseUrl }, () => {
     assert.ok(after.eventsPollAfter && after.eventsPollAfter.getTime() <= Date.now() + 1_000);
   });
 
+  it("waits the poll interval after an empty receive, and polls again right away after events", async () => {
+    const { connection, topicArn, providerMessageId } = await pullConnection();
+    const queue = fakeQueue();
+
+    const started = Date.now();
+    await pollConnection(await claim(connection.id), options(queue.provider), new AbortController().signal);
+    const idle = (await readConnection(connection.id)).eventsPollAfter!.getTime();
+
+    queue.add(delivered(topicArn, providerMessageId));
+    await makeDue(connection.id);
+    await pollConnection(await claim(connection.id), options(queue.provider, { emptyPollDelaySeconds: 60 }), new AbortController().signal);
+    const busy = (await readConnection(connection.id)).eventsPollAfter!.getTime();
+
+    await makeDue(connection.id);
+    await pollConnection(await claim(connection.id), options(queue.provider, { emptyPollDelaySeconds: 60 }), new AbortController().signal);
+    const configured = (await readConnection(connection.id)).eventsPollAfter!.getTime();
+
+    assert.ok(idle >= started + 600_000 - 1_000 && idle <= Date.now() + 600_000 + 1_000);
+    assert.ok(busy <= Date.now() + 1_000);
+    assert.ok(configured >= Date.now() + 60_000 - 2_000 && configured <= Date.now() + 60_000 + 1_000);
+  });
+
   it("only deletes after the event is committed, and a redelivery is recorded once", async () => {
     const { connection, topicArn, providerMessageId, emailId } = await pullConnection();
     const queue = fakeQueue();

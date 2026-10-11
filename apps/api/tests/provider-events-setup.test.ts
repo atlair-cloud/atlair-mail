@@ -45,6 +45,7 @@ const disabledEvents = {
   status: "disabled",
   confirmedAt: null,
   lastReceivedAt: null,
+  nextCheckAt: null,
   lastError: null,
   backlog: null,
   deadLetters: null,
@@ -277,7 +278,36 @@ describe("POST /service/web/provider/events in pull mode", { skip: !hasDatabase 
     assert.ok(!res.body.includes("sqs.") && !res.body.includes(account));
     assert.equal(row!.settings.eventQueueUrl, queueFor(connectionId).url);
     assert.ok(row!.eventsPollAfter);
+    assert.equal(res.json().events.nextCheckAt, row!.eventsPollAfter!.toISOString());
     assert.deepEqual(unsubscribed(), [`${topicArn}:https`]);
+  });
+
+  it("records connecting, each events setup and disconnecting in the audit log, with the API key", async () => {
+    const app = await buildTestApp();
+    const { token, keyId, organizationId, connectionId } = await connectedKey(app);
+    await app.inject({ method: "PUT", url: "/service/web/provider", headers: auth(token), payload: input });
+    await setUp(app, token, { url: "https://a.example.com" });
+    listing(connectionId);
+    await setUp(app, token, { mode: "pull" });
+    await app.inject({ method: "DELETE", url: "/service/web/provider", headers: auth(token) });
+
+    const entries = await app.db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.organizationId, organizationId))
+      .orderBy(schema.auditLogs.id);
+
+    assert.deepEqual(
+      entries.map((entry) => entry.action),
+      ["provider.connected", "provider.credentials_replaced", "provider.events_enabled", "provider.events_changed", "provider.disconnected"],
+    );
+    assert.ok(entries.every((entry) => entry.actorApiKeyId === keyId && entry.actorUserId === null));
+    assert.deepEqual(entries[2]!.changes, { after: { mode: "push", url: "https://a.example.com" } });
+    assert.deepEqual(entries[3]!.changes, {
+      before: { mode: "push", url: "https://a.example.com" },
+      after: { mode: "pull", url: null },
+    });
+    assert.ok(!JSON.stringify(entries).includes(input.secretAccessKey));
   });
 
   it("switching back to push keeps the queue subscription until the new one is confirmed", async () => {

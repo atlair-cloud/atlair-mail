@@ -55,7 +55,7 @@ export async function deleteProviderConnection(db: Executor, organizationId: str
   const [connection] = await db
     .delete(providerConnections)
     .where(eq(providerConnections.organizationId, organizationId))
-    .returning({ id: providerConnections.id });
+    .returning({ id: providerConnections.id, settings: providerConnections.settings });
   return connection ?? null;
 }
 

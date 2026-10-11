@@ -71,7 +71,7 @@ export const suppressionRoutes =
         },
       },
       async (request, reply) => {
-        const removed = await fastify.services.suppressions.remove(scope.organizationId(request), request.params.id);
+        const removed = await fastify.services.suppressions.remove(scope.organizationId(request), request.params.id, scope.actor(request));
         if (!removed) throw fastify.httpErrors.notFound("Suppression not found");
         return reply.code(204).send(null);
       },

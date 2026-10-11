@@ -29,6 +29,10 @@ const ProviderEventsSchema = Type.Object(
     }),
     confirmedAt: nullable(DateTime()),
     lastReceivedAt: nullable(DateTime(), "In pull mode, when the worker last received an event."),
+    nextCheckAt: nullable(
+      DateTime(),
+      "In pull mode, when the worker next reads the queue. After an empty read it waits EVENT_POLL_INTERVAL_SECONDS (10 minutes by default); after events it reads again right away.",
+    ),
     lastError: nullable(Type.String(), "In pull mode, why the last poll failed, for example ATL_PROVIDER_REJECTED: AccessDenied."),
     backlog: nullable(Type.Integer(), "In pull mode, events waiting in the queue, refreshed every few minutes."),
     deadLetters: nullable(

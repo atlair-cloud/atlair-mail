@@ -3,6 +3,7 @@ import {
   deleteSuppression,
   findSuppression,
   listSuppressions,
+  recordAudit,
   suppressAddresses,
   type Actor,
   type Database,
@@ -59,13 +60,26 @@ export function createSuppressionService(db: Database) {
 
     async add(organizationId: string, input: string, actor: Actor) {
       const address = normalizeAddress(input);
-      const [created] = await suppressAddresses(db, organizationId, [{ address, reason: "manual" }], null, actor);
+      const created = await db.transaction(async (tx) => {
+        const [row] = await suppressAddresses(tx, organizationId, [{ address, reason: "manual" }], null, actor);
+        if (row) {
+          await recordAudit(tx, { organizationId, actor, action: "suppression.added", entityType: "suppression", entityId: row.id, changes: { address } });
+        }
+        return row;
+      });
       const row = created ?? (await findSuppression(db, organizationId, address))!;
       const [suppression] = await withCreators([row]);
       return { suppression: suppression!, created: created !== undefined };
     },
 
-    remove: (organizationId: string, id: string) => deleteSuppression(db, organizationId, id),
+    remove: (organizationId: string, id: string, actor: Actor) =>
+      db.transaction(async (tx) => {
+        const removed = await deleteSuppression(tx, organizationId, id);
+        if (removed) {
+          await recordAudit(tx, { organizationId, actor, action: "suppression.removed", entityType: "suppression", entityId: id, changes: { address: removed.address } });
+        }
+        return removed;
+      }),
   };
 }
 

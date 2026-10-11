@@ -13,6 +13,7 @@ import {
   SESv2Client,
   SESv2ServiceException,
 } from "@aws-sdk/client-sesv2";
+import { and, eq, like } from "drizzle-orm";
 import { schema } from "@atlair-mail/db";
 import { v7 as uuidv7 } from "uuid";
 import { auth, buildTestApp, createTestKey, hasDatabase } from "./helpers.ts";
@@ -42,6 +43,15 @@ async function connectedOrganization(app: TestApp) {
   });
   return owner;
 }
+
+const domainAudit = async (app: TestApp, organizationId: string) =>
+  (
+    await app.db
+      .select()
+      .from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.organizationId, organizationId), like(schema.auditLogs.action, "domain.%")))
+      .orderBy(schema.auditLogs.id)
+  ).map((entry) => [entry.action, entry.changes] as const);
 
 const addDomain = (app: TestApp, token: string, name = `${uuidv7()}.example.com`) =>
   app.inject({ method: "POST", url, headers: auth(token), payload: { name } });
@@ -114,10 +124,10 @@ describe("/service/web/domains", { skip: !hasDatabase }, () => {
     assert.ok(body.verifiedAt);
   });
 
-  it("moves through pending, verified and failed on verify", async () => {
+  it("moves through pending, verified and failed on verify, auditing only real status changes", async () => {
     const app = await buildTestApp();
-    const { token } = await connectedOrganization(app);
-    const { id } = (await addDomain(app, token)).json();
+    const { token, organizationId } = await connectedOrganization(app);
+    const { id, name } = (await addDomain(app, token)).json();
     const verify = async () =>
       (await app.inject({ method: "POST", url: `${url}/${id}/verify`, headers: auth(token) })).json();
 
@@ -140,11 +150,16 @@ describe("/service/web/domains", { skip: !hasDatabase }, () => {
     assert.equal(missing.records.length, 4);
     assert.equal(stored.status, "failed");
     assert.ok(stored.lastCheckedAt);
+    assert.deepEqual(await domainAudit(app, organizationId), [
+      ["domain.added", { name }],
+      ["domain.verified", { name, before: { status: "pending" }, after: { status: "verified" } }],
+      ["domain.verification_lost", { name, before: { status: "verified" }, after: { status: "failed" } }],
+    ]);
   });
 
   it("lists, gets and removes domains", async () => {
     const app = await buildTestApp();
-    const { token } = await connectedOrganization(app);
+    const { token, organizationId } = await connectedOrganization(app);
     const first = (await addDomain(app, token)).json();
     const second = (await addDomain(app, token)).json();
 
@@ -158,6 +173,7 @@ describe("/service/web/domains", { skip: !hasDatabase }, () => {
     );
     assert.equal(removed.statusCode, 204);
     assert.equal(gone.statusCode, 404);
+    assert.deepEqual((await domainAudit(app, organizationId)).at(-1), ["domain.removed", { name: first.name }]);
   });
 });
 

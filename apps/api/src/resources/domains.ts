@@ -99,7 +99,7 @@ export const domainRoutes =
         },
       },
       async (request, reply) => {
-        const removed = await fastify.services.domains.remove(scope.organizationId(request), request.params.id);
+        const removed = await fastify.services.domains.remove(scope.organizationId(request), request.params.id, scope.actor(request));
         if (!removed) throw fastify.httpErrors.notFound("Domain not found");
         return reply.code(204).send(null);
       },

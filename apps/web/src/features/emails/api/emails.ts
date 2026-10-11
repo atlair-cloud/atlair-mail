@@ -36,12 +36,14 @@ export async function listEmailEvents(organizationId: string, emailId: string) {
 
 export const deliveryTrackingQueryKey = (organizationId: string) => ['organizations', organizationId, 'provider', 'tracking'] as const
 
-export async function getDeliveryTracking(organizationId: string) {
+export type DeliveryTracking = { on: boolean; nextCheckAt: string | null }
+
+export async function getDeliveryTracking(organizationId: string): Promise<DeliveryTracking> {
   try {
-    const provider = await apiFetch<{ events: { status: string } }>(`/organizations/${organizationId}/provider`)
-    return provider.events.status === 'confirmed'
+    const provider = await apiFetch<{ events: { status: string; nextCheckAt: string | null } }>(`/organizations/${organizationId}/provider`)
+    return { on: provider.events.status === 'confirmed', nextCheckAt: provider.events.nextCheckAt }
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return false
+    if (error instanceof ApiError && error.status === 404) return { on: false, nextCheckAt: null }
     throw error
   }
 }

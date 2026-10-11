@@ -8,6 +8,7 @@ import {
   insertDomain,
   listDomainsByOrganization,
   pgErrorCodes,
+  recordAudit,
   updateDomainVerification,
   type Actor,
   type Database,
@@ -80,15 +81,21 @@ export function createDomainService(db: Database, providerConnections: ProviderC
       if (!name) throw new InvalidDomainNameError();
       const provider = await providerConnections.requireProvider(organizationId);
       const verification = await withReturnPath(provider, name, await provider.createDomain(name));
-      const domain = await insertDomain(db, {
-        organizationId,
-        name,
-        status: verification.status,
-        dnsRecords: verification.dnsRecords,
-        lastCheckedAt: new Date(),
-        verifiedAt: verification.status === "verified" ? new Date() : null,
-        ...creatorColumns(actor),
-        ...editorColumns(actor),
+      const domain = await db.transaction(async (tx) => {
+        const inserted = await insertDomain(tx, {
+          organizationId,
+          name,
+          status: verification.status,
+          dnsRecords: verification.dnsRecords,
+          lastCheckedAt: new Date(),
+          verifiedAt: verification.status === "verified" ? new Date() : null,
+          ...creatorColumns(actor),
+          ...editorColumns(actor),
+        });
+        if (inserted) {
+          await recordAudit(tx, { organizationId, actor, action: "domain.added", entityType: "domain", entityId: inserted.id, changes: { name } });
+        }
+        return inserted;
       });
       if (!domain) throw new DomainExistsError(name);
       return toPublicDomain(domain);
@@ -112,13 +119,32 @@ export function createDomainService(db: Database, providerConnections: ProviderC
       const provider = await providerConnections.requireProvider(organizationId);
       const found = await provider.getDomain(domain.name);
       const verification = found && (await withReturnPath(provider, domain.name, found));
-      const updated = await updateDomainVerification(db, key, verification ?? { status: "failed" }, actor);
+      const updated = await db.transaction(async (tx) => {
+        const row = await updateDomainVerification(tx, key, verification ?? { status: "failed" }, actor);
+        if (row && row.status !== domain.status && (row.status === "verified" || domain.status === "verified")) {
+          await recordAudit(tx, {
+            organizationId,
+            actor,
+            action: row.status === "verified" ? "domain.verified" : "domain.verification_lost",
+            entityType: "domain",
+            entityId: id,
+            changes: { name: domain.name, before: { status: domain.status }, after: { status: row.status } },
+          });
+        }
+        return row;
+      });
       return updated && toPublicDomain(updated);
     },
 
-    async remove(organizationId: string, id: string) {
+    async remove(organizationId: string, id: string, actor: Actor) {
       try {
-        return await deleteDomain(db, { id, organizationId });
+        return await db.transaction(async (tx) => {
+          const removed = await deleteDomain(tx, { id, organizationId });
+          if (removed) {
+            await recordAudit(tx, { organizationId, actor, action: "domain.removed", entityType: "domain", entityId: id, changes: { name: removed.name } });
+          }
+          return removed;
+        });
       } catch (error) {
         if (hasPgErrorCode(error, pgErrorCodes.foreignKeyViolation)) throw new DomainInUseError();
         throw error;

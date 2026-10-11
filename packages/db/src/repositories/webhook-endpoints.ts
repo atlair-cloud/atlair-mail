@@ -58,7 +58,7 @@ export async function deleteWebhookEndpoint(db: Executor, organizationId: string
   const [endpoint] = await db
     .delete(webhookEndpoints)
     .where(inOrganization(organizationId, id))
-    .returning({ id: webhookEndpoints.id });
+    .returning({ id: webhookEndpoints.id, url: webhookEndpoints.url });
   return endpoint ?? null;
 }
 

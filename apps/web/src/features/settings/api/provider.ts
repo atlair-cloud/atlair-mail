@@ -5,17 +5,22 @@ export type ProviderAccount = { sendingEnabled: boolean; sandbox: boolean; daily
 
 export type EventsStatus = 'disabled' | 'pending_confirmation' | 'confirmed' | 'failing'
 
+export type EventsMode = 'push' | 'pull'
+
+export type EventsSetup = { mode: 'pull' } | { mode: 'push'; url: string }
+
 export type ProviderConnection = Authorship & {
   id: string
   type: 'ses'
   region: string
   accessKeyId: string
   events: {
-    mode: 'push' | 'pull' | null
+    mode: EventsMode | null
     url: string | null
     status: EventsStatus
     confirmedAt: string | null
     lastReceivedAt: string | null
+    nextCheckAt: string | null
     lastError: string | null
     backlog: number | null
     deadLetters: number | null
@@ -40,8 +45,8 @@ export function connectSes(organizationId: string, input: { region: string; acce
   return apiFetch<ProviderConnection>(base(organizationId), { method: 'PUT', body: JSON.stringify({ type: 'ses', ...input }) })
 }
 
-export function turnOnDeliveryEvents(organizationId: string) {
-  return apiFetch<ProviderConnection>(`${base(organizationId)}/events`, { method: 'POST', body: JSON.stringify({ mode: 'pull' }) })
+export function turnOnDeliveryEvents(organizationId: string, setup: EventsSetup) {
+  return apiFetch<ProviderConnection>(`${base(organizationId)}/events`, { method: 'POST', body: JSON.stringify(setup) })
 }
 
 export function redriveEvents(organizationId: string) {

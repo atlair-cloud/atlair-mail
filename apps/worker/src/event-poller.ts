@@ -25,6 +25,7 @@ import {
   eventReceiveWaitSeconds,
   eventStatsIntervalMs,
   idleWaitMs,
+  emptyEventPollDelaySeconds,
 } from "./settings.ts";
 
 export type MessageHandler = (
@@ -40,6 +41,7 @@ export interface EventPollerOptions {
   concurrency?: number;
   idle?: IdleWait;
   waitSeconds?: number;
+  emptyPollDelaySeconds?: number;
   providerFor?: (connection: ProviderConnection) => Promise<EmailProvider>;
   handleMessage?: MessageHandler;
 }
@@ -54,6 +56,16 @@ export interface PollOutcome {
 
 export const eventPollBackoffMs = (failures: number) =>
   Math.min(eventPollBackoffSeconds.first * 2 ** Math.max(failures - 1, 0), eventPollBackoffSeconds.max) * 1_000;
+
+export function nextPollDelayMs(
+  outcome: PollOutcome,
+  connection: Pick<ProviderConnection, "eventsFailures">,
+  options: Pick<EventPollerOptions, "emptyPollDelaySeconds">,
+) {
+  if (outcome.error) return eventPollBackoffMs(connection.eventsFailures + 1);
+  if (outcome.received > 0) return 0;
+  return (options.emptyPollDelaySeconds ?? emptyEventPollDelaySeconds) * 1_000;
+}
 
 const defaultHandler: MessageHandler = (context, connection, body) =>
   handleProviderMessage(context, connection, "pull", body);
@@ -113,9 +125,8 @@ export async function pollConnection(
     }
   }
 
-  const nextPollAt = outcome.stopped
-    ? null
-    : new Date(Date.now() + (outcome.error ? eventPollBackoffMs(connection.eventsFailures + 1) : 0));
+  const delayMs = signal.aborted ? 0 : nextPollDelayMs(outcome, connection, options);
+  const nextPollAt = outcome.stopped ? null : new Date(Date.now() + delayMs);
   await finishEventPoll(db, {
     id: connection.id,
     leaseUntil,

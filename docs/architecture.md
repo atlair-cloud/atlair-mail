@@ -92,7 +92,7 @@ erDiagram
 | `organizations` | Ownership and isolation root, with a unique `slug` and `deactivated_at`. | ATL-80, ATL-100 |
 | `auth.user`, `auth.session`, `auth.account`, `auth.verification`, `auth.rate_limit` | Better Auth's tables, in their own Postgres schema. | ATL-100 |
 | `roles`, `members` | Per-organization roles with `permissions text[]`; one membership per user and organization. | ATL-100 |
-| `audit_logs` | Append-only record of organization, member and sign-in changes. | ATL-100 |
+| `audit_logs` | Append-only record of sign-ins and of every settings change in an organization: members, API keys, domains, templates, webhooks, suppressions and the provider. Each entry names the member or the API key that made it. | ATL-100 |
 | `api_keys` | A named key per caller: `permission` (`full_access` \| `sending_access`), `token_hash` (SHA-256; the token is shown once), `token_prefix`, `last_used_at`, `revoked_at`. | ATL-80 |
 | `provider_connections` | One per organization: `provider` type, non-secret `settings` (jsonb), encrypted `credentials`. | ATL-75, ATL-93 |
 | `domains` | Sending domains: provider-issued `dns_records` (jsonb) and verification `status`. Unique per organization. | ATL-77, ATL-81, ATL-93 |

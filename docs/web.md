@@ -44,7 +44,9 @@ src/
   `Api-Version: 1` and the session cookie, and throws `ApiError` with the HTTP status.
 - Routes opt into auth with `meta.requiresAuth`; sign-in pages use `meta.guestOnly`.
 - `/` sends a signed-in user to onboarding (no organization), their only organization, the last one
-  they used, or the organization list.
+  they used, or the organization list. The organization list and every `/organizations/:organizationId`
+  page also send a user with no organization to onboarding, so a sign-in that returns to an old link
+  (for example an organization that was deleted) still lands on "Create your organization".
 - Name and logo come from `src/lib/brand.ts`.
 
 ## Pages
@@ -69,7 +71,7 @@ src/
 | `/organizations/:organizationId/suppressions` | Suppressed addresses with reason and source email; look up, add, remove |
 | `/organizations/:organizationId/playground` | Compose an email, see the same request as cURL, Node.js or Python, send it with your session and watch its status. Recipient shortcuts include Amazon's simulator addresses, which work in the SES sandbox |
 | `/organizations/:organizationId/settings` | General: name, slug (checked live), ID, deactivate (owner) |
-| `/organizations/:organizationId/settings/provider` | SES connection, delivery tracking status, retry set-aside events, replace credentials, disconnect |
+| `/organizations/:organizationId/settings/provider` | SES connection, delivery tracking status, switch between pull and push, retry set-aside events, replace credentials, disconnect |
 | `/organizations/:organizationId/settings/members` | Add (they must have signed in once), change role, remove or leave |
 | `/organizations/:organizationId/settings/audit-log` | Who changed the organization and its members (owners and admins) |
 
@@ -86,7 +88,10 @@ from one request, `GET /service/panel/organizations/:id/overview` (`services/ove
 - **Setup** (`health: "setup"`, until SES is connected, a domain is verified and an email was sent):
   a four-step guide done in place, each step ticked from real data. The open step follows progress.
   1. Connect Amazon SES: region and access key, with the least-privilege IAM policy to copy. Then
-     "Turn on tracking" sets up delivery events in pull mode (no public address needed).
+     "Turn on tracking" asks how events arrive: "Check a queue" (pull, the default, no public address
+     needed) or "Send to this server" (push, with the API's public https address, prefilled from
+     `VITE_API_URL` when it is https). Settings → Provider shows the mode, the push address or the next
+     pull check, and "Change…" switches mode.
   2. Verify a domain: add it, then copy each DNS record (required and recommended), see which ones
      SES found, and "Check now". Refreshes every 15 seconds while pending.
   3. Create an API key: name and permission; the token is shown once and filled into step 4.
@@ -129,7 +134,8 @@ detail pages (for example Emails / subject), and ⌘K jumps to sections and comm
 - The detail page builds "What happened" from the email and its events: queued, scheduled, accepted
   by SES, then delivered, delayed, bounced (soft or permanent, with each recipient's diagnostic),
   complained, opened, clicked, or failed with the worker's error code explained. While waiting it
-  shows the next step and polls every 4 seconds.
+  shows the next step and polls every 4 seconds. Once an email is `sent` on a pull-mode connection,
+  it shows when the worker next reads the queue (`events.nextCheckAt`) and polls every 30 seconds.
 - HTML bodies render in an `<iframe sandbox="">` with `srcdoc`, so scripts and forms never run.
 
 ## Template editor

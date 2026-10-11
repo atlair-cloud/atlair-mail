@@ -65,5 +65,8 @@ export const AuditLogSchema = Type.Object({
   entityId: Type.String(),
   changes: Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()]),
   actor: Type.Union([Type.Object({ id: Uuid(), name: Type.String(), email: Type.String() }), Type.Null()]),
+  apiKey: Type.Union([Type.Object({ id: Uuid(), name: Type.String() }), Type.Null()], {
+    description: "The API key that made the change, when it came through the API instead of the panel.",
+  }),
   createdAt: DateTime(),
 });

@@ -78,6 +78,6 @@ export async function deleteSuppression(db: Executor, organizationId: string, id
   const [row] = await db
     .delete(suppressedAddresses)
     .where(and(eq(suppressedAddresses.organizationId, organizationId), eq(suppressedAddresses.id, id)))
-    .returning({ id: suppressedAddresses.id });
+    .returning({ id: suppressedAddresses.id, address: suppressedAddresses.address });
   return row ?? null;
 }

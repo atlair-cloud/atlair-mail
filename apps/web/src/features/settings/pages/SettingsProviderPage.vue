@@ -39,6 +39,9 @@ const EVENTS: Record<EventsStatus, { label: string; dot: string; text: string }>
   disabled: { label: 'Off', dot: 'bg-slate-300', text: 'Emails stay at “sent”: you won’t see deliveries, bounces or complaints.' },
 }
 
+const changingEvents = ref(false)
+const otherMode = computed(() => (provider.value?.events.mode === 'pull' ? 'push' : 'pull'))
+
 const redrive = useMutation({
   mutationFn: () => redriveEvents(organizationId.value),
   async onSuccess() {
@@ -105,15 +108,30 @@ const disconnect = useMutation({
         <p v-if="provider.events.lastError" role="alert" class="m-0 break-words rounded-sm bg-red-50 px-3 py-2 font-mono text-xs text-red-700 ring-1 ring-red-200">{{ provider.events.lastError }}</p>
         <dl v-if="provider.events.mode" class="m-0 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
           <div><dt class="text-xs text-slate-500">Mode</dt><dd class="m-0 mt-0.5 text-slate-900">{{ provider.events.mode === 'pull' ? 'Queue (pull)' : 'Push' }}</dd></div>
+          <div v-if="provider.events.url" class="min-w-0 sm:col-span-2"><dt class="text-xs text-slate-500">Address</dt><dd class="m-0 mt-0.5 truncate font-mono text-slate-900" :title="provider.events.url">{{ provider.events.url }}</dd></div>
           <div><dt class="text-xs text-slate-500">Last event</dt><dd class="m-0 mt-0.5 text-slate-900">{{ provider.events.lastReceivedAt ? formatRelativeTime(provider.events.lastReceivedAt) : '—' }}</dd></div>
+          <div v-if="provider.events.nextCheckAt"><dt class="text-xs text-slate-500">Next check</dt><dd class="m-0 mt-0.5 text-slate-900" :title="new Date(provider.events.nextCheckAt).toLocaleString()">{{ new Date(provider.events.nextCheckAt).getTime() > Date.now() ? formatRelativeTime(provider.events.nextCheckAt) : 'Now' }}</dd></div>
           <div v-if="provider.events.backlog !== null"><dt class="text-xs text-slate-500">Waiting</dt><dd class="m-0 mt-0.5 tabular-nums text-slate-900">{{ provider.events.backlog }}</dd></div>
           <div v-if="provider.events.deadLetters !== null"><dt class="text-xs text-slate-500">Set aside</dt><dd class="m-0 mt-0.5 tabular-nums" :class="provider.events.deadLetters ? 'font-medium text-amber-700' : 'text-slate-900'">{{ provider.events.deadLetters }}</dd></div>
         </dl>
         <DeliveryTrackingCard v-if="canManage && provider.events.status === 'disabled'" :organization-id="organizationId" />
+        <DeliveryTrackingCard
+          v-else-if="canManage && changingEvents"
+          :organization-id="organizationId"
+          :initial-mode="otherMode"
+          :initial-url="provider.events.url"
+          cancellable
+          @done="changingEvents = false"
+          @cancel="changingEvents = false"
+        />
       </div>
-      <template v-if="canManage && provider.events.mode === 'pull' && provider.events.deadLetters" #footer>
-        <p class="m-0 text-xs text-slate-600">{{ provider.events.deadLetters }} events failed 10 times and were set aside.</p>
-        <UButton type="button" size="md" :loading="redrive.isPending.value" class="h-9 rounded-sm bg-atlair-950 px-3.5 text-sm font-medium text-canvas hover:bg-atlair-900" @click="redrive.mutate()">Retry them</UButton>
+      <template v-if="canManage && provider.events.mode && !changingEvents" #footer>
+        <p v-if="provider.events.mode === 'pull' && provider.events.deadLetters" class="m-0 text-xs text-slate-600">{{ provider.events.deadLetters }} events failed 10 times and were set aside.</p>
+        <p v-else class="m-0 text-xs text-slate-500">{{ provider.events.mode === 'pull' ? 'Results show up within about 10 minutes. Send them to this server for results within seconds.' : 'If this server can’t be reached from the internet, check a queue instead.' }}</p>
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
+          <UButton type="button" size="md" color="neutral" variant="outline" class="h-9 rounded-sm bg-white px-3.5 text-sm font-medium text-slate-800 ring-slate-200 hover:bg-slate-100" @click="changingEvents = true">Change…</UButton>
+          <UButton v-if="provider.events.mode === 'pull' && provider.events.deadLetters" type="button" size="md" :loading="redrive.isPending.value" class="h-9 rounded-sm bg-atlair-950 px-3.5 text-sm font-medium text-canvas hover:bg-atlair-900" @click="redrive.mutate()">Retry them</UButton>
+        </div>
       </template>
     </SettingsCard>
 

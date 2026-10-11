@@ -65,7 +65,7 @@ export const providerRoutes =
         },
       },
       async (request, reply) =>
-        reply.code(202).send(await fastify.services.providerConnections.redriveEvents(scope.organizationId(request))),
+        reply.code(202).send(await fastify.services.providerConnections.redriveEvents(scope.organizationId(request), scope.actor(request))),
     );
 
     fastify.get(
@@ -100,7 +100,7 @@ export const providerRoutes =
         },
       },
       async (request, reply) => {
-        const removed = await fastify.services.providerConnections.remove(scope.organizationId(request));
+        const removed = await fastify.services.providerConnections.remove(scope.organizationId(request), scope.actor(request));
         if (!removed) throw fastify.httpErrors.notFound("No email provider connected");
         return reply.code(204).send(null);
       },

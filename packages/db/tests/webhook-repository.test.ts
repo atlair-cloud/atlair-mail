@@ -92,7 +92,7 @@ describe("webhook repositories", { skip: !databaseUrl }, () => {
 
     const updated = await updateWebhookEndpoint(t.db, organization.id, created.id, { eventTypes: ["bounced"] }, system);
     assert.deepEqual(updated?.eventTypes, ["bounced"]);
-    assert.deepEqual(await deleteWebhookEndpoint(t.db, organization.id, created.id), { id: created.id });
+    assert.deepEqual(await deleteWebhookEndpoint(t.db, organization.id, created.id), { id: created.id, url: created.url });
     assert.equal(await findWebhookEndpoint(t.db, organization.id, created.id), null);
   });
 

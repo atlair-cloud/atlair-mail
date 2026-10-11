@@ -4,6 +4,7 @@ import {
   findApiKeyInOrganization,
   insertApiKey,
   listApiKeysByOrganization,
+  recordAudit,
   revokeApiKey,
   type Actor,
   type ApiKeyPermission,
@@ -32,14 +33,25 @@ const toPublicApiKey = (key: ApiKey) => ({
 
 export async function createApiKey(db: Executor, organizationId: string, input: NewApiKeyInput, actor: Actor | null) {
   const { token, tokenHash, tokenPrefix } = generateApiKeyToken();
-  const key = await insertApiKey(db, {
-    organizationId,
-    name: input.name,
-    permission: input.permission,
-    tokenHash,
-    tokenPrefix,
-    ...creatorColumns(actor),
-    ...editorColumns(actor),
+  const key = await db.transaction(async (tx) => {
+    const created = await insertApiKey(tx, {
+      organizationId,
+      name: input.name,
+      permission: input.permission,
+      tokenHash,
+      tokenPrefix,
+      ...creatorColumns(actor),
+      ...editorColumns(actor),
+    });
+    await recordAudit(tx, {
+      organizationId,
+      actor,
+      action: "api_key.created",
+      entityType: "api_key",
+      entityId: created.id,
+      changes: { name: created.name, permission: created.permission },
+    });
+    return created;
   });
   return { ...toPublicApiKey(key), ...(await withAuthors(db, key)), token };
 }
@@ -57,7 +69,14 @@ export function createApiKeyService(db: Database) {
 
     async revoke(organizationId: string, id: string, actor: Actor) {
       const key = { id, organizationId };
-      const row = (await revokeApiKey(db, key, actor)) ?? (await findApiKeyInOrganization(db, key));
+      const revoked = await db.transaction(async (tx) => {
+        const row = await revokeApiKey(tx, key, actor);
+        if (row) {
+          await recordAudit(tx, { organizationId, actor, action: "api_key.revoked", entityType: "api_key", entityId: id, changes: { name: row.name } });
+        }
+        return row;
+      });
+      const row = revoked ?? (await findApiKeyInOrganization(db, key));
       return row && { ...toPublicApiKey(row), ...(await withAuthors(db, row)) };
     },
   };

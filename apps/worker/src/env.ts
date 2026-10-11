@@ -12,6 +12,7 @@ const schema = Type.Object({
   PORT: Type.Number({ default: 8081 }),
   HOST: Type.String({ default: "0.0.0.0" }),
   WORKER_CONCURRENCY: Type.Integer({ minimum: 1, maximum: 100, default: 10 }),
+  EVENT_POLL_INTERVAL_SECONDS: Type.Integer({ minimum: 0, maximum: 86_400, default: 600 }),
 });
 
 export type WorkerEnv = Static<typeof schema>;

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { check, index, jsonb, pgTable, text, uniqueIndex, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Permission } from "../types.ts";
+import { apiKeys } from "./api-keys.ts";
 import { createdAt, id, timestamps } from "./_columns.ts";
 import { userId, users } from "./auth.ts";
 import { organizationId, organizations } from "./organizations.ts";
@@ -50,6 +51,7 @@ export const auditLogs = pgTable(
     id: id(),
     organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "set null" }),
     actorUserId: userId("actor_user_id"),
+    actorApiKeyId: uuid("actor_api_key_id").references((): AnyPgColumn => apiKeys.id, { onDelete: "set null" }),
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id").notNull(),

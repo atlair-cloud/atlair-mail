@@ -1,4 +1,6 @@
+import type { DeliveryTracking } from '../api/emails'
 import type { Email, EmailEvent } from '../api/types'
+import { formatRelativeTime } from '../../../lib/format/relative-time'
 
 export type TimelineTone = 'neutral' | 'active' | 'good' | 'warning' | 'bad'
 
@@ -80,7 +82,18 @@ function describe(event: EmailEvent): Omit<TimelineEntry, 'key' | 'at'> {
   }
 }
 
-export function buildTimeline(email: Email, events: EmailEvent[], trackingOn: boolean): TimelineEntry[] {
+function waitingForResult(tracking: DeliveryTracking, now: number): Omit<TimelineEntry, 'key' | 'at'> {
+  if (!tracking.on) {
+    return { title: 'Delivery isn’t tracked', detail: 'Turn on delivery tracking on the overview to see deliveries, bounces and complaints.', tone: 'neutral', pending: true }
+  }
+  if (!tracking.nextCheckAt) {
+    return { title: 'Waiting for the receiving server…', detail: 'Usually a few seconds. This page updates on its own.', tone: 'active', pending: true }
+  }
+  const next = new Date(tracking.nextCheckAt).getTime() > now ? `Next check ${formatRelativeTime(tracking.nextCheckAt, now)}.` : 'Checking now.'
+  return { title: 'Waiting for the delivery result…', detail: `Results are collected every few minutes. ${next}`, tone: 'active', pending: true }
+}
+
+export function buildTimeline(email: Email, events: EmailEvent[], tracking: DeliveryTracking, now = Date.now()): TimelineEntry[] {
   const entries: TimelineEntry[] = [{ key: 'queued', at: email.createdAt, title: 'Queued', detail: 'Received by Atlair Mail and waiting for the worker.', tone: 'neutral' }]
 
   if (new Date(email.scheduledAt).getTime() - new Date(email.createdAt).getTime() > 60_000) {
@@ -100,14 +113,7 @@ export function buildTimeline(email: Email, events: EmailEvent[], trackingOn: bo
   if (email.status === 'queued' || email.status === 'sending') {
     entries.push({ key: 'next', at: null, title: email.status === 'sending' ? 'Sending now…' : 'Waiting to send…', tone: 'active', pending: true })
   } else if (email.status === 'sent') {
-    entries.push({
-      key: 'next',
-      at: null,
-      title: trackingOn ? 'Waiting for the receiving server…' : 'Delivery isn’t tracked',
-      detail: trackingOn ? 'Usually a few seconds. This page updates on its own.' : 'Turn on delivery tracking on the overview to see deliveries, bounces and complaints.',
-      tone: trackingOn ? 'active' : 'neutral',
-      pending: true,
-    })
+    entries.push({ key: 'next', at: null, ...waitingForResult(tracking, now) })
   }
 
   return entries

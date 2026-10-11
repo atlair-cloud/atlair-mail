@@ -145,8 +145,19 @@ either: anything unread stays until it expires.
 
 ### Cost
 
-Idle, one queue is about 260,000 receive requests a month (one 10-second long poll at a time), plus
-one request per event batch. The SQS free tier covers one million requests a month.
+Idle, one queue is about 4,300 receive requests a month, plus a backlog read with each: the worker reads it, and when it's empty waits
+`EVENT_POLL_INTERVAL_SECONDS` (10 minutes by default) before reading again. Add one request per event
+batch. The SQS free tier covers one million requests a month.
+
+### How fresh pull-mode results are
+
+Delivered, bounced and complained arrive in the queue within seconds, but the worker only reads an empty
+queue every 10 minutes, so an email can show `sent` for up to 10 minutes, and `email.delivered`,
+`email.bounced` and `email.complained` webhooks can be that late too. A bounced address is suppressed
+at the next read; anything sent to it before then still goes out. Once a read finds events, the worker
+keeps reading until the queue is empty, so a burst is handled in one go. Set `EVENT_POLL_INTERVAL_SECONDS`
+lower on the worker for fresher results, or use push mode. `GET /service/web/provider` shows the next read
+as `events.nextCheckAt`.
 
 ## Local development
 
