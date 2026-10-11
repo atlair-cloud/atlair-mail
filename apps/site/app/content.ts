@@ -89,7 +89,7 @@ export const closing = {
 
 export const askAi = {
   label: 'Ask your assistant',
-  prompt: `What is ${PRODUCT} (github.com/atlair-cloud/atlair-mail), and how does an open-source email API compare to a hosted email service?`,
+  prompt: `Read ${SITE_URL}/llms.txt and tell me what ${PRODUCT} is, what it does today, and whether it fits my product’s email.`,
 }
 
 export const social = [
