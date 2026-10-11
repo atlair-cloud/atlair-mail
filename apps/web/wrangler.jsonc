@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "atlair-mail-panel",
+  "compatibility_date": "2026-10-10",
+  "assets": {
+    "directory": "./build",
+    "not_found_handling": "single-page-application"
+  },
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "mail.atlair.cloud",
+      "custom_domain": true
+    }
+  ]
+}

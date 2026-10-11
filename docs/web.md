@@ -26,6 +26,15 @@ pnpm --filter @atlair-mail/web dev           # http://localhost:5173
 
 Vite reads these at build time; set them when running `pnpm --filter @atlair-mail/web build`.
 
+### Deploy (Atlair's panel)
+
+`pnpm --filter @atlair-mail/web deploy` typechecks, builds with `--mode atlair` and runs `wrangler deploy`.
+`.env.atlair` holds that build's settings (`VITE_API_URL=https://api.atlair.cloud/mail`), so a plain
+`vite build` never points at Atlair. `wrangler.jsonc` serves `build/` on Workers static assets at
+`mail.atlair.cloud`, with single-page-app fallback so deep links load, and `public/_headers` caches the
+hashed `assets/` for a year and sets `nosniff`, `X-Frame-Options: DENY` and a referrer policy. Self-hosters
+build with their own `VITE_API_URL` and host `build/` anywhere that falls back to `index.html`.
+
 ## Layout
 
 ```

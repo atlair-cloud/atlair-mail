@@ -278,6 +278,9 @@ importers:
       vue-tsc:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
+      wrangler:
+        specifier: ^4.149.0
+        version: 4.149.0(@types/node@24.19.1)
 
   apps/worker:
     dependencies:
