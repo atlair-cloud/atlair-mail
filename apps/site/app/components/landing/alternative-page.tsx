@@ -52,7 +52,7 @@ export function AlternativePage({ alt }: { alt: Alternative }) {
               </a>{' '}
               / {alt.name}
             </nav>
-            <h1 data-reveal style={delay(80)} className="mt-6 font-serif text-[3.25rem] leading-[0.98] text-balance sm:text-7xl">
+            <h1 data-reveal style={delay(80)} className="mt-6 text-[2.875rem] leading-[1] font-semibold tracking-[-0.045em] text-balance sm:text-7xl">
               {alt.openSource ? `${PRODUCT} vs ${label}.` : `An open-source alternative to ${label}.`}
             </h1>
             <p data-reveal style={delay(160)} className="mt-6 max-w-xl text-lg text-ink-soft sm:text-xl">
@@ -74,7 +74,7 @@ export function AlternativePage({ alt }: { alt: Alternative }) {
           <h2 id="compare-title" className="sr-only">
             {PRODUCT} and {label} compared
           </h2>
-          <div data-reveal className="overflow-x-auto rounded-2xl border border-line bg-card">
+          <div data-reveal className="overflow-x-auto rounded-lg border border-line bg-card">
             <table className="w-full min-w-[36rem] text-left text-[15px]">
               <thead>
                 <tr className="border-b border-line">
@@ -104,7 +104,7 @@ export function AlternativePage({ alt }: { alt: Alternative }) {
               { title: `Choose ${label} if`, items: alt.chooseThem },
             ].map((col, i) => (
               <div key={col.title} data-reveal style={delay(i * 100)}>
-                <h2 className="font-serif text-4xl">{col.title}</h2>
+                <h2 className="text-3xl font-semibold tracking-[-0.03em]">{col.title}</h2>
                 <ul className="mt-5 space-y-3">
                   {col.items.map((item) => (
                     <li key={item} className="flex gap-3 text-lg text-ink-soft">
@@ -127,7 +127,7 @@ export function AlternativePage({ alt }: { alt: Alternative }) {
               <details key={item.q} className="group border-b border-line">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 text-[17px] font-medium tracking-tight hover:text-sky-deep [&::-webkit-details-marker]:hidden">
                   {item.q}
-                  <span className="grid size-7 shrink-0 place-items-center rounded-full border border-line text-ink-soft transition-transform duration-300 group-open:rotate-45">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-sm border border-line text-ink-soft transition-transform duration-300 group-open:rotate-45">
                     <Plus aria-hidden className="size-3.5" />
                   </span>
                 </summary>
@@ -146,7 +146,7 @@ export function AlternativePage({ alt }: { alt: Alternative }) {
           <ul className="mt-4 flex flex-wrap gap-2">
             {others.map((a) => (
               <li key={a.slug}>
-                <a href={`/alternatives/${a.slug}`} className="inline-flex h-9 items-center rounded-full border border-line bg-card px-4 text-sm hover:border-ink-faint">
+                <a href={`/alternatives/${a.slug}`} className="inline-flex h-9 items-center rounded-md border border-line bg-card px-4 text-sm hover:border-ink-faint">
                   {a.slug === 'amazon-ses' ? 'Amazon SES' : a.name}
                 </a>
               </li>

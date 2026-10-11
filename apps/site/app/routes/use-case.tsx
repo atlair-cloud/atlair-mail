@@ -16,7 +16,7 @@ export default function UseCase({ params }: Route.ComponentProps) {
         <UseCasePage useCase={useCase} />
       ) : (
         <Container className="py-32">
-          <h1 className="font-serif text-6xl">This letter got lost.</h1>
+          <h1 className="text-5xl font-semibold tracking-[-0.045em] sm:text-6xl">This letter got lost.</h1>
           <PrimaryCta href="/use-cases" className="mt-8">
             See all use cases
           </PrimaryCta>

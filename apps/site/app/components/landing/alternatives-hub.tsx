@@ -11,7 +11,7 @@ export function AlternativesHub() {
     <>
       <section>
         <Container className="pt-16 pb-14 lg:pt-24">
-          <h1 data-reveal className="max-w-4xl font-serif text-[3.25rem] leading-[0.98] text-balance sm:text-7xl">
+          <h1 data-reveal className="max-w-4xl text-[2.875rem] leading-[1] font-semibold tracking-[-0.045em] text-balance sm:text-7xl">
             {PRODUCT}, compared.
           </h1>
           <p data-reveal style={delay(100)} className="mt-6 max-w-xl text-lg text-ink-soft sm:text-xl">
@@ -21,10 +21,10 @@ export function AlternativesHub() {
       </section>
       <section aria-label="Comparisons" className="pb-24">
         <Container>
-          <ul className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {alternatives.map((a, i) => (
-              <li key={a.slug} data-reveal style={delay((i % 3) * 60)} className="bg-card">
-                <a href={`/alternatives/${a.slug}`} className="group flex h-full flex-col p-6 hover:bg-surface">
+              <li key={a.slug} data-reveal style={delay((i % 3) * 60)} className="overflow-hidden rounded-lg border border-line bg-card transition-colors hover:border-ink-faint">
+                <a href={`/alternatives/${a.slug}`} className="group flex h-full flex-col p-6">
                   <span className="flex items-center justify-between gap-3">
                     <span className="text-xl font-semibold tracking-tight">
                       {PRODUCT} vs {a.slug === 'amazon-ses' ? 'Amazon SES' : a.name}

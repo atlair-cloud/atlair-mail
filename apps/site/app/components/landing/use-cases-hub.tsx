@@ -9,7 +9,7 @@ export function UseCasesHub() {
     <>
       <section>
         <Container className="pt-16 pb-14 lg:pt-24">
-          <h1 data-reveal className="max-w-4xl font-serif text-[3.25rem] leading-[0.98] text-balance sm:text-7xl">
+          <h1 data-reveal className="max-w-4xl text-[2.875rem] leading-[1] font-semibold tracking-[-0.045em] text-balance sm:text-7xl">
             The emails your product sends.
           </h1>
           <p data-reveal style={delay(100)} className="mt-6 max-w-xl text-lg text-ink-soft sm:text-xl">
@@ -24,7 +24,7 @@ export function UseCasesHub() {
               <li key={u.slug} data-reveal style={delay((i % 3) * 80)}>
                 <a href={`/use-cases/${u.slug}`} className="block">
                   <Postcard art={u.art} sizes="(min-width: 1024px) 33vw, 100vw" tilt={[-1.4, 1, -0.6][i % 3]} stamp={`${i + 1}¢`}>
-                    <p className="font-serif text-3xl">{u.name}</p>
+                    <p className="text-2xl font-semibold tracking-tight">{u.name}</p>
                     <p className="mt-1.5 text-ink-soft">{u.dek}</p>
                   </Postcard>
                 </a>

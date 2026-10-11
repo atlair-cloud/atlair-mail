@@ -91,7 +91,7 @@ export function usePlayOnView<T extends Element>(amount = 0.4) {
 
 export function Title({ id, className, children }: { id?: string; className?: string; children: ReactNode }) {
   return (
-    <h2 id={id} className={cn('font-serif text-5xl leading-[1.02] tracking-[-0.01em] text-balance sm:text-6xl', className)}>
+    <h2 id={id} className={cn('text-4xl leading-[1.02] font-semibold tracking-[-0.04em] text-balance sm:text-5xl lg:text-6xl', className)}>
       {children}
     </h2>
   )
