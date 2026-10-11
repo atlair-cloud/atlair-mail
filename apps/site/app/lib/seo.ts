@@ -53,6 +53,11 @@ export function useCasePage(u: UseCase): Page {
 
 export const allPages: Page[] = [home, hub, ...alternatives.map(alternativePage), useCaseHub, ...useCases.map(useCasePage)]
 
+export function markdownPath(path: string) {
+  const clean = path.replace(/\/+$/, '')
+  return clean ? `${clean}.md` : '/index.md'
+}
+
 function base(page: Page) {
   const url = absoluteUrl(page.path)
   const image = absoluteUrl(page.image)
@@ -60,6 +65,7 @@ function base(page: Page) {
     { title: page.title },
     { name: 'description', content: page.description },
     { tagName: 'link', rel: 'canonical', href: url },
+    { tagName: 'link', rel: 'alternate', type: 'text/markdown', href: absoluteUrl(markdownPath(page.path)) },
     { property: 'og:type', content: 'website' },
     { property: 'og:site_name', content: PRODUCT },
     { property: 'og:title', content: page.title },

@@ -1,5 +1,5 @@
 import { faq, GITHUB_URL, HELP_EMAIL, PRODUCT } from '~/content'
-import { absoluteUrl } from '~/lib/seo'
+import { absoluteUrl, markdownPath } from '~/lib/seo'
 import { alternatives } from '~/seo/alternatives'
 import { useCases } from '~/seo/use-cases'
 
@@ -9,6 +9,14 @@ export function loader() {
 > ${PRODUCT} is an open-source (AGPL-3.0) transactional email API and panel that sends through your own Amazon SES account. It runs on Postgres with an API and a worker process, and you can host it yourself. Source: ${GITHUB_URL}
 
 ${PRODUCT} is made by Atlair (A-T-L-A-I-R), sometimes searched as "Atlair email". It is not Altair Engineering and has no connection to Siemens.
+
+## Read more
+
+- [Home page as Markdown](${absoluteUrl(markdownPath('/'))})
+- [All comparisons](${absoluteUrl(markdownPath('/alternatives'))})
+- [All use cases](${absoluteUrl(markdownPath('/use-cases'))})
+
+Every page has a Markdown copy: add \`.md\` to its path, or \`/index.md\` for the home page.
 
 ## Support
 
@@ -31,11 +39,11 @@ ${PRODUCT} is made by Atlair (A-T-L-A-I-R), sometimes searched as "Atlair email"
 
 ## Comparisons
 
-${alternatives.map((a) => `- [${PRODUCT} vs ${a.slug === 'amazon-ses' ? 'Amazon SES' : a.name}](${absoluteUrl(`/alternatives/${a.slug}`)}): ${a.summary}`).join('\n')}
+${alternatives.map((a) => `- [${PRODUCT} vs ${a.slug === 'amazon-ses' ? 'Amazon SES' : a.name}](${absoluteUrl(markdownPath(`/alternatives/${a.slug}`))}): ${a.summary}`).join('\n')}
 
 ## Use cases
 
-${useCases.map((u) => `- [${u.name}](${absoluteUrl(`/use-cases/${u.slug}`)}): ${u.dek}`).join('\n')}
+${useCases.map((u) => `- [${u.name}](${absoluteUrl(markdownPath(`/use-cases/${u.slug}`))}): ${u.dek}`).join('\n')}
 
 ## Questions people ask
 

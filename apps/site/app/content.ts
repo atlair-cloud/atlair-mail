@@ -40,17 +40,6 @@ export const features = {
   once: { title: 'Never sends twice.', body: 'Same key, same email.' },
 }
 
-export const tour = {
-  title: 'One panel for the whole team.',
-  tabs: [
-    { id: 'emails', label: 'Emails', caption: 'Every email, every event.' },
-    { id: 'templates', label: 'Templates', caption: 'Edit without a deploy.' },
-    { id: 'domains', label: 'Domains', caption: 'DNS records to copy.' },
-    { id: 'webhooks', label: 'Webhooks', caption: 'Every delivery attempt.' },
-    { id: 'playground', label: 'Playground', caption: 'Send before you write code.' },
-  ],
-} as const
-
 export const openSource = {
   beat: 'Open source',
   title: ['Nothing sealed.', 'Every line is yours.'],

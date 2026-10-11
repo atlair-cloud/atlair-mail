@@ -14,5 +14,10 @@ export default {
     '/sitemap.xml',
     '/robots.txt',
     '/llms.txt',
+    '/md/index.md',
+    '/md/alternatives.md',
+    ...alternatives.map((a) => `/md/alternatives/${a.slug}.md`),
+    '/md/use-cases.md',
+    ...useCases.map((u) => `/md/use-cases/${u.slug}.md`),
   ],
 } satisfies Config
