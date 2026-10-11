@@ -47,7 +47,7 @@ export default defineConfig({
     }),
   ],
   define: {
-    'import.meta.env.VITE_BUILD_SHA': JSON.stringify((process.env.BUILD_SHA ?? 'local').slice(0, 7)),
+    'import.meta.env.VITE_BUILD_SHA': JSON.stringify((process.env.BUILD_SHA ?? process.env.WORKERS_CI_COMMIT_SHA ?? 'local').slice(0, 7)),
   },
   build: {
     outDir: 'build',

@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vite build && vue-tsc --noEmit",
+    "build:atlair": "vite build --mode atlair && vue-tsc --noEmit",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
-    "deploy": "vue-tsc --noEmit && BUILD_SHA=$(git rev-parse HEAD) vite build --mode atlair && wrangler deploy"
+    "deploy": "BUILD_SHA=$(git rev-parse HEAD) pnpm run build:atlair && wrangler deploy"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
