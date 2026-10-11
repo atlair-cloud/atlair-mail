@@ -7,7 +7,11 @@ import './app.css'
 
 export const links: Route.LinksFunction = () => [
   { rel: 'icon', href: '/favicon.ico', sizes: 'any' },
-  { rel: 'icon', href: '/brand/atlair-mark.png', type: 'image/png' },
+  { rel: 'icon', href: '/favicon-48.png', type: 'image/png', sizes: '48x48' },
+  { rel: 'icon', href: '/favicon-96.png', type: 'image/png', sizes: '96x96' },
+  { rel: 'icon', href: '/favicon-192.png', type: 'image/png', sizes: '192x192' },
+  { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+  { rel: 'manifest', href: '/site.webmanifest' },
 ]
 
 export function Layout({ children }: { children: React.ReactNode }) {

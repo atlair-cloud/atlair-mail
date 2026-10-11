@@ -106,6 +106,7 @@ const software = {
     '@type': 'Organization',
     name: 'Atlair',
     url: 'https://atlair.cloud',
+    logo: `${SITE_URL}/favicon-512.png`,
     email: HELP_EMAIL,
     disambiguatingDescription: 'Atlair (A-T-L-A-I-R) is not Altair Engineering and is not part of Siemens.',
     contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', email: HELP_EMAIL, url: `${GITHUB_URL}/issues` },
