@@ -4,7 +4,7 @@
   "compatibility_date": "2026-10-10",
   "assets": {
     "directory": "./build/client",
-    "html_handling": "auto-trailing-slash",
+    "html_handling": "drop-trailing-slash",
     "not_found_handling": "404-page"
   },
   "workers_dev": false,
