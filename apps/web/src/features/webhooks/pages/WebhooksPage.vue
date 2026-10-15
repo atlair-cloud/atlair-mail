@@ -11,6 +11,7 @@ import LoadErrorCard from '../../../components/shared/LoadErrorCard.vue'
 import ModalActions from '../../../components/shared/ModalActions.vue'
 import PageHeader from '../../../components/shared/PageHeader.vue'
 import SecretReveal from '../../../components/shared/SecretReveal.vue'
+import { track } from '../../../lib/analytics'
 import { useCurrentOrganization } from '../../organizations'
 import { createWebhook, listWebhooks, webhooksQueryKey, type WebhookEventType, type WebhookWithSecret } from '../api/webhooks'
 import VerifyGuide from '../components/VerifyGuide.vue'
@@ -34,6 +35,7 @@ const createForm = useTemplateRef<{ canSubmit: boolean }>('createForm')
 const create = useMutation({
   mutationFn: (input: { url: string; eventTypes: WebhookEventType[] }) => createWebhook(organizationId.value, input),
   async onSuccess(webhook) {
+    track('webhook_created')
     created.value = webhook
     await queryClient.invalidateQueries({ queryKey: ['organizations', organizationId.value] })
   },

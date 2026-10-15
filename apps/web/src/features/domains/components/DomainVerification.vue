@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed } from 'vue'
+import { track } from '../../../lib/analytics'
 import { formatRelativeTime } from '../../../lib/format/relative-time'
 import { domainQueryKey, getDomain, verifyDomain } from '../api/domains'
 import { DOMAIN_STATUS } from '../lib/domain-status'
@@ -19,6 +20,7 @@ const { data: domain, isPending } = useQuery({
 const verify = useMutation({
   mutationFn: () => verifyDomain(props.organizationId, props.domainId),
   async onSuccess(updated) {
+    if (updated.status === 'verified') track('domain_verified')
     queryClient.setQueryData(domainQueryKey(props.organizationId, updated.id), updated)
     await queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId] })
   },

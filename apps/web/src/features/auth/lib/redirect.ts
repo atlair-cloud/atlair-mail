@@ -1,11 +1,13 @@
 import type { LocationQueryValue } from 'vue-router'
+import { attributionParams } from '../../../lib/analytics'
 
 export function safeRedirect(value: LocationQueryValue | LocationQueryValue[] | undefined): string | null {
   return typeof value === 'string' && /^\/(?![/\\])/.test(value) ? value : null
 }
 
 function withRedirect(path: string, redirect: string | null) {
-  return redirect ? `${path}?${new URLSearchParams({ redirect })}` : path
+  const query = new URLSearchParams({ ...attributionParams(), ...(redirect ? { redirect } : {}) })
+  return query.size ? `${path}?${query}` : path
 }
 
 export function oauthCallbackURLs(redirect: string | null) {

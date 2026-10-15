@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GridBackdrop from '../../../components/shared/GridBackdrop.vue'
+import { track } from '../../../lib/analytics'
 import { logoUrl } from '../../../lib/brand'
 import { getMe, meQueryKey, useSignOut } from '../../auth'
 import { createOrganization } from '../api/create-organization'
@@ -38,6 +39,7 @@ watch(
 const { mutate, isPending, error, reset } = useMutation({
   mutationFn: createOrganization,
   async onSuccess(organization) {
+    track('organization_created')
     organizationStore.lastOrganizationId = organization.id
     await queryClient.invalidateQueries({ queryKey: organizationsQueryKey })
     await router.replace({ name: 'organization', params: { organizationId: organization.id } })

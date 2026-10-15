@@ -7,6 +7,7 @@ import { installFailureHandling } from './failures'
 import './panel-theme'
 import { queryClient } from './query-client'
 import { installRoutePrefetch } from './route-prefetch'
+import { installAnalytics } from '../lib/analytics'
 import { router } from '../router'
 
 export function bootstrap() {
@@ -18,6 +19,7 @@ export function bootstrap() {
   app.use(VueQueryPlugin, { queryClient })
   installFailureHandling(app, router)
   installRoutePrefetch(router)
+  installAnalytics(router)
 
   return app
 }

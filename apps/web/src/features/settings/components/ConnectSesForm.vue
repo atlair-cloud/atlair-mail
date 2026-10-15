@@ -3,6 +3,7 @@ import { NavArrowDown } from '@iconoir/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import CopyButton from '../../../components/shared/CopyButton.vue'
+import { track } from '../../../lib/analytics'
 import { ApiError } from '../../../lib/api/client'
 import { connectSes, type ProviderConnection } from '../api/provider'
 import { sesIamPolicy } from '../lib/ses-policy'
@@ -26,6 +27,7 @@ const secretAccessKey = ref('')
 const connect = useMutation({
   mutationFn: () => connectSes(props.organizationId, { region: region.value, accessKeyId: accessKeyId.value.trim(), secretAccessKey: secretAccessKey.value.trim() }),
   async onSuccess(connection) {
+    track('ses_connected')
     secretAccessKey.value = ''
     await queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId] })
     emit('connected', connection)

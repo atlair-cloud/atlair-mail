@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import AtlairSwitch from '../../../components/shared/AtlairSwitch.vue'
+import { track } from '../../../lib/analytics'
 import { createApiKey, type CreatedApiKey } from '../api/api-keys'
 
 const props = withDefaults(defineProps<{ organizationId: string; defaultName?: string; cancellable?: boolean; formId?: string; inModal?: boolean }>(), { defaultName: 'Production', cancellable: true, formId: 'create-api-key-form', inModal: false })
@@ -14,6 +15,7 @@ const fullAccess = ref(false)
 const create = useMutation({
   mutationFn: () => createApiKey(props.organizationId, { name: name.value.trim(), permission: fullAccess.value ? 'full_access' : 'sending_access' }),
   async onSuccess(key) {
+    track('api_key_created', { label: key.permission })
     await queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId] })
     emit('created', key)
   },

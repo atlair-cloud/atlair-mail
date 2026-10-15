@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
+import { track } from '../../../lib/analytics'
 import { addDomain, domainQueryKey, type Domain } from '../api/domains'
 
 const props = withDefaults(defineProps<{ organizationId: string; formId?: string; inModal?: boolean }>(), { formId: 'add-domain-form', inModal: false })
@@ -12,6 +13,7 @@ const name = ref('')
 const add = useMutation({
   mutationFn: () => addDomain(props.organizationId, name.value.trim().toLowerCase()),
   async onSuccess(created) {
+    track('domain_added')
     queryClient.setQueryData(domainQueryKey(props.organizationId, created.id), created)
     name.value = ''
     await queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId] })

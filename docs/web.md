@@ -22,6 +22,7 @@ pnpm --filter @atlair-mail/web dev           # http://localhost:5173
 |---|---|---|
 | `VITE_API_URL` | `http://localhost:8080` | API address, including the API's `BASE_PATH` if it has one (for example `https://api.example.com/mail`). Must be same-site with the web app so the session cookie is sent. |
 | `VITE_AUTH_SOCIAL_PROVIDERS` | `github,google` | Which sign-in buttons to show; match the providers configured on the API. |
+| `VITE_ANALYTICS_URL` | unset | Optional. When set, the panel posts cookieless usage events there (see [Analytics](#analytics)); unset sends nothing. |
 | `BUILD_SHA` | `local` | Shown in crash details. |
 
 Vite reads these at build time; set them when running `pnpm --filter @atlair-mail/web build`.
@@ -40,6 +41,23 @@ for the API docs links, which otherwise point at `<VITE_API_URL>/docs/`), so a p
 `mail.atlair.cloud`, with single-page-app fallback so deep links load, and `public/_headers` caches the
 hashed `assets/` for a year and sets `nosniff`, `X-Frame-Options: DENY` and a referrer policy. Self-hosters
 build with their own `VITE_API_URL` and host `build/` anywhere that falls back to `index.html`.
+
+## Analytics
+
+Off unless `VITE_ANALYTICS_URL` is set. Then `src/lib/analytics.ts` sends a small JSON body with
+`navigator.sendBeacon` (as `text/plain`, so no CORS preflight) for each route change and a few
+milestones: `sign_up`/`sign_in` (from `/auth/callback`; `sign_up` when the account is under 10 minutes
+old), `organization_created`, `domain_added`, `domain_verified`, `ses_connected`, `api_key_created` and
+`webhook_created`.
+
+```json
+{ "name": "page_view", "page": "organization-emails", "referrer": "atlair.cloud", "utm_source": "linkedin" }
+```
+
+Events carry no cookie, browser storage, user, organization or resource ID; `page` is the route name, not
+the URL. `ref` and `utm_*` from the landing URL ride along, and through OAuth via the callback URL, so a
+sign-up can be traced to the link that brought it. Any endpoint that accepts a POST works; Atlair's
+build points at its own collector.
 
 ## Layout
 

@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string
   readonly VITE_AUTH_SOCIAL_PROVIDERS?: string
   readonly VITE_DOCS_URL?: string
+  readonly VITE_ANALYTICS_URL?: string
   readonly VITE_BUILD_SHA: string
 }
 
